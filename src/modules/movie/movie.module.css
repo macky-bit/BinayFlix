@@ -1,0 +1,128 @@
+/* ─── Shared text/badge atoms ──────────────────────────────────────────── */
+.matchText {
+	color: #F5A800;
+	font-weight: 700;
+}
+
+.metaText {
+	color: var(--color-taupe);
+}
+
+.badge {
+	color: var(--color-taupe);
+	border-color: var(--color-stone);
+}
+
+/* ─── Preview modal ────────────────────────────────────────────────────── */
+.overlay {
+	background: rgba(10, 9, 8, 0.88);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+}
+
+.modal {
+	background: var(--color-ink-soft);
+	border: 1px solid rgba(94, 80, 63, 0.3);
+	max-width: 780px;
+	box-shadow: 0 32px 80px rgba(0, 0, 0, 0.8);
+}
+
+.closeBtn {
+	background: rgba(10, 9, 8, 0.8);
+	color: var(--color-cream);
+	border: 1px solid rgba(94, 80, 63, 0.3);
+	transition: background 0.15s ease;
+}
+
+.closeBtn:hover {
+	background: var(--color-ink);
+}
+
+.mediaBg {
+	background: var(--color-ink);
+}
+
+/* Hero takes ~45% of height via aspect-ratio on wrapper */
+.mediaGradient {
+	background: linear-gradient(
+		to top,
+		var(--color-ink-soft) 0%,
+		transparent 50%,
+		rgba(10, 9, 8, 0.3) 100%
+	);
+}
+
+.modalTitle {
+	color: var(--color-cream);
+	font-family: var(--font-display);
+	font-weight: 800;
+	letter-spacing: -0.01em;
+}
+
+.filledBtn {
+	background: var(--color-cream);
+	color: var(--color-ink);
+	font-family: var(--font-display);
+	letter-spacing: 0.05em;
+	border-radius: 9999px;
+	transition: background 0.15s ease;
+}
+
+.filledBtn:hover {
+	background: rgba(240, 242, 248, 0.85);
+}
+
+.circleBtn {
+	border-color: rgba(94, 80, 63, 0.4);
+	color: var(--color-cream);
+	background: rgba(10, 9, 8, 0.6);
+	transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.circleBtn:hover {
+	border-color: var(--color-taupe);
+	background: rgba(10, 9, 8, 0.8);
+}
+
+.detailsWrap {
+	font-family: var(--font-body);
+}
+
+.noTrailerText {
+	color: var(--color-stone);
+}
+
+.descriptionText {
+	color: rgba(240, 242, 248, 0.85);
+	line-height: 1.65;
+}
+
+.genresText {
+	color: var(--color-taupe);
+}
+
+.genresLabel {
+	color: var(--color-stone);
+}
+
+.similarHeading {
+	color: var(--color-cream);
+	font-family: var(--font-display);
+	letter-spacing: 0.03em;
+}
+
+.similarCard {
+	background: var(--color-ink);
+	border-radius: 8px;
+	overflow: hidden;
+	border: 1px solid rgba(94, 80, 63, 0.15);
+	transition: border-color 0.15s ease;
+}
+
+.similarCard:hover {
+	border-color: rgba(108, 63, 214, 0.4);
+}
+
+.similarDesc {
+	color: var(--color-taupe);
+}

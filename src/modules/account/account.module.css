@@ -1,0 +1,267 @@
+.moduleShell,
+.page {
+	background: var(--color-ink);
+	color: var(--color-cream);
+	font-family: var(--font-body);
+	min-height: 100vh;
+}
+
+.backRow {
+	max-width: 80rem;
+	margin: 0 auto;
+	padding: 1.25rem 2rem 0;
+}
+
+.backButton {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 18px 8px 12px;
+	background: transparent;
+	border: 1.5px solid rgba(124,58,237,0.35);
+	border-radius: 9999px;
+	color: #9CA3AF;
+	font-family: var(--font-body);
+	font-size: 0.82rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.backButton:hover {
+	border-color: #F5A800;
+	color: #F5A800;
+	background: rgba(245,168,0,0.07);
+	box-shadow: 0 0 0 3px rgba(245,168,0,0.1);
+}
+
+/* ─── Layout ──────────────────────────────────────────────────────────── */
+.layout {
+	display: flex;
+	max-width: 80rem;
+	margin: 0 auto;
+	gap: 0;
+	min-height: calc(100vh - 80px);
+}
+
+/* ─── Sidebar ─────────────────────────────────────────────────────────── */
+.sidebar {
+	width: 240px;
+	flex-shrink: 0;
+	border-right: 1px solid rgba(94, 80, 63, 0.2);
+	padding: 2rem 0;
+}
+
+.sidebarTitle {
+	font-family: var(--font-display);
+	font-size: 0.7rem;
+	font-weight: 700;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--color-stone);
+	padding: 0 1.5rem;
+	margin-bottom: 0.75rem;
+}
+
+.sidebarItem {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	width: 100%;
+	padding: 0.65rem 1.5rem;
+	background: transparent;
+	border: none;
+	border-left: 3px solid transparent;
+	color: var(--color-taupe);
+	font-family: var(--font-body);
+	font-size: 0.875rem;
+	cursor: pointer;
+	transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+	text-align: left;
+}
+
+.sidebarItem:hover {
+	color: #F5A800;
+	background: rgba(245, 168, 0, 0.08);
+}
+
+.sidebarItemActive {
+	color: var(--color-cream);
+	background: rgba(108, 63, 214, 0.12);
+	border-left: 3px solid var(--color-wine);
+	font-weight: 600;
+}
+
+/* ─── Content ─────────────────────────────────────────────────────────── */
+.content {
+	flex: 1;
+	padding: 2.5rem 2rem;
+	min-width: 0;
+}
+
+.pageTitle {
+	font-family: var(--font-display);
+	font-size: clamp(1.8rem, 3vw, 2.5rem);
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: -0.01em;
+	color: var(--color-cream);
+	margin-bottom: 0.5rem;
+}
+
+.pageSubtitle {
+	color: var(--color-taupe);
+	font-size: 0.875rem;
+	margin-bottom: 2rem;
+}
+
+/* ─── Section cards ───────────────────────────────────────────────────── */
+.card {
+	background: rgba(21, 13, 42, 0.5);
+	border: 1px solid rgba(94, 80, 63, 0.2);
+	border-radius: 12px;
+	padding: 1.5rem;
+	margin-bottom: 1.25rem;
+}
+
+.cardTitle {
+	font-family: var(--font-display);
+	font-size: 1rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--color-cream);
+	margin-bottom: 1.25rem;
+	padding-bottom: 0.75rem;
+	border-bottom: 1px solid rgba(94, 80, 63, 0.15);
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.6rem 0;
+	border-bottom: 1px solid rgba(94, 80, 63, 0.1);
+}
+
+.row:last-child {
+	border-bottom: none;
+}
+
+.rowLabel {
+	font-size: 0.8rem;
+	color: var(--color-stone);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	font-weight: 600;
+}
+
+.rowValue {
+	font-size: 0.875rem;
+	color: var(--color-cream);
+}
+
+.editBtn {
+	background: transparent;
+	border: 1px solid rgba(94, 80, 63, 0.4);
+	color: var(--color-taupe);
+	font-family: var(--font-body);
+	font-size: 0.75rem;
+	padding: 0.3rem 0.85rem;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.editBtn:hover {
+	border-color: #F5A800;
+	color: #F5A800;
+}
+
+/* Plan card highlight */
+.planCard {
+	background: linear-gradient(135deg, rgba(108, 63, 214, 0.12) 0%, rgba(26, 29, 39, 0.6) 100%);
+	border: 1px solid rgba(108, 63, 214, 0.3);
+	border-radius: 12px;
+	padding: 1.25rem 1.5rem;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-bottom: 1.25rem;
+}
+
+.planName {
+	font-family: var(--font-display);
+	font-size: 1.25rem;
+	font-weight: 800;
+	text-transform: uppercase;
+	color: var(--color-cream);
+}
+
+.planPrice {
+	color: var(--color-wine);
+	font-size: 0.875rem;
+	font-weight: 600;
+	margin-top: 0.2rem;
+}
+
+.changePlanBtn {
+	background: var(--btn-gradient);
+	color: #08080F;
+	font-family: var(--font-display);
+	font-size: 0.8rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	padding: 0.5rem 1.25rem;
+	border: none;
+	border-radius: 9999px;
+	cursor: pointer;
+	box-shadow: 0 3px 16px rgba(255, 107, 0, 0.35);
+	transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.changePlanBtn:hover {
+	background: var(--btn-gradient-hover);
+	box-shadow: 0 5px 20px rgba(255, 107, 0, 0.5);
+	transform: translateY(-1px);
+}
+
+/* Toggle */
+.toggle {
+	position: relative;
+	width: 44px;
+	height: 24px;
+	border-radius: 9999px;
+	border: none;
+	cursor: pointer;
+	transition: background 0.2s ease;
+}
+
+.toggleOn {
+	background: var(--color-wine);
+}
+
+.toggleOff {
+	background: var(--color-stone);
+}
+
+.toggleDot {
+	position: absolute;
+	top: 3px;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: var(--color-cream);
+	transition: left 0.2s ease;
+}
+
+.toggleDotOn {
+	left: 23px;
+}
+
+.toggleDotOff {
+	left: 3px;
+}

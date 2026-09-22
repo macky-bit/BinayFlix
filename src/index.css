@@ -1,0 +1,85 @@
+@import url("https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap");
+@import "tailwindcss";
+
+/* ─── Design tokens ────────────────────────────────────────────────────────────
+   Logo palette:
+     Gold/Amber  #F5A800 → #FF6B00   phoenix mark  — used as accent
+     Violet      #7C3AED → #4C1D95   film strip     — dominant brand color
+
+   Strategy: violet drives all CTAs, active states, glows, and surfaces.
+             gold is reserved for the logo wordmark, match %, and select accents.
+──────────────────────────────────────────────────────────────────────────────── */
+
+:root {
+	/* Backgrounds */
+	--color-ink: #221430; /* deepest bg — dark violet */
+	--color-ink-soft: #150d2a; /* card/panel surfaces — rich violet */
+
+	/* Brand violet — primary interactive color */
+	--color-wine: #7c3aed;
+	--color-wine-hover: #8b5cf6;
+	--color-wine-deep: #4c1d95; /* film-strip deep end */
+
+	/* Gold accent — logo, match %, sparingly */
+	--color-gold: #f5a800;
+	--color-gold-warm: #ff6b00; /* orange end of logo gradient */
+
+	/* Button gradient — yellow → orange */
+	--btn-gradient: linear-gradient(135deg, #f5a800 0%, #ff6b00 100%);
+	--btn-gradient-hover: linear-gradient(135deg, #ffb800 0%, #ff8c00 100%);
+
+	/* Text */
+	--color-cream: #ffffff;
+	--color-taupe: #9ca3af;
+	--color-stone: #374151;
+
+	/* Semantic aliases kept for compatibility */
+	--color-red: #f5a800; /* was red, now gold (logo SVG fill) */
+	--color-green: #f5a800; /* was green, now gold (match % indicator) */
+
+	/* Typography */
+	--font-display: "Barlow Condensed", sans-serif;
+	--font-body: "Barlow", sans-serif;
+
+	--col: linear-gradient(
+		135deg,
+		#150d2a 35%,
+		#4c1d95 50%,
+		/* #7c3aed 60%, */ #150d2a 100%
+	);
+}
+
+html,
+body,
+#root {
+	height: 100%;
+	background: var(--color-ink);
+	color: var(--color-cream);
+	font-family: var(--font-body);
+}
+
+/* Scale the entire UI to ~130% zoom equivalent */
+#root {
+	zoom: 1.3;
+}
+
+/* ─── Global gold hover ─────────────────────────────────────────────────────── */
+/* Any element tagged .hover-gold turns amber on hover, keeping its resting state */
+.hover-gold {
+	transition:
+		color 0.15s ease,
+		background-color 0.15s ease,
+		border-color 0.15s ease;
+}
+.hover-gold:hover {
+	color: var(--color-gold) !important;
+}
+.hover-gold-bg {
+	transition:
+		background-color 0.15s ease,
+		color 0.15s ease;
+}
+.hover-gold-bg:hover {
+	background-color: rgba(245, 168, 0, 0.18) !important;
+	color: var(--color-gold) !important;
+}

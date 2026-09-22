@@ -1,0 +1,303 @@
+/* ─── Page shell ─────────────────────────────────────────────────────────── */
+.page {
+	min-height: 100vh;
+	background: var(--color-ink);
+	color: var(--color-cream);
+	font-family: var(--font-body);
+}
+
+/* ─── Back button row ────────────────────────────────────────────────────── */
+.backRow {
+	max-width: 80rem;
+	margin: 0 auto;
+	padding: 1.5rem 2rem 0;
+}
+
+.backButton {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 18px 8px 12px;
+	background: transparent;
+	border: 1.5px solid rgba(124,58,237,0.35);
+	border-radius: 9999px;
+	color: #9CA3AF;
+	font-family: var(--font-body);
+	font-size: 0.82rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.backButton:hover {
+	border-color: #F5A800;
+	color: #F5A800;
+	background: rgba(245,168,0,0.07);
+	box-shadow: 0 0 0 3px rgba(245,168,0,0.1);
+}
+
+/* ─── Inner wrapper ──────────────────────────────────────────────────────── */
+.inner {
+	max-width: 80rem;
+	margin: 0 auto;
+	padding: 2rem 2rem 4rem;
+}
+
+/* ─── Page header ────────────────────────────────────────────────────────── */
+.pageHeader {
+	margin-bottom: 2rem;
+	padding-bottom: 1.25rem;
+	border-bottom: 1px solid rgba(124,58,237,0.18);
+}
+
+.pageTitle {
+	font-family: var(--font-display);
+	font-size: clamp(1.6rem, 3vw, 2.2rem);
+	font-weight: 800;
+	color: #ffffff;
+	margin: 0 0 4px;
+	letter-spacing: -0.01em;
+}
+
+.pageSubtitle {
+	color: #9CA3AF;
+	font-size: 0.875rem;
+	margin: 0;
+}
+
+/* ─── Layout: sidebar + panel ────────────────────────────────────────────── */
+.layout {
+	display: flex;
+	gap: 2rem;
+	align-items: flex-start;
+}
+
+/* ─── Sidebar nav ────────────────────────────────────────────────────────── */
+.sidebar {
+	flex-shrink: 0;
+	width: 200px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	position: sticky;
+	top: 5rem;
+}
+
+.tabBtn {
+	width: 100%;
+	text-align: left;
+	padding: 10px 16px;
+	background: transparent;
+	border: none;
+	border-radius: 10px;
+	color: #9CA3AF;
+	font-family: var(--font-body);
+	font-size: 0.875rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+}
+
+.tabBtn:hover {
+	background: rgba(245,168,0,0.08);
+	color: #F5A800;
+}
+
+.tabBtnActive {
+	background: rgba(124,58,237,0.15);
+	color: #ffffff;
+	font-weight: 600;
+	border-left: 3px solid #7C3AED;
+	padding-left: 13px;
+}
+
+.tabBtnActive:hover {
+	background: rgba(124,58,237,0.2);
+	color: #ffffff;
+}
+
+/* ─── Panel ──────────────────────────────────────────────────────────────── */
+.panel {
+	flex: 1;
+	min-width: 0;
+}
+
+.tabContent {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+/* ─── Section ────────────────────────────────────────────────────────────── */
+.section {
+	background: #0B0719;
+	border: 1px solid rgba(124,58,237,0.15);
+	border-radius: 14px;
+	overflow: hidden;
+}
+
+.sectionTitle {
+	font-family: var(--font-display);
+	font-size: 0.75rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: #7C3AED;
+	padding: 1rem 1.5rem 0.75rem;
+	border-bottom: 1px solid rgba(124,58,237,0.12);
+	margin: 0;
+}
+
+/* ─── Setting row ────────────────────────────────────────────────────────── */
+.settingRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1.5rem;
+	padding: 1rem 1.5rem;
+	border-bottom: 1px solid rgba(255,255,255,0.04);
+	transition: background 0.15s;
+}
+
+.settingRow:last-child {
+	border-bottom: none;
+}
+
+.settingRow:hover {
+	background: rgba(124,58,237,0.05);
+}
+
+.settingLabel {
+	color: #ffffff;
+	font-size: 0.875rem;
+	font-weight: 500;
+	margin: 0 0 2px;
+}
+
+.settingDesc {
+	color: #6B7280;
+	font-size: 0.78rem;
+	margin: 0;
+	line-height: 1.5;
+}
+
+/* ─── Toggle ─────────────────────────────────────────────────────────────── */
+.toggle {
+	flex-shrink: 0;
+	width: 44px;
+	height: 24px;
+	border-radius: 9999px;
+	border: none;
+	cursor: pointer;
+	position: relative;
+	transition: background 0.2s ease;
+	padding: 0;
+}
+
+.toggleOn {
+	background: var(--btn-gradient);
+	box-shadow: 0 0 0 3px rgba(245,168,0,0.15);
+}
+
+.toggleOff {
+	background: #374151;
+}
+
+.toggleThumb {
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: #ffffff;
+	transition: transform 0.2s ease;
+	box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+.toggleThumbOn {
+	transform: translateX(20px);
+}
+
+/* ─── Select ─────────────────────────────────────────────────────────────── */
+.select {
+	flex-shrink: 0;
+	appearance: none;
+	background: rgba(124,58,237,0.12);
+	border: 1px solid rgba(124,58,237,0.3);
+	border-radius: 8px;
+	color: #ffffff;
+	font-family: var(--font-body);
+	font-size: 0.82rem;
+	padding: 7px 32px 7px 12px;
+	cursor: pointer;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2.5' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 10px center;
+	transition: border-color 0.15s;
+}
+
+.select:focus {
+	outline: none;
+	border-color: #7C3AED;
+	box-shadow: 0 0 0 3px rgba(124,58,237,0.2);
+}
+
+.select option {
+	background: #150D2A;
+	color: #ffffff;
+}
+
+/* ─── Danger zone ────────────────────────────────────────────────────────── */
+.dangerRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1.5rem;
+	padding: 1rem 1.5rem;
+}
+
+.dangerBtn {
+	flex-shrink: 0;
+	padding: 8px 20px;
+	background: transparent;
+	border: 1.5px solid rgba(239,68,68,0.45);
+	border-radius: 9999px;
+	color: #EF4444;
+	font-family: var(--font-body);
+	font-size: 0.8rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.15s, border-color 0.15s;
+}
+
+.dangerBtn:hover {
+	background: rgba(239,68,68,0.1);
+	border-color: #EF4444;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+	.layout {
+		flex-direction: column;
+	}
+
+	.sidebar {
+		width: 100%;
+		flex-direction: row;
+		flex-wrap: wrap;
+		position: static;
+	}
+
+	.tabBtn {
+		width: auto;
+		border-left: none !important;
+		padding-left: 16px !important;
+	}
+
+	.tabBtnActive {
+		border-left: none;
+		border-bottom: 2px solid #7C3AED;
+		border-radius: 0;
+	}
+}

@@ -1,0 +1,283 @@
+/* ─── Page: fixed 100vh, no scroll ──────────────────────────────────────── */
+.page {
+	max-height: 1080px;
+	background: #0B0719;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 0 16px;
+	position: fixed;
+	inset: 0;
+	overflow: hidden;
+	font-family: var(--font-body);
+}
+
+/* tight radial glow — stays in top 40% of viewport */
+.bgGlow {
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(ellipse 50% 38% at 50% 0%, rgba(124,58,237,0.22) 0%, transparent 100%),
+		radial-gradient(ellipse 28% 22% at 12% 88%, rgba(76,29,149,0.14) 0%, transparent 100%);
+	pointer-events: none;
+}
+
+/* ─── Container ──────────────────────────────────────────────────────────── */
+.container {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	max-width: 860px;
+	margin-left: auto;
+	margin-right: auto;
+	text-align: center;
+}
+
+/* ─── Logo row ───────────────────────────────────────────────────────────── */
+.logoWrap {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 28px;
+}
+
+.logoImg {
+	height: 36px;
+	width: auto;
+	object-fit: contain;
+}
+
+.logoSvg {
+	height: 36px;
+	width: auto;
+	display: block;
+}
+
+/* ─── Heading ────────────────────────────────────────────────────────────── */
+.heading {
+	font-family: var(--font-display);
+	font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+	font-weight: 800;
+	color: #ffffff;
+	margin: 0 0 8px;
+	text-align: center;
+	letter-spacing: -0.01em;
+}
+
+.subheading {
+	color: #9CA3AF;
+	font-size: 0.9rem;
+	margin: 0 0 36px;
+	text-align: center;
+}
+
+/* ─── Profile row ────────────────────────────────────────────────────────── */
+.profileRow {
+	display: flex;
+	gap: 36px;
+	flex-wrap: wrap;
+	justify-content: center;
+	margin-bottom: 40px;
+}
+
+/* ─── Profile card ───────────────────────────────────────────────────────── */
+.card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 0;
+	outline: none;
+	transition: transform 0.18s ease;
+}
+
+.card:hover {
+	transform: translateY(-4px);
+}
+
+.card:focus-visible .avatarWrap {
+	outline: 2px solid #7C3AED;
+	outline-offset: 4px;
+	border-radius: 50%;
+}
+
+/* ─── Avatar ─────────────────────────────────────────────────────────────── */
+.avatarWrap {
+	position: relative;
+	width: 118px;
+	height: 118px;
+	border-radius: 50%;
+	border: 3px solid transparent;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+	overflow: visible;
+}
+
+.cardSelected .avatarWrap {
+	border-color: #7C3AED;
+	box-shadow: 0 0 0 4px rgba(124,58,237,0.28), 0 6px 28px rgba(124,58,237,0.22);
+}
+
+.avatarImg {
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	object-fit: cover;
+	display: block;
+}
+
+.checkBadge {
+	position: absolute;
+	bottom: 3px;
+	right: 3px;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	background: #7C3AED;
+	border: 2.5px solid #0B0719;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+/* ─── Profile meta ───────────────────────────────────────────────────────── */
+.profileName {
+	color: #ffffff;
+	font-size: 0.9rem;
+	font-weight: 600;
+	text-align: center;
+	font-family: var(--font-body);
+}
+
+.profileLabel {
+	color: #9CA3AF;
+	font-size: 0.74rem;
+	text-align: center;
+	margin-top: -4px;
+}
+
+.editIcon {
+	color: #9CA3AF;
+	transition: color 0.15s;
+	display: flex;
+	align-items: center;
+}
+
+.card:hover .editIcon {
+	color: #F5A800;
+}
+
+.cardSelected .editIcon {
+	color: #7C3AED;
+}
+
+/* ─── Add Profile card ───────────────────────────────────────────────────── */
+.addCard {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 0;
+	outline: none;
+	transition: transform 0.18s ease;
+}
+
+.addCard:hover {
+	transform: translateY(-4px);
+}
+
+.addCircle {
+	width: 118px;
+	height: 118px;
+	border-radius: 50%;
+	border: 2px dashed rgba(124,58,237,0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(124,58,237,0.05);
+	transition: border-color 0.2s, background 0.2s;
+}
+
+.addCard:hover .addCircle {
+	border-color: #7C3AED;
+	background: rgba(124,58,237,0.1);
+}
+
+/* ─── Continue button ────────────────────────────────────────────────────── */
+.continueBtn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	padding: 14px 52px;
+	background: var(--btn-gradient);
+	color: #08080F;
+	border: none;
+	border-radius: 9999px;
+	font-size: 0.95rem;
+	font-weight: 700;
+	font-family: var(--font-display);
+	letter-spacing: 0.03em;
+	cursor: pointer;
+	min-width: 320px;
+	box-shadow: 0 4px 24px rgba(255,107,0,0.38);
+	transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+	margin-bottom: 20px;
+}
+
+.continueBtn:hover {
+	background: var(--btn-gradient-hover);
+	transform: translateY(-2px);
+	box-shadow: 0 6px 32px rgba(255,107,0,0.52);
+}
+
+.continueBtn:active {
+	transform: translateY(0);
+}
+
+/* ─── Secure note ────────────────────────────────────────────────────────── */
+.secureNote {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	color: #6B7280;
+	font-size: 0.78rem;
+	font-family: var(--font-body);
+	margin: 0;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 560px) {
+	.page {
+		height: auto;
+		min-height: 100vh;
+		padding: 40px 16px;
+	}
+
+	.profileRow {
+		gap: 20px;
+	}
+
+	.avatarWrap,
+	.addCircle {
+		width: 86px;
+		height: 86px;
+	}
+
+	.continueBtn {
+		min-width: 0;
+		width: 100%;
+		max-width: 300px;
+		padding: 13px 28px;
+	}
+}

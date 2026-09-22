@@ -1,0 +1,5 @@
+.page {
+	background: var(--color-ink);
+	color: var(--color-cream);
+	font-family: var(--font-body);
+}

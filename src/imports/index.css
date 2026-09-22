@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap');
+@import 'tailwindcss';
+
+/* ─── Design tokens — extracted from reference screenshot ─────────────────
+   Primary   #6C3FD6  violet  — Play button, active nav, active pill
+   Secondary #1A1D27  panel   — navbar, card surfaces
+   Ink       #0F1117  deep bg — page background, sidebar
+   Cream     #F0F2F8  white   — headings, primary text
+   Taupe     #8B93A8  grey    — secondary text, muted labels
+   Stone     #3E4459  border  — dividers, inactive borders
+   Wine      #6C3FD6  violet  — alias for primary (existing token name)
+   Green     #5BBF5B  accent  — match %, positive indicators
+   Red       #E53535  danger  — error states, logo fill
+──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --color-ink:        #0A0A0F;
+  --color-ink-soft:   #1F1F27;
+  --color-wine:       #7C3AED;
+  --color-wine-hover: #8B5CF6;
+  --color-cream:      #FFFFFF;
+  --color-taupe:      #9CA3AF;
+  --color-stone:      #374151;
+  --color-red:        #7C3AED;
+  --color-green:      #3BE477;
+
+  --font-display: 'Barlow Condensed', sans-serif;
+  --font-body:    'Barlow', sans-serif;
+}
+
+
+html,
+body,
+#root {
+  height: 100%;
+  background: var(--color-ink);
+  color: var(--color-cream);
+  font-family: var(--font-body);
+}
+
+/* Scale the entire UI to ~130% zoom equivalent */
+#root {
+  zoom: 1.3;
+}
+

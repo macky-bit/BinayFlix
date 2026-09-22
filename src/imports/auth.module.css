@@ -1,0 +1,190 @@
+/* ─── Page shell ───────────────────────────────────────────────────────── */
+.page {
+	background: var(--color-ink);
+}
+
+/* ─── Left panel — cinematic background ───────────────────────────────── */
+.cinemaBg {
+	position: absolute;
+	inset: 0;
+	background-image: url("https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1200&h=900&fit=crop&auto=format");
+	background-size: cover;
+	background-position: center;
+}
+
+.overlayBase {
+	background: rgba(10, 9, 8, 0.7);
+}
+
+.overlayWine {
+	background: linear-gradient(135deg, rgba(108, 63, 214, 0.18) 0%, transparent 60%);
+}
+
+.overlayRadial {
+	background: radial-gradient(ellipse at center, transparent 30%, rgba(10, 9, 8, 0.75) 100%);
+}
+
+.divider {
+	background: linear-gradient(to bottom, transparent, rgba(94, 80, 63, 0.3), transparent);
+}
+
+.mobileOverlay {
+	background: rgba(10, 9, 8, 0.92);
+}
+
+/* ─── Promo panel ─────────────────────────────────────────────────────── */
+.eyebrow {
+	color: var(--color-wine);
+	font-family: var(--font-display);
+	letter-spacing: 0.22em;
+}
+
+.headline {
+	font-family: var(--font-display);
+	font-weight: 800;
+}
+
+.headlineCream {
+	color: var(--color-cream);
+}
+
+.headlineTaupe {
+	color: rgba(240, 242, 248, 0.45);
+}
+
+.promoText {
+	color: var(--color-taupe);
+	font-family: var(--font-body);
+	line-height: 1.7;
+}
+
+/* ─── Form panel ──────────────────────────────────────────────────────── */
+.formTitle {
+	color: var(--color-cream);
+	font-family: var(--font-display);
+	font-weight: 800;
+}
+
+.formSubtitle {
+	color: var(--color-taupe);
+	font-family: var(--font-body);
+}
+
+.brandHighlight {
+	color: var(--color-wine);
+}
+
+.rememberText {
+	color: var(--color-taupe);
+	font-family: var(--font-body);
+}
+
+.forgotBtn {
+	color: var(--color-taupe);
+	transition: color 0.15s ease;
+}
+
+.forgotBtn:hover {
+	color: var(--color-cream);
+}
+
+/* Submit button — full-width pill, violet gradient */
+.submitBtn {
+	background: linear-gradient(135deg, var(--color-wine) 0%, var(--color-wine-hover) 100%);
+	color: var(--color-cream);
+	font-family: var(--font-display);
+	border-radius: 9999px;
+	box-shadow: 0 4px 20px rgba(108, 63, 214, 0.4);
+	transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.submitBtn:hover {
+	opacity: 0.92;
+}
+
+.orDivider {
+	background: rgba(94, 80, 63, 0.4);
+}
+
+.orText {
+	color: var(--color-stone);
+	font-family: var(--font-display);
+}
+
+.checkboxLabel {
+	color: var(--color-taupe);
+	font-family: var(--font-body);
+}
+
+.errorText {
+	color: #ff5c72;
+}
+
+.footerText {
+	color: var(--color-stone);
+	font-family: var(--font-body);
+}
+
+.footerLink {
+	color: var(--color-taupe);
+	transition: color 0.15s ease;
+	font-weight: 600;
+}
+
+.footerLink:hover {
+	color: var(--color-cream);
+}
+
+/* ─── Form fields ─────────────────────────────────────────────────────── */
+.fieldLabel {
+	color: var(--color-taupe);
+	font-family: var(--font-display);
+	letter-spacing: 0.1em;
+}
+
+.fieldInput {
+	background: rgba(26, 29, 39, 0.8);
+	color: var(--color-cream);
+	font-family: var(--font-body);
+	border-radius: 8px;
+}
+
+.fieldInput:focus {
+	border-color: var(--color-wine) !important;
+	box-shadow: 0 0 0 3px rgba(108, 63, 214, 0.2);
+}
+
+.fieldSuffix {
+	color: var(--color-taupe);
+}
+
+.fieldError {
+	color: #ff5c72;
+}
+
+/* ─── Stats ───────────────────────────────────────────────────────────── */
+.statNum {
+	color: var(--color-cream);
+	font-family: var(--font-display);
+}
+
+.statLabel {
+	color: var(--color-stone);
+	font-family: var(--font-display);
+}
+
+/* ─── Social buttons ──────────────────────────────────────────────────── */
+.socialBtn {
+	background: rgba(26, 29, 39, 0.6);
+	border-color: rgba(94, 80, 63, 0.5);
+	color: var(--color-taupe);
+	font-family: var(--font-body);
+	border-radius: 8px;
+	transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.socialBtn:hover {
+	background: rgba(26, 29, 39, 0.9);
+	border-color: rgba(94, 80, 63, 0.7);
+	color: var(--color-cream);
+}

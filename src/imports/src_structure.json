@@ -1,0 +1,490 @@
+{
+  "name": "src",
+  "type": "directory",
+  "children": [
+    {
+      "name": "App.tsx",
+      "type": "file"
+    },
+    {
+      "name": "imports",
+      "type": "directory",
+      "children": [
+        {
+          "name": "799249603_1095724682793478_5948102661359570217_n.png",
+          "type": "file"
+        },
+        {
+          "name": "AccountPage.tsx",
+          "type": "file"
+        },
+        {
+          "name": "AuthUI.tsx",
+          "type": "file"
+        },
+        {
+          "name": "ChatGPT_Image_Sep_10__2026__12_21_50_AM.png",
+          "type": "file"
+        },
+        {
+          "name": "Dashboard.tsx",
+          "type": "file"
+        },
+        {
+          "name": "HelpPage.tsx",
+          "type": "file"
+        },
+        {
+          "name": "Home.tsx",
+          "type": "file"
+        },
+        {
+          "name": "LoginPage.tsx",
+          "type": "file"
+        },
+        {
+          "name": "Movies.tsx",
+          "type": "file"
+        },
+        {
+          "name": "MyList.tsx",
+          "type": "file"
+        },
+        {
+          "name": "NewAndPopular.tsx",
+          "type": "file"
+        },
+        {
+          "name": "PreviewModal.tsx",
+          "type": "file"
+        },
+        {
+          "name": "ProfilePage.tsx",
+          "type": "file"
+        },
+        {
+          "name": "RegisterPage.tsx",
+          "type": "file"
+        },
+        {
+          "name": "SubscriptionPage.tsx",
+          "type": "file"
+        },
+        {
+          "name": "TvShows.tsx",
+          "type": "file"
+        },
+        {
+          "name": "account.module.css",
+          "type": "file"
+        },
+        {
+          "name": "auth.module.css",
+          "type": "file"
+        },
+        {
+          "name": "components-1.tsx",
+          "type": "file"
+        },
+        {
+          "name": "components-2.tsx",
+          "type": "file"
+        },
+        {
+          "name": "components-3.tsx",
+          "type": "file"
+        },
+        {
+          "name": "components-4.tsx",
+          "type": "file"
+        },
+        {
+          "name": "components-5.tsx",
+          "type": "file"
+        },
+        {
+          "name": "components-6.tsx",
+          "type": "file"
+        },
+        {
+          "name": "components-7.tsx",
+          "type": "file"
+        },
+        {
+          "name": "components-8.tsx",
+          "type": "file"
+        },
+        {
+          "name": "components.tsx",
+          "type": "file"
+        },
+        {
+          "name": "dashboard.module.css",
+          "type": "file"
+        },
+        {
+          "name": "help.module.css",
+          "type": "file"
+        },
+        {
+          "name": "home.module.css",
+          "type": "file"
+        },
+        {
+          "name": "image-1.png",
+          "type": "file"
+        },
+        {
+          "name": "image.png",
+          "type": "file"
+        },
+        {
+          "name": "movie.module-1.css",
+          "type": "file"
+        },
+        {
+          "name": "movie.module.css",
+          "type": "file"
+        },
+        {
+          "name": "movie.tsx",
+          "type": "file"
+        },
+        {
+          "name": "movies.module.css",
+          "type": "file"
+        },
+        {
+          "name": "myList.module.css",
+          "type": "file"
+        },
+        {
+          "name": "myListStore.ts",
+          "type": "file"
+        },
+        {
+          "name": "newAndPopular.module.css",
+          "type": "file"
+        },
+        {
+          "name": "profile.module.css",
+          "type": "file"
+        },
+        {
+          "name": "src-structure.json",
+          "type": "file"
+        },
+        {
+          "name": "subscription.module.css",
+          "type": "file"
+        },
+        {
+          "name": "tmdb.ts",
+          "type": "file"
+        },
+        {
+          "name": "tvShows.module.css",
+          "type": "file"
+        },
+        {
+          "name": "types.ts",
+          "type": "file"
+        },
+        {
+          "name": "useTMDB.ts",
+          "type": "file"
+        }
+      ]
+    },
+    {
+      "name": "index.css",
+      "type": "file"
+    },
+    {
+      "name": "main.tsx",
+      "type": "file"
+    },
+    {
+      "name": "modules",
+      "type": "directory",
+      "children": [
+        {
+          "name": "account",
+          "type": "directory",
+          "children": [
+            {
+              "name": "AccountPage.tsx",
+              "type": "file"
+            },
+            {
+              "name": "account.module.css",
+              "type": "file"
+            },
+            {
+              "name": "components.tsx",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "auth",
+          "type": "directory",
+          "children": [
+            {
+              "name": "AuthUI.tsx",
+              "type": "file"
+            },
+            {
+              "name": "auth.module.css",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "dashboard",
+          "type": "directory",
+          "children": [
+            {
+              "name": "Dashboard.tsx",
+              "type": "file"
+            },
+            {
+              "name": "components.tsx",
+              "type": "file"
+            },
+            {
+              "name": "dashboard.module.css",
+              "type": "file"
+            },
+            {
+              "name": "home",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "Home.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "components.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "home.module.css",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "movies",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "Movies.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "components.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "movies.module.css",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "myList",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "MyList.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "components.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "myList.module.css",
+                  "type": "file"
+                },
+                {
+                  "name": "myListStore.ts",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "newAndPopular",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "NewAndPopular.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "components.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "newAndPopular.module.css",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "tvShows",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "TvShows.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "components.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "tvShows.module.css",
+                  "type": "file"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "help",
+          "type": "directory",
+          "children": [
+            {
+              "name": "HelpPage.tsx",
+              "type": "file"
+            },
+            {
+              "name": "components.tsx",
+              "type": "file"
+            },
+            {
+              "name": "help.module.css",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "login",
+          "type": "directory",
+          "children": [
+            {
+              "name": "LoginPage.tsx",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "movie",
+          "type": "directory",
+          "children": [
+            {
+              "name": "PreviewModal.tsx",
+              "type": "file"
+            },
+            {
+              "name": "fixedscreen",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "movie.module.css",
+                  "type": "file"
+                },
+                {
+                  "name": "movie.tsx",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "mockData.ts",
+              "type": "file"
+            },
+            {
+              "name": "movie.module.css",
+              "type": "file"
+            },
+            {
+              "name": "tmdb.ts",
+              "type": "file"
+            },
+            {
+              "name": "types.ts",
+              "type": "file"
+            },
+            {
+              "name": "useTMDB.ts",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "profile",
+          "type": "directory",
+          "children": [
+            {
+              "name": "ProfilePage.tsx",
+              "type": "file"
+            },
+            {
+              "name": "components.tsx",
+              "type": "file"
+            },
+            {
+              "name": "profile.module.css",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "profileSelect",
+          "type": "directory",
+          "children": [
+            {
+              "name": "ProfileSelectPage.tsx",
+              "type": "file"
+            },
+            {
+              "name": "profileSelect.module.css",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "register",
+          "type": "directory",
+          "children": [
+            {
+              "name": "RegisterPage.tsx",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "subscription",
+          "type": "directory",
+          "children": [
+            {
+              "name": "SubscriptionPage.tsx",
+              "type": "file"
+            },
+            {
+              "name": "subscription.module.css",
+              "type": "file"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "vite-env.d.ts",
+      "type": "file"
+    }
+  ]
+}

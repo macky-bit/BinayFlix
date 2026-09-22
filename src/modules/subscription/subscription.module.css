@@ -1,0 +1,597 @@
+/* ─── Page ────────────────────────────────────────────────────────────────── */
+.page {
+	min-height: 100vh;
+	background: #0B0719;
+	color: #ffffff;
+	font-family: var(--font-body);
+	position: relative;
+	overflow: hidden;
+}
+
+/* Subtle purple radial glow in the background */
+.heroBg {
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(ellipse 80% 60% at 50% -10%, rgba(124,58,237,0.28) 0%, transparent 70%),
+		radial-gradient(ellipse 50% 40% at 20% 100%, rgba(59,38,110,0.18) 0%, transparent 60%);
+	pointer-events: none;
+	z-index: 0;
+}
+
+.main {
+	position: relative;
+	z-index: 1;
+	max-width: 960px;
+	margin: 0 auto;
+	padding: 52px 24px 64px;
+}
+
+/* ─── Header ─────────────────────────────────────────────────────────────── */
+.header {
+	text-align: center;
+	margin-bottom: 44px;
+}
+
+.heading {
+	font-family: var(--font-display);
+	font-size: clamp(2.2rem, 5vw, 3.2rem);
+	font-weight: 800;
+	line-height: 1.1;
+	margin: 0 0 10px;
+	color: #ffffff;
+}
+
+.headingAccent {
+	color: #ffffff;
+}
+
+.headingSub {
+	color: #9CA3AF;
+	font-size: 0.95rem;
+	margin: 0 0 28px;
+}
+
+/* ─── Billing toggle ─────────────────────────────────────────────────────── */
+.billingToggle {
+	display: inline-flex;
+	align-items: center;
+	background: #1A1030;
+	border: 1px solid #374151;
+	border-radius: 9999px;
+	padding: 4px;
+	gap: 2px;
+}
+
+.billingBtn {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 20px;
+	border-radius: 9999px;
+	border: none;
+	font-size: 0.875rem;
+	font-weight: 500;
+	font-family: var(--font-body);
+	cursor: pointer;
+	transition: background 0.2s, color 0.2s;
+}
+
+.billingBtnActive {
+	background: var(--btn-gradient);
+	color: #08080F;
+	font-weight: 600;
+}
+
+.billingBtnInactive {
+	background: transparent;
+	color: #9CA3AF;
+}
+
+.billingBtnInactive:hover {
+	color: #ffffff;
+}
+
+.saveBadge {
+	background: rgba(245, 168, 0, 0.15);
+	color: #F5A800;
+	font-size: 0.68rem;
+	font-weight: 700;
+	padding: 2px 7px;
+	border-radius: 9999px;
+	border: 1px solid rgba(245,168,0,0.35);
+}
+
+/* ─── Cards grid ─────────────────────────────────────────────────────────── */
+.cardsGrid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 18px;
+	align-items: stretch;
+	margin-bottom: 40px;
+}
+
+@media (max-width: 680px) {
+	.cardsGrid {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* ─── Plan Card ──────────────────────────────────────────────────────────── */
+.card {
+	position: relative;
+	border-radius: 16px;
+	border: 1.5px solid #374151;
+	background: rgba(18, 11, 34, 0.5);
+	transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+
+.card:hover {
+	border-color: rgba(124,58,237,0.5);
+	transform: translateY(-2px);
+	box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+}
+
+.cardPopular {
+	border-color: #7C3AED;
+	background: rgba(18, 11, 34, 0.5);
+	box-shadow: 0 0 0 1px rgba(124,58,237,0.4), 0 8px 40px rgba(124,58,237,0.2);
+}
+
+.cardSelected {
+	border-color: #7C3AED;
+	box-shadow: 0 0 0 2px #7C3AED, 0 8px 40px rgba(124,58,237,0.25);
+}
+
+.popularBadge {
+	position: absolute;
+	top: -13px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: #F5A800;
+	color: #ffffff;
+	font-size: 0.7rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	padding: 4px 14px;
+	border-radius: 9999px;
+	white-space: nowrap;
+	font-family: var(--font-display);
+}
+
+.cardBody {
+	padding: 32px 24px 28px;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.planName {
+	font-family: var(--font-display);
+	font-size: 1.5rem;
+	font-weight: 800;
+	color: #ffffff;
+	margin: 0 0 6px;
+	letter-spacing: 0.02em;
+}
+
+.planDesc {
+	color: #9CA3AF;
+	font-size: 0.82rem;
+	margin: 0 0 20px;
+	line-height: 1.5;
+}
+
+.priceRow {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	margin-bottom: 2px;
+}
+
+.priceAmount {
+	font-family: var(--font-display);
+	font-size: 2.8rem;
+	font-weight: 800;
+	color: #ffffff;
+	line-height: 1;
+}
+
+.pricePer {
+	color: #9CA3AF;
+	font-size: 0.85rem;
+}
+
+.yearlyNote {
+	color: #9CA3AF;
+	font-size: 0.72rem;
+	margin: 0 0 20px;
+}
+
+/* ─── Feature list ───────────────────────────────────────────────────────── */
+.featureList {
+	list-style: none;
+	padding: 0;
+	margin: 20px 0 28px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	flex: 1;
+}
+
+.featureItem {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	font-size: 0.82rem;
+	color: #d1d5db;
+	line-height: 1.4;
+}
+
+.featureCheck {
+	flex-shrink: 0;
+	margin-top: 1px;
+}
+
+/* ─── CTA buttons ────────────────────────────────────────────────────────── */
+.planBtn {
+	width: 100%;
+	padding: 12px;
+	border-radius: 9999px;
+	font-size: 0.875rem;
+	font-weight: 600;
+	font-family: var(--font-body);
+	letter-spacing: 0.03em;
+	cursor: pointer;
+	position: relative;
+	overflow: hidden;
+	transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.planBtnPopular {
+	background: var(--btn-gradient);
+	border: none;
+	color: #08080F;
+	box-shadow: 0 4px 18px rgba(255, 107, 0, 0.4);
+	transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.planBtnPopular:hover {
+	background: var(--btn-gradient-hover);
+	box-shadow: 0 6px 24px rgba(255, 107, 0, 0.55);
+	transform: translateY(-1px);
+}
+
+.planBtnOutline {
+	background: transparent;
+	border: 1.5px solid #374151;
+	color: #ffffff;
+}
+
+.planBtnOutline:hover {
+	border-color: #7C3AED;
+	background: rgba(124,58,237,0.08);
+}
+
+/* ─── Ripple ─────────────────────────────────────────────────────────────── */
+@keyframes rippleOut {
+	0% { transform: translate(-50%, -50%) scale(0); opacity: 0.45; }
+	100% { transform: translate(-50%, -50%) scale(4); opacity: 0; }
+}
+
+.rippleCircle {
+	position: absolute;
+	width: 100%;
+	aspect-ratio: 1;
+	border-radius: 50%;
+	background: rgba(255,255,255,0.18);
+	pointer-events: none;
+	animation: rippleOut 0.55s ease-out forwards;
+}
+
+@keyframes cardFlash {
+	0% { box-shadow: 0 0 0 0 transparent; }
+	40% { box-shadow: 0 0 0 6px rgba(124,58,237,0.45); }
+	100% { box-shadow: 0 0 0 2px #7C3AED, 0 8px 32px rgba(124,58,237,0.3); }
+}
+
+.cardFlash {
+	animation: cardFlash 0.4s ease-out forwards;
+}
+
+/* ─── Skeleton ───────────────────────────────────────────────────────────── */
+.skeletonCard {
+	border-radius: 16px;
+	border: 1.5px solid #374151;
+	background: rgba(18, 11, 34, 0.5);
+	padding: 32px 24px 28px;
+	min-height: 360px;
+}
+
+.skeletonLine {
+	background: linear-gradient(90deg, #1A1030 25%, #2a2a35 50%, #1A1030 75%);
+	background-size: 200% 100%;
+	animation: shimmer 1.4s infinite;
+	border-radius: 6px;
+}
+
+@keyframes shimmer {
+	0% { background-position: 200% 0; }
+	100% { background-position: -200% 0; }
+}
+
+/* ─── Trust badges ───────────────────────────────────────────────────────── */
+.trustRow {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 16px;
+	padding: 22px 0;
+	border-top: 1px solid #1A1030;
+	border-bottom: 1px solid #1A1030;
+	margin-bottom: 28px;
+}
+
+@media (max-width: 560px) {
+	.trustRow { grid-template-columns: 1fr; }
+}
+
+.trustItem {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 0 12px;
+}
+
+.trustIcon {
+	color: #7C3AED;
+	flex-shrink: 0;
+}
+
+.trustTitle {
+	color: #ffffff;
+	font-size: 0.875rem;
+	font-weight: 600;
+	margin: 0 0 2px;
+}
+
+.trustSub {
+	color: #9CA3AF;
+	font-size: 0.75rem;
+	margin: 0;
+}
+
+/* ─── Footer text ────────────────────────────────────────────────────────── */
+.footNote {
+	text-align: center;
+	color: #9CA3AF;
+	font-size: 0.8rem;
+	margin: 0 0 8px;
+}
+
+.backLink {
+	display: block;
+	text-align: center;
+	color: #7C3AED;
+	font-size: 0.85rem;
+	font-family: var(--font-body);
+	background: none;
+	border: none;
+	cursor: pointer;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	transition: color 0.15s;
+	padding: 0;
+}
+
+.backLink:hover {
+	color: #8B5CF6;
+}
+
+/* ─── State messages ─────────────────────────────────────────────────────── */
+.stateCenter {
+	text-align: center;
+	padding: 60px 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+}
+
+.stateTitle {
+	color: #ffffff;
+	font-family: var(--font-display);
+	font-size: 1.25rem;
+	font-weight: 700;
+	margin: 0;
+}
+
+.stateSub {
+	color: #9CA3AF;
+	font-size: 0.875rem;
+	margin: 0;
+}
+
+.retryBtn {
+	background: #F5A800;
+	color: #ffffff;
+	border: none;
+	border-radius: 9999px;
+	padding: 10px 28px;
+	font-size: 0.875rem;
+	font-weight: 600;
+	cursor: pointer;
+	margin-top: 8px;
+	transition: background 0.15s;
+}
+
+.retryBtn:hover {
+	background: #FF8C00;
+}
+
+/* ─── Confirm Modal ──────────────────────────────────────────────────────── */
+.modalBackdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+	background: rgba(0,0,0,0.82);
+	backdrop-filter: blur(6px);
+}
+
+.modalBox {
+	position: relative;
+	width: 100%;
+	max-width: 440px;
+	background: rgba(18, 11, 34, 0.5);
+	border: 1px solid #374151;
+	border-radius: 16px;
+	padding: 36px 32px 32px;
+	box-shadow: 0 24px 64px rgba(0,0,0,0.8);
+}
+
+.modalClose {
+	position: absolute;
+	top: 14px;
+	right: 14px;
+	width: 32px;
+	height: 32px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: 1px solid #374151;
+	border-radius: 50%;
+	color: #9CA3AF;
+	cursor: pointer;
+	transition: color 0.15s, border-color 0.15s;
+}
+
+.modalClose:hover {
+	color: #ffffff;
+	border-color: #6b7280;
+}
+
+.modalSuccessIcon {
+	width: 52px;
+	height: 52px;
+	border-radius: 50%;
+	background: #F5A800;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin: 0 auto 16px;
+}
+
+.modalTitle {
+	font-family: var(--font-display);
+	font-size: 1.6rem;
+	font-weight: 800;
+	color: #ffffff;
+	margin: 0 0 8px;
+	letter-spacing: 0.02em;
+}
+
+.modalSubtext {
+	color: #9CA3AF;
+	font-size: 0.875rem;
+	margin: 0 0 24px;
+	line-height: 1.5;
+}
+
+.modalSummary {
+	background: #0B0719;
+	border: 1px solid #374151;
+	border-radius: 10px;
+	padding: 16px 18px;
+	margin-bottom: 24px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.modalRow {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.modalRowLabel {
+	color: #9CA3AF;
+	font-size: 0.85rem;
+}
+
+.modalRowValue {
+	color: #ffffff;
+	font-size: 0.85rem;
+	font-weight: 600;
+}
+
+.modalActions {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+}
+
+.modalPrimaryBtn {
+	width: 100%;
+	padding: 11px 20px;
+	background: #F5A800;
+	color: #ffffff;
+	border: none;
+	border-radius: 9999px;
+	font-size: 0.875rem;
+	font-weight: 600;
+	font-family: var(--font-body);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	transition: background 0.15s;
+}
+
+.modalPrimaryBtn:hover:not(:disabled) {
+	background: #FF8C00;
+}
+
+.modalPrimaryBtn:disabled {
+	opacity: 0.7;
+	cursor: default;
+}
+
+.modalSecondaryBtn {
+	width: 100%;
+	padding: 11px 20px;
+	background: transparent;
+	color: #ffffff;
+	border: 1px solid #374151;
+	border-radius: 9999px;
+	font-size: 0.875rem;
+	font-weight: 500;
+	font-family: var(--font-body);
+	cursor: pointer;
+	transition: border-color 0.15s;
+}
+
+.modalSecondaryBtn:hover:not(:disabled) {
+	border-color: #9CA3AF;
+}
+
+.spinner {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	border: 2px solid transparent;
+	border-top-color: #ffffff;
+	animation: spin 0.7s linear infinite;
+	flex-shrink: 0;
+}
+
+@keyframes spin {
+	to { transform: rotate(360deg); }
+}
