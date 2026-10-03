@@ -1,8 +1,0 @@
-.page {
-	background: var(--color-ink);
-	color: var(--color-cream);
-	font-family: var(--font-body);
-}
-.loadingText { color: var(--color-taupe); }
-.errorText { color: var(--color-red); }
-.errorHint { color: var(--color-stone); }

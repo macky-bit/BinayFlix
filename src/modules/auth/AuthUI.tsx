@@ -3,7 +3,7 @@ import styles from "./auth.module.css";
 
 export const LOGO_SVG = (
 	<div className="flex items-center gap-2">
-		<img src="/streamflix_logo.png" alt="" aria-hidden className="h-8 w-auto" />
+		<img src="/streamflix_logo.svg" alt="" aria-hidden className="h-8 w-auto" />
 		<svg
 			viewBox="0 0 111.81 30"
 			className="h-7 w-auto"
@@ -57,6 +57,7 @@ export function MicrosoftIcon() {
 }
 
 interface FieldProps {
+	id?: string;
 	label: string;
 	type?: string;
 	placeholder: string;
@@ -64,20 +65,33 @@ interface FieldProps {
 	onChange: (v: string) => void;
 	error?: string;
 	suffix?: React.ReactNode;
+	autoComplete?: string;
+	min?: string;
+	max?: string;
+	disabled?: boolean;
 }
 
-export function Field({ label, type = "text", placeholder, value, onChange, error, suffix }: FieldProps) {
+export function Field({ id, label, type = "text", placeholder, value, onChange, error, suffix, autoComplete, min, max, disabled }: FieldProps) {
+	const inputId = id ?? `auth-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+	const errorId = `${inputId}-error`;
 	return (
 		<div className="flex flex-col gap-[7px]">
-			<label className={`text-[10px] font-semibold uppercase tracking-[0.15em] ${styles.fieldLabel}`}>
+			<label htmlFor={inputId} className={`text-[10px] font-semibold uppercase tracking-[0.15em] ${styles.fieldLabel}`}>
 				{label}
 			</label>
 			<div className="relative">
 				<input
+					id={inputId}
 					type={type}
 					placeholder={placeholder}
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
+					autoComplete={autoComplete}
+					min={min}
+					max={max}
+					disabled={disabled}
+					aria-invalid={Boolean(error)}
+					aria-describedby={error ? errorId : undefined}
 					className={`w-full rounded-lg px-4 py-[11px] text-sm outline-none transition-all duration-150 ${suffix ? "pr-11" : ""} ${
 						error
 							? "border border-[#ff5c72] focus:border-[#ff5c72] focus:ring-1 focus:ring-[#ff5c72]/30"
@@ -90,12 +104,13 @@ export function Field({ label, type = "text", placeholder, value, onChange, erro
 					</div>
 				)}
 			</div>
-			{error && <p className={`text-[11px] ${styles.fieldError}`}>{error}</p>}
+			{error && <p id={errorId} className={`text-[11px] ${styles.fieldError}`}>{error}</p>}
 		</div>
 	);
 }
 
-export function PasswordField({ label, placeholder, value, onChange, error }: Omit<FieldProps, "type" | "suffix">) {
+export function PasswordField(props: Omit<FieldProps, "type" | "suffix">) {
+	const { label, placeholder, value, onChange, error } = props;
 	const [show, setShow] = useState(false);
 	return (
 		<Field
@@ -105,6 +120,9 @@ export function PasswordField({ label, placeholder, value, onChange, error }: Om
 			value={value}
 			onChange={onChange}
 			error={error}
+			id={props.id}
+			autoComplete={props.autoComplete}
+			disabled={props.disabled}
 			suffix={
 				<button
 					type="button"
@@ -132,16 +150,22 @@ export function PromoStats() {
 	);
 }
 
-export function SocialButtons() {
+export function SocialButtons({ onGoogle, onMicrosoft, disabled = false }: {
+	onGoogle: () => void;
+	onMicrosoft: () => void;
+	disabled?: boolean;
+}) {
 	return (
 		<div className="flex flex-col gap-3">
 			{[
-				{ icon: <GoogleIcon />, label: "Continue with Google" },
-				{ icon: <MicrosoftIcon />, label: "Continue with Microsoft" },
-			].map(({ icon, label }) => (
+				{ icon: <GoogleIcon />, label: "Continue with Google", onClick: onGoogle },
+				{ icon: <MicrosoftIcon />, label: "Continue with Microsoft", onClick: onMicrosoft },
+			].map(({ icon, label, onClick }) => (
 				<button
 					key={label}
 					type="button"
+					onClick={onClick}
+					disabled={disabled}
 					className={`w-full flex items-center justify-center gap-3 py-[11px] rounded-lg border text-sm transition-all duration-150 ${styles.socialBtn}`}
 				>
 					{icon}

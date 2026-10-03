@@ -8,7 +8,8 @@ export interface ContinueEntry {
 	updatedAt: number;
 }
 
-const KEY = "sf_continue_watching";
+// v2 intentionally ignores data stored by earlier builds.
+const KEY = "sf_continue_watching_v2";
 const EVENT = "sf-continue-change";
 
 function load(): ContinueEntry[] {
@@ -57,16 +58,4 @@ export function useContinueWatching() {
 	const sorted = [...entries].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 10);
 
 	return { entries: sorted, markWatched, remove };
-}
-
-// Seed some demo data so the row isn't empty on first load
-export function seedContinueWatching(shows: Show[]) {
-	if (load().length > 0 || shows.length === 0) return;
-	const demos = shows.slice(0, 5).map((show, i) => ({
-		show,
-		progress: [35, 62, 18, 80, 47][i] ?? 50,
-		episodeLabel: show.mediaType === "tv" ? `S1 E${i + 1}` : undefined,
-		updatedAt: Date.now() - i * 60_000,
-	}));
-	persist(demos);
 }

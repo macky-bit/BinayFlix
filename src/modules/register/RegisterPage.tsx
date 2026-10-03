@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { supabase } from "../../lib/supabase";
 import { LOGO_SVG, Field, PasswordField, PromoStats, SocialButtons } from "../auth/AuthUI";
 import styles from "../auth/auth.module.css";
 
@@ -14,9 +15,12 @@ export default function RegisterPage({
 		username: "",
 		email: "",
 		password: "",
+		confirmPassword: "",
 	});
 	const [agreed, setAgreed] = useState(false);
 	const [errors, setErrors] = useState<Record<string, string>>({});
+	const [submitting, setSubmitting] = useState(false);
+	const [confirmationEmail, setConfirmationEmail] = useState("");
 
 	const set = (key: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [key]: v }));
 
@@ -30,15 +34,78 @@ export default function RegisterPage({
 		else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = "Enter a valid email.";
 		if (!form.password) e.password = "Required.";
 		else if (form.password.length < 8) e.password = "At least 8 characters.";
+		if (!form.confirmPassword) e.confirmPassword = "Confirm your password.";
+		else if (form.confirmPassword !== form.password) e.confirmPassword = "Passwords do not match.";
+		if (form.dob && new Date(`${form.dob}T00:00:00`).getTime() > Date.now()) e.dob = "Date of birth cannot be in the future.";
+		if (form.username && !/^[a-zA-Z0-9_]{3,30}$/.test(form.username.trim())) e.username = "Use 3–30 letters, numbers, or underscores.";
 		if (!agreed) e.terms = "You must agree to continue.";
 		setErrors(e);
 		return Object.keys(e).length === 0;
 	};
 
-	const handleSubmit = (ev: React.FormEvent) => {
+	const handleSubmit = async (ev: React.FormEvent) => {
 		ev.preventDefault();
-		if (validate()) onNavigate("subscription");
+		if (!validate()) return;
+		setSubmitting(true);
+		setErrors({});
+		const normalizedEmail = form.email.trim().toLowerCase();
+		const { data, error } = await supabase.auth.signUp({
+			email: normalizedEmail,
+			password: form.password,
+			options: {
+				emailRedirectTo: window.location.origin,
+				data: {
+					first_name: form.firstName.trim(),
+					last_name: form.lastName.trim(),
+					full_name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
+					username: form.username.trim(),
+					date_of_birth: form.dob,
+				},
+			},
+		});
+		if (error) {
+			setErrors({ form: error.message });
+			setSubmitting(false);
+			return;
+		}
+		if (data.session) onNavigate("subscription");
+		else {
+			setConfirmationEmail(normalizedEmail);
+			setSubmitting(false);
+		}
 	};
+
+	const handleOAuth = async (provider: "google" | "azure") => {
+		if (!agreed) {
+			setErrors({ terms: "You must agree to continue." });
+			return;
+		}
+		setSubmitting(true);
+		setErrors({});
+		const { error } = await supabase.auth.signInWithOAuth({
+			provider,
+			options: { redirectTo: window.location.origin },
+		});
+		if (error) {
+			setErrors({ form: error.message });
+			setSubmitting(false);
+		}
+	};
+
+	if (confirmationEmail) {
+		return (
+			<main className={`grid min-h-screen place-items-center px-6 ${styles.page}`}>
+				<section className="w-full max-w-md rounded-2xl border border-stone-700 bg-[#15111d] p-8 text-center text-white">
+					<div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-500/10 text-emerald-300" aria-hidden="true">
+						<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21.75 6.75v10.5A2.25 2.25 0 0119.5 19.5h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0l-8.69 5.52a2 2 0 01-2.12 0L2.25 6.75" /></svg>
+					</div>
+					<h1 className={`mt-5 text-3xl uppercase ${styles.formTitle}`}>Check your email</h1>
+					<p className={`mt-3 text-sm leading-6 ${styles.formSubtitle}`}>We sent a confirmation link to <strong className="text-white">{confirmationEmail}</strong>. Confirm your email, then return to sign in.</p>
+					<button type="button" onClick={() => onNavigate("login")} className={`mt-6 w-full py-3 text-sm font-bold uppercase tracking-[0.15em] ${styles.submitBtn}`}>Go to Sign In</button>
+				</section>
+			</main>
+		);
+	}
 
 	return (
 		<div className={`flex min-h-screen w-full ${styles.page}`}>
@@ -93,14 +160,16 @@ export default function RegisterPage({
 					</div>
 
 					<form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+						{errors.form && <p role="alert" className={`text-sm ${styles.errorText}`}>{errors.form}</p>}
 						<div className="grid grid-cols-2 gap-4">
-							<Field label="First Name" placeholder="First name" value={form.firstName} onChange={set("firstName")} error={errors.firstName} />
-							<Field label="Last Name" placeholder="Last name" value={form.lastName} onChange={set("lastName")} error={errors.lastName} />
+							<Field label="First Name" placeholder="First name" value={form.firstName} onChange={set("firstName")} error={errors.firstName} autoComplete="given-name" disabled={submitting} />
+							<Field label="Last Name" placeholder="Last name" value={form.lastName} onChange={set("lastName")} error={errors.lastName} autoComplete="family-name" disabled={submitting} />
 						</div>
-						<Field label="Date of Birth" type="date" placeholder="MM/DD/YYYY" value={form.dob} onChange={set("dob")} error={errors.dob} />
-						<Field label="Username" placeholder="Choose a username" value={form.username} onChange={set("username")} error={errors.username} />
-						<Field label="Email Address" type="email" placeholder="Enter your email" value={form.email} onChange={set("email")} error={errors.email} />
-						<PasswordField label="Password" placeholder="Create a strong password" value={form.password} onChange={set("password")} error={errors.password} />
+						<Field label="Date of Birth" type="date" placeholder="MM/DD/YYYY" value={form.dob} onChange={set("dob")} error={errors.dob} autoComplete="bday" max={new Date().toISOString().slice(0, 10)} disabled={submitting} />
+						<Field label="Username" placeholder="Choose a username" value={form.username} onChange={set("username")} error={errors.username} autoComplete="username" disabled={submitting} />
+						<Field label="Email Address" type="email" placeholder="Enter your email" value={form.email} onChange={set("email")} error={errors.email} autoComplete="email" disabled={submitting} />
+						<PasswordField label="Password" placeholder="Create a strong password" value={form.password} onChange={set("password")} error={errors.password} autoComplete="new-password" disabled={submitting} />
+						<PasswordField id="confirm-password" label="Confirm Password" placeholder="Re-enter your password" value={form.confirmPassword} onChange={set("confirmPassword")} error={errors.confirmPassword} autoComplete="new-password" disabled={submitting} />
 
 						<div className="flex flex-col gap-1">
 							<label className="flex items-start gap-2.5 cursor-pointer select-none">
@@ -122,9 +191,10 @@ export default function RegisterPage({
 
 						<button
 							type="submit"
+							disabled={submitting}
 							className={`w-full py-3 text-sm font-bold uppercase tracking-[0.15em] transition-all duration-150 active:scale-[0.99] ${styles.submitBtn}`}
 						>
-							Create Account
+							{submitting ? "Creating account…" : "Create Account"}
 						</button>
 					</form>
 
@@ -134,7 +204,7 @@ export default function RegisterPage({
 						<div className={`flex-1 h-px ${styles.orDivider}`} />
 					</div>
 
-					<SocialButtons />
+					<SocialButtons onGoogle={() => void handleOAuth("google")} onMicrosoft={() => void handleOAuth("azure")} disabled={submitting} />
 
 					<p className={`mt-6 text-center text-sm ${styles.footerText}`}>
 						Already have an account?{" "}

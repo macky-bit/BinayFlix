@@ -1,7 +1,7 @@
 /* ─── Page ────────────────────────────────────────────────────────────────── */
 .page {
 	min-height: 100vh;
-	background: #0B0719;
+	background: var(--color-ink);
 	color: #ffffff;
 	font-family: var(--font-body);
 	position: relative;
@@ -503,7 +503,7 @@
 }
 
 .modalSummary {
-	background: #0B0719;
+	background: var(--color-ink);
 	border: 1px solid #374151;
 	border-radius: 10px;
 	padding: 16px 18px;

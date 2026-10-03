@@ -1,0 +1,9 @@
+
+[db.migrations]
+schema_paths = [
+  "schemas",
+]
+
+# Temporary development setting. Re-enable after custom SMTP is configured.
+[auth.email]
+enable_confirmations = false

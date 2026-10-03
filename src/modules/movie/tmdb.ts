@@ -1,11 +1,37 @@
 import type { Show } from "./types";
 
 // ─── TMDB CONFIG ────────────────────────────────────────────────────────────
-// Client-side TMDB key loaded from .env.local. This remains public in the
-// browser bundle; use a server proxy if the key must be kept secret.
-export const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+// Credentials are supplied through the local environment and are exposed to
+// the browser because this is a client-side TMDB integration.
+export const TMDB_API_KEY = (
+	import.meta.env.VITE_TMDB_API_KEY as string | undefined
+)?.trim();
+export const TMDB_READ_ACCESS_TOKEN = (
+	import.meta.env.VITE_TMDB_READ_ACCESS_TOKEN as string | undefined
+)?.trim();
 export const TMDB_BASE = "https://api.themoviedb.org/3";
 export const TMDB_IMG = "https://image.tmdb.org/t/p";
+export const hasTMDBCredentials = Boolean(
+	TMDB_API_KEY || TMDB_READ_ACCESS_TOKEN,
+);
+
+function tmdbRequest(path: string, params: Record<string, string> = {}) {
+	if (!hasTMDBCredentials) return null;
+
+	const url = new URL(`${TMDB_BASE}${path}`);
+	url.searchParams.set("language", "en-US");
+	if (TMDB_API_KEY) url.searchParams.set("api_key", TMDB_API_KEY);
+	Object.entries(params).forEach(([key, value]) =>
+		url.searchParams.set(key, value),
+	);
+
+	return {
+		url: url.toString(),
+		init: TMDB_READ_ACCESS_TOKEN
+			? { headers: { Authorization: `Bearer ${TMDB_READ_ACCESS_TOKEN}` } }
+			: undefined,
+	};
+}
 
 // Map TMDB genre IDs -> names
 export const GENRE_MAP: Record<number, string> = {
@@ -43,11 +69,9 @@ export async function tmdb<T>(
 	params: Record<string, string> = {},
 ): Promise<T[]> {
 	try {
-		const url = new URL(`${TMDB_BASE}${path}`);
-		url.searchParams.set("api_key", TMDB_API_KEY);
-		url.searchParams.set("language", "en-US");
-		Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-		const res = await fetch(url.toString());
+		const request = tmdbRequest(path, params);
+		if (!request) return [];
+		const res = await fetch(request.url, request.init);
 		if (!res.ok) {
 			if (res.status !== 401 && res.status !== 403) {
 				console.warn(`TMDB ${res.status} on ${path}`);
@@ -56,17 +80,19 @@ export async function tmdb<T>(
 		}
 		const data = await res.json();
 		return data.results ?? [];
-	} catch (e) {
+	} catch {
 		return [];
 	}
 }
 
-async function tmdbOne<T>(path: string): Promise<T | null> {
+async function tmdbOne<T>(
+	path: string,
+	params: Record<string, string> = {},
+): Promise<T | null> {
 	try {
-		const url = new URL(`${TMDB_BASE}${path}`);
-		url.searchParams.set("api_key", TMDB_API_KEY);
-		url.searchParams.set("language", "en-US");
-		const res = await fetch(url.toString());
+		const request = tmdbRequest(path, params);
+		if (!request) return null;
+		const res = await fetch(request.url, request.init);
 		if (!res.ok) throw new Error(`TMDB ${res.status}`);
 		return await res.json();
 	} catch {
@@ -74,15 +100,35 @@ async function tmdbOne<T>(path: string): Promise<T | null> {
 	}
 }
 
-export async function fetchShowDetails(id: number, mediaType: "movie" | "tv" = "movie"): Promise<Show | null> {
-	const data = await tmdbOne<any>(`/${mediaType}/${id}`);
+export async function fetchShowDetails(
+	id: number,
+	mediaType: "movie" | "tv" = "movie",
+): Promise<Show | null> {
+	const data = await tmdbOne<any>(`/${mediaType}/${id}`, {
+		append_to_response:
+			mediaType === "movie" ? "release_dates" : "content_ratings",
+	});
 	if (!data) return null;
-	const show = toShow(data, false, mediaType);
-	show.duration = mediaType === "movie" && data.runtime
-		? `${Math.floor(data.runtime / 60)}h ${data.runtime % 60}m`
-		: mediaType === "tv" && data.number_of_seasons
-			? `${data.number_of_seasons} season${data.number_of_seasons === 1 ? "" : "s"}`
-			: "";
+	const show = toShow(data, true, mediaType);
+	show.duration =
+		mediaType === "movie" && data.runtime
+			? `${Math.floor(data.runtime / 60)}h ${data.runtime % 60}m`
+			: mediaType === "tv" && data.number_of_seasons
+				? `${data.number_of_seasons} season${data.number_of_seasons === 1 ? "" : "s"}`
+				: "";
+	const region =
+		mediaType === "movie"
+			? data.release_dates?.results?.find(
+					(item: any) => item.iso_3166_1 === "US",
+				)
+			: data.content_ratings?.results?.find(
+					(item: any) => item.iso_3166_1 === "US",
+				);
+	show.rating =
+		mediaType === "movie"
+			? (region?.release_dates?.find((item: any) => item.certification)
+					?.certification ?? "")
+			: (region?.rating ?? "");
 	return show;
 }
 
@@ -132,8 +178,14 @@ export function toShow(
 ): Show {
 	const title = item.title ?? item.name ?? "";
 	const year = (item.release_date ?? item.first_air_date ?? "").slice(0, 4);
-	const genres = ((item.genre_ids as number[]) ?? [])
-		.map((id) => GENRE_MAP[id])
+	const genreIds = (item.genre_ids as number[] | undefined) ?? [];
+	const detailGenres =
+		(item.genres as { id: number; name: string }[] | undefined) ?? [];
+	const genres = (
+		detailGenres.length > 0
+			? detailGenres.map((genre) => genre.name)
+			: genreIds.map((id) => GENRE_MAP[id])
+	)
 		.filter(Boolean)
 		.slice(0, 3) as string[];
 	const vote = Math.round((item.vote_average ?? 0) * 10);
@@ -164,22 +216,21 @@ export async function fetchTrailerKey(
 	mediaType: "movie" | "tv" = "movie",
 ): Promise<string | null> {
 	try {
-		const url = new URL(`${TMDB_BASE}/${mediaType}/${id}/videos`);
-		url.searchParams.set("api_key", TMDB_API_KEY);
-		url.searchParams.set("language", "en-US");
-		const res = await fetch(url.toString());
+		const request = tmdbRequest(`/${mediaType}/${id}/videos`);
+		if (!request) return null;
+		const res = await fetch(request.url, request.init);
 		if (!res.ok) throw new Error(`TMDB ${res.status}`);
 		const data = await res.json();
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const vids: any[] = data.results ?? [];
 		const youtube = vids.filter((v) => v.site === "YouTube");
 		const trailer =
+			youtube.find((v) => v.type === "Trailer" && v.official) ??
 			youtube.find((v) => v.type === "Trailer") ??
 			youtube.find((v) => v.type === "Teaser") ??
 			youtube[0];
 		return trailer?.key ?? null;
-	} catch (e) {
-		console.error("TMDB videos fetch error:", e);
+	} catch {
 		return null;
 	}
 }
@@ -189,6 +240,11 @@ export async function fetchSimilar(
 	id: number,
 	mediaType: "movie" | "tv" = "movie",
 ): Promise<Show[]> {
-	const raw = await tmdb(`/${mediaType}/${id}/similar`);
-	return raw.map((m) => toShow(m, false, mediaType)).slice(0, 8);
+	const raw = await tmdb<Record<string, unknown>>(
+		`/${mediaType}/${id}/similar`,
+	);
+	return raw
+		.map((item) => toShow(item, true, mediaType))
+		.filter((item) => Boolean(item.title && item.image))
+		.slice(0, 8);
 }

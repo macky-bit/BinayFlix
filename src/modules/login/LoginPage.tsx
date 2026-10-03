@@ -1,16 +1,20 @@
 import { useState } from "react";
+import { getSignedInDestination } from "../../lib/auth";
+import { setRememberSession, supabase } from "../../lib/supabase";
 import { LOGO_SVG, Field, PasswordField, PromoStats, SocialButtons } from "../auth/AuthUI";
 import styles from "../auth/auth.module.css";
 
 export default function LoginPage({
 	onNavigate,
 }: {
-	onNavigate: (p: "register" | "subscription") => void;
+	onNavigate: (p: "register" | "subscription" | "dashboard" | "admin") => void;
 }) {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [remember, setRemember] = useState(false);
 	const [errors, setErrors] = useState<Record<string, string>>({});
+	const [submitting, setSubmitting] = useState(false);
+	const [notice, setNotice] = useState("");
 
 	const validate = () => {
 		const e: Record<string, string> = {};
@@ -20,9 +24,59 @@ export default function LoginPage({
 		return Object.keys(e).length === 0;
 	};
 
-	const handleSubmit = (ev: React.FormEvent) => {
+	const handleSubmit = async (ev: React.FormEvent) => {
 		ev.preventDefault();
-		if (validate()) onNavigate("subscription");
+		if (!validate()) return;
+
+		setSubmitting(true);
+		setErrors({});
+		setNotice("");
+		setRememberSession(remember);
+		const { data: signInData, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+		if (error) {
+			setErrors({ form: error.message });
+			setSubmitting(false);
+			return;
+		}
+
+		try {
+			onNavigate(await getSignedInDestination(signInData.user.id));
+		} catch {
+			setErrors({ form: "Signed in, but your StreamFlix account could not be loaded. Please try again." });
+			setSubmitting(false);
+		}
+	};
+
+	const handleForgotPassword = async () => {
+		const normalizedEmail = email.trim().toLowerCase();
+		if (!normalizedEmail || !/\S+@\S+\.\S+/.test(normalizedEmail)) {
+			setErrors((current) => ({ ...current, email: "Enter your email first." }));
+			return;
+		}
+		setSubmitting(true);
+		setErrors({});
+		setNotice("");
+		const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+			redirectTo: window.location.origin,
+		});
+		setSubmitting(false);
+		if (error) setErrors({ form: error.message });
+		else setNotice("Password reset instructions have been sent to your email.");
+	};
+
+	const handleOAuth = async (provider: "google" | "azure") => {
+		setSubmitting(true);
+		setErrors({});
+		setNotice("");
+		setRememberSession(remember);
+		const { error } = await supabase.auth.signInWithOAuth({
+			provider,
+			options: { redirectTo: window.location.origin },
+		});
+		if (error) {
+			setErrors({ form: error.message });
+			setSubmitting(false);
+		}
 	};
 
 	return (
@@ -77,12 +131,20 @@ export default function LoginPage({
 					</div>
 
 					<form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+						{notice && (
+							<p role="status" className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">{notice}</p>
+						)}
+						{errors.form && (
+							<p role="alert" className="text-sm text-red-300">{errors.form}</p>
+						)}
 						<Field
-							label="Username or Email"
-							placeholder="Enter your username or email"
+							label="Email"
+							placeholder="Enter your email"
 							value={email}
 							onChange={setEmail}
 							error={errors.email}
+							autoComplete="email"
+							disabled={submitting}
 						/>
 						<PasswordField
 							label="Password"
@@ -90,6 +152,8 @@ export default function LoginPage({
 							value={password}
 							onChange={setPassword}
 							error={errors.password}
+							autoComplete="current-password"
+							disabled={submitting}
 						/>
 
 						<div className="flex items-center justify-between">
@@ -102,16 +166,17 @@ export default function LoginPage({
 								/>
 								<span className={`text-xs ${styles.rememberText}`}>Remember me</span>
 							</label>
-							<button type="button" className={`text-xs underline underline-offset-2 transition-colors ${styles.forgotBtn}`}>
+							<button type="button" onClick={handleForgotPassword} disabled={submitting} className={`text-xs underline underline-offset-2 transition-colors ${styles.forgotBtn}`}>
 								Forgot Password?
 							</button>
 						</div>
 
 						<button
 							type="submit"
+							disabled={submitting}
 							className={`w-full py-3 text-sm font-bold uppercase tracking-[0.15em] transition-all duration-150 active:scale-[0.99] ${styles.submitBtn}`}
 						>
-							Login
+							{submitting ? "Signing in…" : "Login"}
 						</button>
 					</form>
 
@@ -121,7 +186,7 @@ export default function LoginPage({
 						<div className={`flex-1 h-px ${styles.orDivider}`} />
 					</div>
 
-					<SocialButtons />
+					<SocialButtons onGoogle={() => void handleOAuth("google")} onMicrosoft={() => void handleOAuth("azure")} disabled={submitting} />
 
 					<p className={`mt-6 text-center text-sm ${styles.footerText}`}>
 						{"Don't have an account? "}

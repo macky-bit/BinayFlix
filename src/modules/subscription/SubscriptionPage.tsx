@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { supabase } from "../../lib/supabase";
 import styles from "./subscription.module.css";
 
 // ── Plan data ─────────────────────────────────────────────────────────────────
@@ -11,49 +12,6 @@ export type Plan = {
 	features: string[];
 	recommended?: boolean;
 };
-
-const PLANS: Plan[] = [
-	{
-		id: "basic",
-		PlanName: "Basic",
-		MonthlyPrice: "₱149",
-		PlanDescription: "Great for casual viewers.",
-		MaxUser: 1,
-		features: [
-			"Watch on 1 device at a time",
-			"HD (720p) quality",
-			"Download on 1 device",
-			"Access to all available content",
-		],
-	},
-	{
-		id: "standard",
-		PlanName: "Standard",
-		MonthlyPrice: "₱249",
-		PlanDescription: "The perfect balance of quality and value.",
-		MaxUser: 2,
-		recommended: true,
-		features: [
-			"Watch on 2 devices at a time",
-			"Full HD (1080p) quality",
-			"Download on 2 devices",
-			"Access to all available content",
-		],
-	},
-	{
-		id: "premium",
-		PlanName: "Premium",
-		MonthlyPrice: "₱349",
-		PlanDescription: "The ultimate streaming experience.",
-		MaxUser: 4,
-		features: [
-			"Watch on 4 devices at a time",
-			"4K (UHD) + HDR quality",
-			"Download on 4 devices",
-			"Access to all available content",
-		],
-	},
-];
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 function IconCheck({ size = 14, color = "#7C3AED" }: { size?: number; color?: string }) {
@@ -119,13 +77,15 @@ function SkeletonCard() {
 }
 
 // ── Confirmation modal ────────────────────────────────────────────────────────
-function ConfirmModal({ plan, onCancel, onContinue }: {
+function ConfirmModal({ plan, onCancel, onConfirm, onContinue }: {
 	plan: Plan;
 	onCancel: () => void;
+	onConfirm: () => Promise<void>;
 	onContinue: () => void;
 }) {
 	const [loading, setLoading] = useState(false);
 	const [done, setDone] = useState(false);
+	const [error, setError] = useState("");
 	const firstFocusRef = useRef<HTMLButtonElement>(null);
 
 	const price = plan.MonthlyPrice;
@@ -139,9 +99,15 @@ function ConfirmModal({ plan, onCancel, onContinue }: {
 
 	async function handleContinue() {
 		setLoading(true);
-		await new Promise((r) => setTimeout(r, 1200));
-		setLoading(false);
-		setDone(true);
+		setError("");
+		try {
+			await onConfirm();
+			setDone(true);
+		} catch (reason) {
+			setError(reason instanceof Error ? reason.message : "Unable to save your plan.");
+		} finally {
+			setLoading(false);
+		}
 	}
 
 	return (
@@ -206,6 +172,7 @@ function ConfirmModal({ plan, onCancel, onContinue }: {
 								{loading ? "Processing…" : `Continue with ${plan.PlanName}`}
 							</button>
 						</div>
+						{error && <p role="alert" className={styles.stateSub}>{error}</p>}
 					</>
 				)}
 			</div>
@@ -325,16 +292,39 @@ export default function SubscriptionPage({ onComplete, onBack, onSubscribe }: Pr
 	const [modalPlan, setModalPlan] = useState<Plan | null>(null);
 	const btnRefs = useRef<Record<string, React.RefObject<HTMLButtonElement>>>({});
 
-	PLANS.forEach((p) => {
+	plans.forEach((p) => {
 		if (!btnRefs.current[p.id]) {
 			btnRefs.current[p.id] = { current: null } as unknown as React.RefObject<HTMLButtonElement>;
 		}
 	});
 
-	useEffect(() => {
-		const t = setTimeout(() => { setPlans(PLANS); setPageState("ready"); }, 900);
-		return () => clearTimeout(t);
+	const loadPlans = useCallback(async () => {
+		setPageState("loading");
+		const { data, error } = await supabase
+			.from("subscription")
+			.select("subscription_id, plan_name, monthly_price, max_user, plan_description")
+			.order("monthly_price");
+		if (error) {
+			setPageState("error");
+			return;
+		}
+		const loadedPlans: Plan[] = (data ?? []).map((row, index) => ({
+			id: String(row.subscription_id),
+			PlanName: String(row.plan_name),
+			MonthlyPrice: `₱${Number(row.monthly_price).toLocaleString()}`,
+			PlanDescription: String(row.plan_description ?? ""),
+			MaxUser: Number(row.max_user),
+			features: [
+				`Watch on ${Number(row.max_user)} device${Number(row.max_user) === 1 ? "" : "s"} at a time`,
+				String(row.plan_description ?? "Full access to StreamFlix"),
+			],
+			recommended: index === 1,
+		}));
+		setPlans(loadedPlans);
+		setPageState("ready");
 	}, []);
+
+	useEffect(() => { void loadPlans(); }, [loadPlans]);
 
 	function handleChoose(plan: Plan) {
 		setSelectedPlan(plan);
@@ -347,10 +337,14 @@ export default function SubscriptionPage({ onComplete, onBack, onSubscribe }: Pr
 		if (prev) setTimeout(() => btnRefs.current[prev.id]?.current?.focus(), 50);
 	}
 
-	const handleRetry = useCallback(() => {
-		setPageState("loading");
-		setTimeout(() => { setPlans(PLANS); setPageState("ready"); }, 900);
-	}, []);
+	const handleRetry = useCallback(() => { void loadPlans(); }, [loadPlans]);
+
+	async function saveSubscription(plan: Plan) {
+		const { error } = await supabase.rpc("select_subscription_plan", {
+			selected_subscription_id: Number(plan.id),
+		});
+		if (error) throw error;
+	}
 
 	return (
 		<div className={styles.page}>
@@ -415,6 +409,7 @@ export default function SubscriptionPage({ onComplete, onBack, onSubscribe }: Pr
 				<ConfirmModal
 					plan={modalPlan}
 					onCancel={handleModalClose}
+					onConfirm={() => saveSubscription(modalPlan)}
 					onContinue={() => { onSubscribe?.(modalPlan); onComplete(); }}
 				/>
 			)}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Show } from "./types";
-import { fetchTrailerKey, fetchSimilar } from "./tmdb";
+import { fetchShowDetails, fetchTrailerKey, fetchSimilar } from "./tmdb";
 import styles from "./movie.module.css";
 import { useMyList } from "../dashboard/myList/myListStore";
 
@@ -58,6 +58,7 @@ export default function PreviewModal({
 	onPlay?: (show: Show) => void;
 }) {
 	const [trailerKey, setTrailerKey] = useState<string | null>(null);
+	const [details, setDetails] = useState<Show | null>(null);
 	const [muted, setMuted] = useState(true);
 	const [similar, setSimilar] = useState<Show[]>([]);
 	const [loadingTrailer, setLoadingTrailer] = useState(false);
@@ -79,27 +80,46 @@ export default function PreviewModal({
 	}, [show]);
 
 	useEffect(() => {
-		if (!show) { setTrailerKey(null); setSimilar([]); return; }
+		if (!show) {
+			setDetails(null);
+			setTrailerKey(null);
+			setSimilar([]);
+			return;
+		}
 		let cancelled = false;
+		setDetails(null);
 		setTrailerKey(null);
+		setSimilar([]);
 		setMuted(true);
 		setLoadingTrailer(true);
 
 		Promise.all([
+			fetchShowDetails(show.id, show.mediaType ?? "movie"),
 			fetchTrailerKey(show.id, show.mediaType ?? "movie"),
 			fetchSimilar(show.id, show.mediaType ?? "movie"),
-		]).then(([key, sim]) => {
+		]).then(([fullDetails, key, sim]) => {
 			if (cancelled) return;
+			setDetails(fullDetails);
 			setTrailerKey(key);
 			setSimilar(sim);
 			setLoadingTrailer(false);
+		}).catch(() => {
+			if (!cancelled) setLoadingTrailer(false);
 		});
 
 		return () => { cancelled = true; };
 	}, [show]);
 
 	if (!show) return null;
-	const inList = isSaved(show.id, mediaType);
+	const resolvedShow: Show = details
+		? {
+			...show,
+			...details,
+			image: details.image || show.image,
+			hero: details.hero || show.hero,
+		  }
+		: show;
+	const inList = isSaved(resolvedShow.id, mediaType);
 
 	return (
 		<div
@@ -126,14 +146,14 @@ export default function PreviewModal({
 							key={trailerKey}
 							className="absolute inset-0 w-full h-full"
 							src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=${muted ? 1 : 0}&controls=0&loop=1&playlist=${trailerKey}&modestbranding=1&rel=0&showinfo=0`}
-							title={`${show.title} trailer`}
+							title={`${resolvedShow.title} trailer`}
 							allow="autoplay; encrypted-media"
 							allowFullScreen
 						/>
 					) : (
 						<img
-							src={show.hero ?? show.image}
-							alt={show.title}
+							src={resolvedShow.hero ?? resolvedShow.image}
+							alt={resolvedShow.title}
 							className="absolute inset-0 w-full h-full object-cover"
 						/>
 					)}
@@ -143,18 +163,18 @@ export default function PreviewModal({
 					<div className="absolute bottom-0 left-0 right-0 p-4 md:p-8 flex items-end justify-between gap-3">
 						<div>
 							<h2 className={`uppercase leading-none tracking-tight mb-3 text-2xl md:text-4xl ${styles.modalTitle}`}>
-								{show.title}
+								{resolvedShow.title}
 							</h2>
 							<div className="flex items-center gap-3 flex-wrap">
 								<button
-									onClick={() => onPlay?.(show)}
+									onClick={() => onPlay?.(resolvedShow)}
 									className={`flex items-center gap-2 px-5 md:px-6 py-2 font-bold transition-all duration-150 text-sm md:text-base ${styles.filledBtn}`}
 								>
 									<PlayIcon />
 									Play
 								</button>
 								<button
-									onClick={() => toggle(show.id, mediaType)}
+									onClick={() => toggle(resolvedShow.id, mediaType, resolvedShow)}
 									className={`w-9 h-9 md:w-10 md:h-10 rounded-full border flex items-center justify-center transition-colors ${styles.circleBtn}`}
 									aria-label={inList ? "Remove from list" : "Add to list"}
 								>
@@ -180,24 +200,29 @@ export default function PreviewModal({
 					<div className="grid md:grid-cols-3 gap-6">
 						<div className="md:col-span-2">
 							<div className="flex items-center gap-3 mb-3 flex-wrap">
-								{typeof show.match === "number" && (
-									<span className={`font-semibold text-sm ${styles.matchText}`}>{show.match}% Match</span>
+								{typeof resolvedShow.match === "number" && (
+									<span className={`font-semibold text-sm ${styles.matchText}`}>{resolvedShow.match}% Match</span>
 								)}
-								<span className={`text-sm ${styles.metaText}`}>{show.year}</span>
-								<span className={`text-xs px-1.5 py-0.5 border rounded ${styles.badge}`}>{show.rating}</span>
+								<span className={`text-sm ${styles.metaText}`}>{resolvedShow.year}</span>
+								{resolvedShow.rating && (
+									<span className={`text-xs px-1.5 py-0.5 border rounded ${styles.badge}`}>{resolvedShow.rating}</span>
+								)}
+								{resolvedShow.duration && (
+									<span className={`text-sm ${styles.metaText}`}>{resolvedShow.duration}</span>
+								)}
 								{!trailerKey && !loadingTrailer && (
 									<span className={`text-xs italic ${styles.noTrailerText}`}>No trailer available</span>
 								)}
 							</div>
 							<p className={`text-sm md:text-base leading-relaxed ${styles.descriptionText}`}>
-								{show.description || "No description available."}
+								{resolvedShow.description || "No description available."}
 							</p>
 						</div>
 						<div className={`text-sm space-y-2 ${styles.genresText}`}>
-							{show.genres.length > 0 && (
+							{resolvedShow.genres.length > 0 && (
 								<p>
 									<span className={styles.genresLabel}>Genres: </span>
-									{show.genres.join(", ")}
+									{resolvedShow.genres.join(", ")}
 								</p>
 							)}
 						</div>

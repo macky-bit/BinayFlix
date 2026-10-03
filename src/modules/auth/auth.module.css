@@ -104,6 +104,14 @@
 	transform: translateY(-1px);
 }
 
+.submitBtn:disabled,
+.socialBtn:disabled,
+.forgotBtn:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+	transform: none;
+}
+
 .orDivider {
 	background: rgba(94, 80, 63, 0.4);
 }

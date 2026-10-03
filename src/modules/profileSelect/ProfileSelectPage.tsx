@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styles from "./profileSelect.module.css";
-import logoImg from "/streamflix_logo.png";
+import logoImg from "/streamflix_logo.svg";
 
 export interface Profile {
 	id: number;

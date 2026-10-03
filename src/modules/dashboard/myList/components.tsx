@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import styles from "./myList.module.css";
 import { fetchShowDetails } from "../../movie/tmdb";
+import type { Show } from "../../movie/types";
 import { addToMyList, getMyList, removeFromMyList } from "./myListStore";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -24,15 +25,11 @@ interface Title {
 	gradient?: string;
 	image?: string;
 	mediaType?: "movie" | "tv";
+	show?: Show;
 }
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
-const PlayIcon = () => (
-	<svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13">
-		<polygon points="5,3 19,12 5,21" />
-	</svg>
-);
 const InfoIcon = () => (
 	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
 		<circle cx="12" cy="12" r="10" />
@@ -86,10 +83,9 @@ function Tooltip({ label, children }: { label: string; children: React.ReactNode
 
 // ── Content Card ─────────────────────────────────────────────────────────────
 
-function ContentCard({ item, onRemove, onPlay, onInfo }: {
+function ContentCard({ item, onRemove, onInfo }: {
 	item: Title;
 	onRemove: (id: number) => void;
-	onPlay: (item: Title) => void;
 	onInfo: (item: Title) => void;
 }) {
 	const [hovered, setHovered] = useState(false);
@@ -131,19 +127,14 @@ function ContentCard({ item, onRemove, onPlay, onInfo }: {
 
 				{/* Hover overlay with actions */}
 				{active && (
-					<div className={styles.cardHoverOverlay} onClick={(e) => e.stopPropagation()}>
-						<Tooltip label="Play">
-							<button className={styles.btnPlay} onClick={() => onPlay(item)} aria-label={`Play ${item.title}`}>
-								<PlayIcon />
-							</button>
-						</Tooltip>
+					<div className={styles.cardHoverOverlay}>
 						<Tooltip label="More Info">
-							<button className={styles.btnOutline} onClick={() => onInfo(item)} aria-label={`More info about ${item.title}`}>
+							<button className={styles.btnOutline} onClick={(e) => { e.stopPropagation(); onInfo(item); }} aria-label={`More info about ${item.title}`}>
 								<InfoIcon />
 							</button>
 						</Tooltip>
 						<Tooltip label="Remove">
-							<button className={styles.btnOutline} onClick={() => onRemove(item.id)} aria-label={`Remove ${item.title}`}>
+							<button className={styles.btnOutline} onClick={(e) => { e.stopPropagation(); onRemove(item.id); }} aria-label={`Remove ${item.title}`}>
 								<XIcon />
 							</button>
 						</Tooltip>
@@ -164,13 +155,6 @@ function ContentCard({ item, onRemove, onPlay, onInfo }: {
 				</div>
 				{/* Inline action buttons */}
 				<div className={styles.cardActions} onClick={(e) => e.stopPropagation()}>
-					<button
-						className={styles.cardActionPlay}
-						aria-label="Play"
-						onClick={() => onPlay(item)}
-					>
-						<PlayIcon />
-					</button>
 					<button
 						className={styles.cardActionList}
 						aria-label="Remove from list"
@@ -193,69 +177,6 @@ function SkeletonCard() {
 			<div style={{ padding: "10px 12px 12px" }}>
 				<div className={styles.skeleton} style={{ height: 11, borderRadius: 3, marginBottom: 7, width: "72%" }} />
 				<div className={styles.skeleton} style={{ height: 9, borderRadius: 3, width: "48%" }} />
-			</div>
-		</div>
-	);
-}
-
-// ── Preview Modal ────────────────────────────────────────────────────────────
-
-function PreviewModal({ item, onClose }: { item: Title; onClose: () => void }) {
-	const modalRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		modalRef.current?.focus();
-		const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-		document.addEventListener("keydown", handleKey);
-		return () => document.removeEventListener("keydown", handleKey);
-	}, [onClose]);
-
-	return (
-		<div
-			className={styles.modalBackdrop}
-			role="dialog"
-			aria-modal="true"
-			aria-label={`Details for ${item.title}`}
-			onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-		>
-			<div ref={modalRef} tabIndex={-1} className={styles.modalBox}>
-				<div className={styles.modalHero}>
-					{item.image
-						? <img src={item.image} alt={item.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-						: <div style={{ width: "100%", height: "100%", background: item.gradient ?? "#1A1030" }} />
-					}
-					<div className={styles.modalHeroGradient} />
-					<button className={styles.modalCloseBtn} onClick={onClose} aria-label="Close">
-						<CloseIcon />
-					</button>
-					<div className={styles.modalTitleOverlay}>
-						<h2 className={styles.modalTitle}>{item.title}</h2>
-					</div>
-				</div>
-
-				<div className={styles.modalBody}>
-					<div className={styles.modalMeta}>
-						<span className={styles.modalMetaText}>{item.year}</span>
-						<span className={styles.modalMetaDot}>·</span>
-						<span className={styles.modalMetaBadge}>{item.rating}</span>
-						{item.runtime && (
-							<><span className={styles.modalMetaDot}>·</span><span className={styles.modalMetaText}>{item.runtime}</span></>
-						)}
-						<span className={styles.modalMetaDot}>·</span>
-						<span className={styles.modalMetaText}>{item.type}</span>
-					</div>
-					<p className={styles.modalDesc}>
-						An immersive {item.type === "Movie" ? "film" : "series"} experience that redefines storytelling.
-					</p>
-					<div className={styles.modalActions}>
-						<button className={styles.modalPlayBtn}>
-							<PlayIcon /> Play
-						</button>
-						<button className={styles.modalCloseAction} onClick={onClose}>
-							Close
-						</button>
-					</div>
-				</div>
 			</div>
 		</div>
 	);
@@ -351,13 +272,33 @@ function sortTitles(titles: Title[], sort: SortOption): Title[] {
 type AppState = "loading" | "loaded" | "error";
 type FilterType = "All" | "Movie" | "Series";
 
-export function MyListView({ onBrowse }: { onBrowse: () => void }) {
+function titleToShow(item: Title): Show {
+	if (item.show) return item.show;
+
+	return {
+		id: item.id,
+		title: item.title,
+		year: item.year ? String(item.year) : "",
+		rating: item.rating,
+		duration: item.runtime ?? "",
+		genres: [],
+		image: item.image ?? "",
+		mediaType: item.mediaType ?? (item.type === "Series" ? "tv" : "movie"),
+	};
+}
+
+export function MyListView({
+	onBrowse,
+	onInfo,
+}: {
+	onBrowse: () => void;
+	onInfo: (show: Show) => void;
+}) {
 	const [appState, setAppState] = useState<AppState>("loading");
 	const [titles, setTitles] = useState<Title[]>([]);
 	const [sortOption, setSortOption] = useState<SortOption>("Recently Added");
 	const [filter, setFilter] = useState<FilterType>("All");
 	const [toast, setToast] = useState<{ item: Title } | null>(null);
-	const [modal, setModal] = useState<Title | null>(null);
 
 	const loadEntries = useCallback(() => {
 		let active = true;
@@ -365,9 +306,9 @@ export function MyListView({ onBrowse }: { onBrowse: () => void }) {
 		if (entries.length === 0) { setTitles([]); setAppState("loaded"); return () => { active = false; }; }
 		setAppState("loading");
 		Promise.all(entries.map(async (entry) => {
-			const show = await fetchShowDetails(entry.id, entry.mediaType);
+			const show = await fetchShowDetails(entry.id, entry.mediaType) ?? entry.show ?? null;
 			return show
-				? { id: show.id, title: show.title, type: entry.mediaType === "tv" ? "Series" as const : "Movie" as const, year: Number(show.year) || 0, rating: show.rating, runtime: show.duration, addedAt: entry.addedAt, image: show.image, mediaType: entry.mediaType }
+				? { id: show.id, title: show.title, type: entry.mediaType === "tv" ? "Series" as const : "Movie" as const, year: Number(show.year) || 0, rating: show.rating, runtime: show.duration, addedAt: entry.addedAt, image: show.image, mediaType: entry.mediaType, show }
 				: null;
 		})).then((items) => {
 			if (!active) return;
@@ -404,7 +345,12 @@ export function MyListView({ onBrowse }: { onBrowse: () => void }) {
 
 	const handleUndo = useCallback(() => {
 		if (!toast) return;
-		addToMyList(toast.item.id, toast.item.mediaType ?? (toast.item.type === "Series" ? "tv" : "movie"), toast.item.addedAt);
+		addToMyList(
+			toast.item.id,
+			toast.item.mediaType ?? (toast.item.type === "Series" ? "tv" : "movie"),
+			toast.item.addedAt,
+			titleToShow(toast.item),
+		);
 		setTitles((prev) => {
 			if (prev.find((t) => t.id === toast.item.id)) return prev;
 			return sortTitles([...prev, toast.item], sortOption);
@@ -412,7 +358,7 @@ export function MyListView({ onBrowse }: { onBrowse: () => void }) {
 		setToast(null);
 	}, [toast, sortOption]);
 
-	const handlePlay = useCallback((_item: Title) => {}, []);
+	const handleInfo = useCallback((item: Title) => onInfo(titleToShow(item)), [onInfo]);
 
 	return (
 		<div className={styles.page}>
@@ -505,7 +451,7 @@ export function MyListView({ onBrowse }: { onBrowse: () => void }) {
 								<div className={styles.cardGrid} role="list" aria-label="My List">
 									{sorted.map((item) => (
 										<div key={item.id} role="listitem">
-											<ContentCard item={item} onRemove={handleRemove} onPlay={handlePlay} onInfo={setModal} />
+											<ContentCard item={item} onRemove={handleRemove} onInfo={handleInfo} />
 										</div>
 									))}
 								</div>
@@ -516,7 +462,6 @@ export function MyListView({ onBrowse }: { onBrowse: () => void }) {
 			</main>
 
 			{toast && <Toast message="Removed from My List." action="Undo" onAction={handleUndo} onDismiss={() => setToast(null)} />}
-			{modal && <PreviewModal item={modal} onClose={() => setModal(null)} />}
 		</div>
 	);
 }

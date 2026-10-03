@@ -1,62 +1,7 @@
-/* ─── Page shell ───────────────────────────────────────────────────────── */
-.page {
-	background: var(--color-ink);
-}
-
-.loadingText {
-	color: var(--color-taupe);
-	font-family: var(--font-body);
-}
-
-.errorText {
-	color: var(--color-red);
-}
-
-.errorHint {
-	color: var(--color-stone);
-}
-
-/* ─── Movie card (portrait) ─────────────────────────────────────────────── */
-.progressTrack {
-	background: rgba(255, 255, 255, 0.15);
-}
-
-.progressFill {
-	background: var(--color-wine);
-}
-
-.cardOverlay {
-	background: linear-gradient(
-		to top,
-		rgba(10, 10, 15, 0.97) 0%,
-		rgba(10, 10, 15, 0.6) 55%,
-		transparent 100%
-	);
-}
-
-.cardTitle {
-	color: #ffffff;
-	font-family: var(--font-display);
-}
-
-.cardMatch {
-	color: #f5a800;
-	font-weight: 700;
-}
-
 /* ─── % match ─── */
 .matchText {
 	color: #f5a800;
 	font-weight: 700;
-}
-
-.cardMeta {
-	color: #9ca3af;
-}
-
-.cardBadge {
-	color: #9ca3af;
-	border-color: #374151;
 }
 
 .playBtn {
@@ -75,12 +20,6 @@
 }
 
 .listBtnInactive {
-	background: transparent;
-	border-color: #374151;
-	color: #9ca3af;
-}
-
-.infoBtn {
 	background: transparent;
 	border-color: #374151;
 	color: #9ca3af;
@@ -213,18 +152,6 @@
 	color: #ff8c00;
 }
 
-/* kept for any legacy usage */
-.exploreAllBtn {
-	color: var(--color-gold);
-	font-family: var(--font-body);
-	font-size: 0.75rem;
-	transition: color 0.15s ease;
-}
-
-.exploreAllBtn:hover {
-	color: #ff8c00;
-}
-
 .scrollFadeLeft {
 	background: linear-gradient(
 		to right,
@@ -297,6 +224,39 @@
 .navLinkInactive:hover {
 	color: #f5a800;
 	border-bottom-color: rgba(245, 168, 0, 0.4);
+}
+
+.adminBackLink {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px 6px 9px;
+	border: 1.5px solid rgba(124, 58, 237, 0.35);
+	border-radius: 9999px;
+	color: #9ca3af;
+	font-family: var(--font-body);
+	font-size: 0.8rem;
+	font-weight: 500;
+	white-space: nowrap;
+	transition:
+		border-color 0.18s ease,
+		color 0.18s ease,
+		background 0.18s ease,
+		box-shadow 0.18s ease;
+}
+
+.adminBackLink:hover {
+	border-color: #f5a800;
+	color: #f5a800;
+	background: rgba(245, 168, 0, 0.07);
+	box-shadow: 0 0 0 3px rgba(245, 168, 0, 0.1);
+}
+
+.adminNavDivider {
+	width: 1px;
+	height: 22px;
+	background: #374151;
+	flex: 0 0 auto;
 }
 
 .mobileNav {

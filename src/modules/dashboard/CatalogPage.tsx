@@ -1,0 +1,114 @@
+import { useState } from "react"
+import type { Show, TMDBCatalogData, CatalogKind } from "../movie/types"
+import { useTMDBCatalog } from "../movie/useTMDB"
+import {
+  CarouselRow,
+  ContinueWatchingRow,
+  Footer,
+  GENRES,
+  GenreFilters,
+  Hero,
+} from "./components"
+
+interface CatalogPageProps {
+  kind: CatalogKind
+  onWatch: (show: Show) => void
+  onInfo: (show: Show) => void
+}
+
+interface CatalogViewProps extends Omit<CatalogPageProps, "kind"> {
+  data: TMDBCatalogData
+  showHero?: boolean
+}
+
+const SKELETON_ROWS = [1, 2, 3]
+const SKELETON_CARDS = [1, 2, 3, 4, 5]
+
+function LoadingCatalog({ showHero }: { showHero: boolean }) {
+  return (
+    <div>
+      {showHero && (
+        <div
+          style={{ height: "53vh", minHeight: 280, background: "#150D2A" }}
+        />
+      )}
+      <div className="pt-6 px-4 sm:px-10 xl:px-12 space-y-8">
+        {SKELETON_ROWS.map((row) => (
+          <div key={row} className="mb-8">
+            <div className="h-5 w-40 rounded mb-3 bg-[#1A1030]" />
+            <div className="flex gap-3">
+              {SKELETON_CARDS.map((card) => (
+                <div
+                  key={card}
+                  className="rounded-xl shrink-0 w-[200px] h-[120px] bg-[#1A1030]"
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CatalogView({
+  data,
+  showHero = false,
+  onWatch,
+  onInfo,
+}: CatalogViewProps) {
+  const [genre, setGenre] = useState("All")
+  const { rows, featured, loading } = data
+
+  if (loading) return <LoadingCatalog showHero={showHero} />
+
+  const filteredRows = rows.map((row) => ({
+    ...row,
+    shows:
+      genre === "All"
+        ? row.shows
+        : row.shows.filter((show) => show.genres.includes(genre)),
+  }))
+
+  return (
+    <div className={showHero ? undefined : "pt-20"}>
+      {showHero && featured && (
+        <Hero show={featured} onWatch={onWatch} onInfo={onInfo} />
+      )}
+      <div className="space-y-8 pb-10">
+        <GenreFilters active={genre} setActive={setGenre} genres={GENRES} />
+        <ContinueWatchingRow onPlay={onWatch} onInfo={onInfo} />
+        {filteredRows.map((row) => (
+          <CarouselRow
+            key={row.title}
+            title={row.title}
+            shows={row.shows}
+            top10={row.top10}
+            onPlay={onWatch}
+            onInfo={onInfo}
+          />
+        ))}
+        <Footer />
+      </div>
+    </div>
+  )
+}
+
+export default function CatalogPage({
+  kind,
+  onWatch,
+  onInfo,
+}: CatalogPageProps) {
+  const data = useTMDBCatalog(kind)
+
+  return (
+    <div className="min-h-screen bg-[var(--color-ink)] text-[var(--color-cream)]">
+      <CatalogView
+        data={data}
+        showHero={kind === "home"}
+        onWatch={onWatch}
+        onInfo={onInfo}
+      />
+    </div>
+  )
+}
