@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react"
 import type { Tab, Toast } from "./types"
-import Navbar from "./components/Navbar"
 import ContentTab from "./components/tabs/ContentTab"
 import CategoriesTab from "./components/tabs/CategoriesTab"
 import GenresTab from "./components/tabs/GenresTab"
@@ -8,6 +7,12 @@ import SoundtracksTab from "./components/tabs/SoundtracksTab"
 import FilmRefreshersTab from "./components/tabs/FilmRefreshersTab"
 import ToastContainer from "./components/shared/Toast"
 import { useContentManagerData } from "./useContentManagerData"
+import {
+  AdminPageHeader,
+  AdminStatCard,
+  AdminStats,
+  AdminWorkspaceTabs,
+} from "../components/AdminUI"
 
 const TABS: {
   id: Tab
@@ -56,71 +61,29 @@ export default function ContentManagerView() {
   } = useContentManagerData((message) => addToast(message, "error"))
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ backgroundColor: "var(--color-ink)" }}
-    >
-      <Navbar />
+    <div className="admin-page-shell">
+      <AdminPageHeader
+        eyebrow="Library operations"
+        title="Content Management"
+        description="Curate StreamFlix titles and the metadata that powers the member catalog."
+      />
 
-      {/* Page header */}
-      <div
-        className="px-6 pt-8 pb-6"
-        style={{ borderBottom: "1px solid rgba(55, 65, 81, 0.5)" }}
-      >
-        <h1 className="text-3xl font-bold text-white mb-1">
-          Content Management
-        </h1>
-        <p className="text-sm" style={{ color: "#9CA3AF" }}>
-          Manage STREAMFLIX content, categories, genres, soundtracks, and film
-          refreshers.
-        </p>
-      </div>
+      <AdminStats>
+        <AdminStatCard label="Catalog titles" value={content.length} hint="Loaded content records" tone="purple" />
+        <AdminStatCard label="Categories" value={categories.length} hint="Catalog groupings" tone="gold" />
+        <AdminStatCard label="Genres" value={genres.length} hint="Discovery classifications" tone="blue" />
+        <AdminStatCard label="Media extras" value={soundtracks.length + refreshers.length} hint="Soundtracks and refreshers" tone="green" />
+      </AdminStats>
 
-      {/* Tabs */}
-      <div className="px-6" style={{ borderBottom: "1px solid #374151" }}>
-        <div
-          className="flex gap-0 overflow-x-auto"
-          role="tablist"
-          aria-label="Content management sections"
-        >
-          {TABS.map((tab) => {
-            const active = activeTab === tab.id
-            return (
-              <button
-                key={tab.id}
-                role="tab"
-                aria-selected={active}
-                aria-controls={`tabpanel-${tab.id}`}
-                id={`tab-${tab.id}`}
-                onClick={() => setActiveTab(tab.id)}
-                className="relative px-4 py-3.5 text-sm font-medium whitespace-nowrap transition-colors duration-150 flex-shrink-0 outline-none"
-                style={{
-                  color: active ? "#fff" : "#9CA3AF",
-                  backgroundColor: "transparent",
-                  border: "none",
-                  borderBottom: active
-                    ? "2px solid #7C3AED"
-                    : "2px solid transparent",
-                  textShadow: active
-                    ? "0 0 12px rgba(124, 58, 237, 0.4)"
-                    : "none",
-                }}
-                onMouseEnter={(e) => {
-                  if (!active) e.currentTarget.style.color = "#8B5CF6"
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) e.currentTarget.style.color = "#9CA3AF"
-                }}
-              >
-                {tab.label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      <AdminWorkspaceTabs
+        tabs={TABS}
+        active={activeTab}
+        onChange={setActiveTab}
+        label="Content management sections"
+      />
 
       {/* Tab content */}
-      <div className="px-6 py-6">
+      <div className="admin-tab-panel">
         {activeTab === "content" && (
           <div
             role="tabpanel"

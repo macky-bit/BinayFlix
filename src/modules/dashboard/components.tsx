@@ -649,10 +649,14 @@ export function Navbar({
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
+  const adminProfileKey =
+    adminItems && adminItems.length > 1
+      ? "master"
+      : (activeAdminItem ?? adminItems?.[0]?.id ?? "master")
+
   const adminProfile =
     activePage === "admin"
-      ? (ADMIN_PROFILE_BY_ITEM[activeAdminItem ?? "master"] ??
-        ADMIN_PROFILE_BY_ITEM.master)
+      ? (ADMIN_PROFILE_BY_ITEM[adminProfileKey] ?? ADMIN_PROFILE_BY_ITEM.master)
       : null
 
   const visibleNavLinks = showAdminLink
@@ -674,7 +678,7 @@ export function Navbar({
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 flex items-center gap-4 sm:gap-6 px-4 sm:px-10 xl:px-12 h-14 ${styles.header}`}
+      className={`fixed top-0 left-0 right-0 z-50 flex items-center gap-4 sm:gap-6 px-4 sm:px-10 xl:px-12 h-14 ${styles.header} ${adminItems ? styles.adminHeader : ""}`}
     >
       <button
         className={`${
@@ -691,6 +695,7 @@ export function Navbar({
       <div className="shrink-0 mr-2">{LOGO_SVG}</div>
 
       <nav
+        aria-label={adminItems ? "Administrator workspaces" : "StreamFlix sections"}
         className={`hidden ${
           adminItems ? "lg:flex gap-3" : "md:flex gap-5"
         } items-center min-w-0`}
@@ -814,7 +819,7 @@ export function Navbar({
         {searchOpen ? (
           <input
             autoFocus
-            placeholder="Search movies, shows, genres..."
+            placeholder={adminItems ? "Search admin…" : "Search movies, shows, genres..."}
             className={`w-32 sm:w-56 px-3 py-1.5 text-sm rounded-lg outline-none ${styles.searchInput}`}
             onBlur={() => setSearchOpen(false)}
           />

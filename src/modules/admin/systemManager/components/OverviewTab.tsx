@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 
 import { useAdminCollection, useAdminRepository } from "../../data"
+import { AdminStatCard, AdminStats } from "../../components/AdminUI"
 import {
   DetailRow,
   Drawer,
@@ -8,8 +9,6 @@ import {
   Pagination,
   SearchInput,
   Select,
-  StatusBadge,
-  statusVariantFor,
 } from "./shared"
 
 interface LogEntry {
@@ -89,7 +88,9 @@ export default function OverviewTab({
     {
       title: "Security Events",
       status: criticalCount > 0 ? "Review required" : "Clear",
-      detail: `${criticalCount} critical event${criticalCount === 1 ? "" : "s"}`,
+      detail: `${criticalCount} critical event${
+        criticalCount === 1 ? "" : "s"
+      }`,
     },
   ]
 
@@ -97,21 +98,33 @@ export default function OverviewTab({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {statusPanels.map((panel) => (
-          <section key={panel.title} className="card-surface p-4 space-y-2">
-            <h3 className="text-sm font-semibold text-white">{panel.title}</h3>
-            <StatusBadge
-              label={panel.status}
-              variant={statusVariantFor(panel.status)}
-            />
-            <p className="text-xs text-[#9CA3AF]">{panel.detail}</p>
-          </section>
+      <AdminStats>
+        {statusPanels.map((panel, index) => (
+          <AdminStatCard
+            key={panel.title}
+            label={panel.title}
+            value={panel.status}
+            hint={panel.detail}
+            tone={
+              index === 0
+                ? "purple"
+                : index === 1
+                  ? "blue"
+                  : index === 2
+                    ? "gold"
+                    : criticalCount > 0
+                      ? "red"
+                      : "green"
+            }
+          />
         ))}
-      </div>
+      </AdminStats>
 
       <section className="table-surface">
-        <div className="flex flex-wrap gap-3 p-4 border-b border-stone-700/60">
+        <div
+          className="admin-filter-row flex flex-wrap gap-3 p-4 border-b border-stone-700/60"
+          role="search"
+        >
           <SearchInput
             value={search}
             onChange={(value) => {
@@ -141,13 +154,18 @@ export default function OverviewTab({
           <table className="w-full text-sm">
             <thead>
               <tr>
-                {['ID', 'Date', 'Event', 'Description', 'Severity', 'Status'].map(
-                  (heading) => (
-                    <th key={heading} className="text-left p-3 text-[#9CA3AF]">
-                      {heading}
-                    </th>
-                  ),
-                )}
+                {[
+                  "ID",
+                  "Date",
+                  "Event",
+                  "Description",
+                  "Severity",
+                  "Status",
+                ].map((heading) => (
+                  <th key={heading} className="text-left p-3 text-[#9CA3AF]">
+                    {heading}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -192,7 +210,11 @@ export default function OverviewTab({
       </div>
 
       {selectedLog && (
-        <Drawer open={Boolean(selectedLog)} title="System log" onClose={() => setSelectedLog(null)}>
+        <Drawer
+          open={Boolean(selectedLog)}
+          title="System log"
+          onClose={() => setSelectedLog(null)}
+        >
           <DetailRow label="ID" value={selectedLog.id} />
           <DetailRow label="Date" value={selectedLog.dateTime} />
           <DetailRow label="Event" value={selectedLog.eventType} />

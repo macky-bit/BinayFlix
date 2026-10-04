@@ -3,6 +3,7 @@ import {
   useAdminCollection,
   useAdminRepository,
 } from "../data";
+import { AdminPageHeader, AdminStatCard, AdminStats, AdminWorkspaceTabs } from "../components/AdminUI";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type AccountStatus = "Active" | "Suspended" | "Inactive";
@@ -72,21 +73,6 @@ interface Payment {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function initials(name: string) {
-  return name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
-}
-
-function Avatar({ name, color, size = 32 }: { name: string; color: string; size?: number }) {
-  return (
-    <div
-      style={{ width: size, height: size, backgroundColor: color, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.38, fontWeight: 600, color: "#fff", flexShrink: 0 }}
-      aria-label={name}
-    >
-      {initials(name)}
-    </div>
-  );
-}
-
 function StatusBadge({ status }: { status: AccountStatus | SubStatus | PayStatus }) {
   const map: Record<string, { dot: string; text: string; bg: string; label: string }> = {
     Active:    { dot: "#22C55E", text: "#22C55E", bg: "rgba(34,197,94,0.12)", label: "Active" },
@@ -105,6 +91,11 @@ function StatusBadge({ status }: { status: AccountStatus | SubStatus | PayStatus
       {s.label}
     </span>
   );
+}
+
+function shortId(id: string) {
+  if (id.length <= 12) return id;
+  return `${id.slice(0, 6)}…${id.slice(-4)}`;
 }
 
 function ProgressBar({ pct }: { pct: number }) {
@@ -427,6 +418,10 @@ function SubscribersTab({ onToast, navigateToSubscription }: { onToast: (m: stri
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
   const selected = subscribers.find(s => s.id === selectedId) ?? null;
   const linkedSub = selected ? subscriptions.find(s => s.subscriberId === selected.id) : null;
+  const subscriptionsBySubscriber = new Map(subscriptions.map(subscription => [subscription.subscriberId, subscription]));
+  const activeSubscribers = subscribers.filter(subscriber => subscriber.status === "Active").length;
+  const suspendedSubscribers = subscribers.filter(subscriber => subscriber.status === "Suspended").length;
+  const activeSubscriptions = subscriptions.filter(subscription => subscription.status === "Active").length;
 
   function resetFilters() {
     setSearch(""); setStatusFilter("All Account Statuses"); setDateFilter("All Registration Dates"); setSort("Newest First"); setPage(1);
@@ -471,8 +466,14 @@ function SubscribersTab({ onToast, navigateToSubscription }: { onToast: (m: stri
 
   return (
     <div>
+      <AdminStats>
+        <AdminStatCard label="Subscribers" value={subscribers.length.toLocaleString()} hint="Loaded accounts" tone="purple" />
+        <AdminStatCard label="Active accounts" value={activeSubscribers.toLocaleString()} hint="Can access StreamFlix" tone="green" />
+        <AdminStatCard label="Active plans" value={activeSubscriptions.toLocaleString()} hint="Current subscriptions" tone="gold" />
+        <AdminStatCard label="Suspended" value={suspendedSubscribers.toLocaleString()} hint="Require attention" tone="red" />
+      </AdminStats>
       {/* Filters */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+      <div className="admin-filter-row" style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search users..." />
         <Select value={statusFilter} onChange={v => { setStatusFilter(v); setPage(1); }} options={["All Account Statuses", "Active", "Suspended", "Inactive"]} />
         <Select value={dateFilter} onChange={v => { setDateFilter(v); setPage(1); }} options={["All Registration Dates", "Today", "This Week", "This Month", "This Year", "Custom Date"]} />
@@ -487,21 +488,26 @@ function SubscribersTab({ onToast, navigateToSubscription }: { onToast: (m: stri
         <>
           <TableShell headers={[
             <input type="checkbox" aria-label="Select all" style={{ cursor: "pointer" }} />,
-            "Subscriber ID", "Subscriber", "Email", "Username", "Mobile Number", "Registration Date", "Account Status", "Actions"
+            "Subscriber", "Email", "Subscription", "Joined", "Status", "Actions"
           ]}>
             {paged.map(s => (
               <Tr key={s.id} selected={selectedId === s.id} onClick={() => setSelectedId(s.id)}>
                 <Td><input type="checkbox" onClick={e => e.stopPropagation()} aria-label={`Select ${s.firstName}`} style={{ cursor: "pointer" }} /></Td>
-                <Td style={{ color: "#9CA3AF", fontFamily: "monospace", fontSize: 12 }}>{s.id}</Td>
                 <Td>
-                  <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                    <Avatar name={`${s.firstName} ${s.lastName}`} color={s.avatar} size={30} />
-                    <span style={{ fontWeight: 500 }}>{s.firstName} {s.lastName}</span>
+                  <div>
+                    <span style={{ display: "block", fontWeight: 600, color: "#fff" }}>{s.firstName} {s.lastName}</span>
+                    <span style={{ display: "block", marginTop: 3, fontSize: 12, color: "#8f879c" }}>@{s.username} · {shortId(s.id)}</span>
                   </div>
                 </Td>
                 <Td style={{ color: "#9CA3AF", maxWidth: 180 }}><span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.email}</span></Td>
-                <Td style={{ color: "#9CA3AF" }}>@{s.username}</Td>
-                <Td style={{ color: "#9CA3AF" }}>{s.mobile}</Td>
+                <Td>
+                  {subscriptionsBySubscriber.get(s.id) ? (
+                    <div>
+                      <span style={{ display: "block", fontWeight: 500 }}>{subscriptionsBySubscriber.get(s.id)?.plan}</span>
+                      <span style={{ display: "block", marginTop: 3 }}><StatusBadge status={subscriptionsBySubscriber.get(s.id)!.status} /></span>
+                    </div>
+                  ) : <span style={{ color: "#716a7d" }}>No subscription</span>}
+                </Td>
                 <Td style={{ color: "#9CA3AF", whiteSpace: "nowrap" }}>{s.registeredAt}</Td>
                 <Td><StatusBadge status={s.status} /></Td>
                 <Td>
@@ -520,9 +526,8 @@ function SubscribersTab({ onToast, navigateToSubscription }: { onToast: (m: stri
       {/* Subscriber Details Panel */}
       {selected && viewMode === "details" && (
         <Panel title="Subscriber Details" onClose={() => setViewMode(null)} width={420}>
-          <div style={{ textAlign: "center", marginBottom: 20 }}>
-            <Avatar name={`${selected.firstName} ${selected.lastName}`} color={selected.avatar} size={72} />
-            <h3 style={{ margin: "10px 0 2px", fontSize: 18, fontWeight: 700 }}>{selected.firstName} {selected.lastName}</h3>
+          <div style={{ marginBottom: 22, paddingBottom: 18, borderBottom: "1px solid rgba(107,114,128,.3)" }}>
+            <h3 style={{ margin: "0 0 3px", fontSize: 20, fontWeight: 700 }}>{selected.firstName} {selected.lastName}</h3>
             <p style={{ margin: 0, fontSize: 13, color: "#9CA3AF" }}>@{selected.username}</p>
           </div>
           <DetailRow label="Subscriber ID" value={selected.id} mono />
@@ -1209,123 +1214,49 @@ function PaymentsTab({ onToast }: { onToast: (m: string) => void }) {
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 
-function Navbar({ section, setSection }: { section: "user" | "subscription"; setSection: (s: "user" | "subscription") => void }) {
-  const navLink = (active: boolean, label: string, onClick: () => void) => (
-    <button
-      onClick={onClick}
-      style={{
-        background: "none", border: "none", cursor: "pointer", padding: "0 4px 12px", fontFamily: "Barlow, sans-serif", fontSize: 15, fontWeight: 500,
-        color: active ? "#fff" : "#9CA3AF",
-        borderBottom: active ? "2px solid #7C3AED" : "2px solid transparent",
-        textShadow: active ? "0 0 12px rgba(124,58,237,0.7)" : "none",
-        transition: "all 0.15s"
-      }}
-    >
-      {label}
-    </button>
-  );
-
-  return (
-    <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "var(--color-ink)", borderBottom: "1px solid #374151", padding: "0 24px", display: "flex", alignItems: "center", height: 58 }}>
-      {/* Left */}
-      <div style={{ display: "flex", alignItems: "center", gap: 28, flex: 1 }}>
-        <div style={{ display: "flex", gap: 24, paddingTop: 12 }}>
-          {navLink(section === "user", "User Management", () => setSection("user"))}
-          {navLink(section === "subscription", "Subscription Management", () => setSection("subscription"))}
-        </div>
-      </div>
-    </nav>
-  );
-}
-
 // ─── User Management Section ──────────────────────────────────────────────────
 
-function UserManagementSection({ navigateToSubscription }: { navigateToSubscription: (subId: string) => void }) {
-  const [tab, setTab] = useState<"subscribers" | "watch">("subscribers");
-  const [toast, setToast] = useState<string | null>(null);
-
-  const tabBtn = (active: boolean, label: string, onClick: () => void) => (
-    <button
-      onClick={onClick}
-      style={{
-        padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "Barlow, sans-serif", fontSize: 14, fontWeight: 600, transition: "all 0.15s",
-        background: active ? "#7C3AED" : "transparent",
-        color: active ? "#fff" : "#9CA3AF",
-        outline: active ? "none" : "1px solid #374151"
-      }}
-    >
-      {label}
-    </button>
-  );
-
-  return (
-    <div style={{ padding: "28px 24px", maxWidth: 1400, margin: "0 auto" }}>
-      <h1 style={{ margin: "0 0 4px", fontSize: 26, fontWeight: 700 }}>User Management</h1>
-      <p style={{ margin: "0 0 24px", fontSize: 14, color: "#9CA3AF" }}>Manage STREAMFLIX subscriber accounts and viewing records.</p>
-      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
-        {tabBtn(tab === "subscribers", "Subscribers", () => setTab("subscribers"))}
-        {tabBtn(tab === "watch", "Watch History", () => setTab("watch"))}
-      </div>
-      {tab === "subscribers" && <SubscribersTab onToast={m => setToast(m)} navigateToSubscription={navigateToSubscription} />}
-      {tab === "watch" && <WatchHistoryTab />}
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
-    </div>
-  );
-}
-
 // ─── Subscription Management Section ─────────────────────────────────────────
-
-function SubscriptionManagementSection({ focusSubId }: { focusSubId?: string | null }) {
-  const [tab, setTab] = useState<"subscriptions" | "plans" | "payments">(focusSubId ? "subscriptions" : "subscriptions");
-  const [toast, setToast] = useState<string | null>(null);
-
-  const tabBtn = (active: boolean, label: string, onClick: () => void) => (
-    <button
-      onClick={onClick}
-      style={{
-        padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "Barlow, sans-serif", fontSize: 14, fontWeight: 600, transition: "all 0.15s",
-        background: active ? "#7C3AED" : "transparent",
-        color: active ? "#fff" : "#9CA3AF",
-        outline: active ? "none" : "1px solid #374151"
-      }}
-    >
-      {label}
-    </button>
-  );
-
-  return (
-    <div style={{ padding: "28px 24px", maxWidth: 1400, margin: "0 auto" }}>
-      <h1 style={{ margin: "0 0 4px", fontSize: 26, fontWeight: 700 }}>Subscription Management</h1>
-      <p style={{ margin: "0 0 24px", fontSize: 14, color: "#9CA3AF" }}>Manage subscriber plans, subscriptions, and payment records.</p>
-      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
-        {tabBtn(tab === "subscriptions", "Subscriptions", () => setTab("subscriptions"))}
-        {tabBtn(tab === "plans", "Plans", () => setTab("plans"))}
-        {tabBtn(tab === "payments", "Payments", () => setTab("payments"))}
-      </div>
-      {tab === "subscriptions" && <SubscriptionsTab onToast={m => setToast(m)} focusId={focusSubId} />}
-      {tab === "plans" && <PlansTab onToast={m => setToast(m)} />}
-      {tab === "payments" && <PaymentsTab onToast={m => setToast(m)} />}
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
-    </div>
-  );
-}
 
 // ─── App Root ─────────────────────────────────────────────────────────────────
 
 export default function UserManagerView() {
-  const [section, setSection] = useState<"user" | "subscription">("user");
+  const [tab, setTab] = useState<"subscribers" | "watch" | "subscriptions" | "plans" | "payments">("subscribers");
   const [focusSubId, setFocusSubId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   function navigateToSubscription(subId: string) {
     setFocusSubId(subId);
-    setSection("subscription");
+    setTab("subscriptions");
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--color-ink)", color: "#fff", fontFamily: "Barlow, sans-serif" }}>
-      <Navbar section={section} setSection={s => { setSection(s); setFocusSubId(null); }} />
-      {section === "user" && <UserManagementSection navigateToSubscription={navigateToSubscription} />}
-      {section === "subscription" && <SubscriptionManagementSection focusSubId={focusSubId} />}
+    <div className="admin-page-shell users-workspace">
+      <AdminPageHeader
+        eyebrow="User management"
+        title="Users"
+        description="Manage subscriber accounts, viewing records, plans, subscriptions, and payment verification."
+      />
+
+      <AdminWorkspaceTabs
+        tabs={[
+          { id: "subscribers", label: "Subscribers" },
+          { id: "watch", label: "Watch History" },
+          { id: "subscriptions", label: "Subscriptions" },
+          { id: "plans", label: "Plans" },
+          { id: "payments", label: "Payments" },
+        ]}
+        active={tab}
+        onChange={(next) => { setTab(next); if (next !== "subscriptions") setFocusSubId(null); }}
+        label="User management sections"
+      />
+
+      {tab === "subscribers" && <SubscribersTab onToast={setToast} navigateToSubscription={navigateToSubscription} />}
+      {tab === "watch" && <WatchHistoryTab />}
+      {tab === "subscriptions" && <SubscriptionsTab onToast={setToast} focusId={focusSubId} />}
+      {tab === "plans" && <PlansTab onToast={setToast} />}
+      {tab === "payments" && <PaymentsTab onToast={setToast} />}
+      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }

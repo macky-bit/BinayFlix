@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAdminCollection, useAdminRepository } from "../data";
+import { AdminPageHeader, AdminStatCard, AdminStats } from "../components/AdminUI";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type FeedbackType = "Bug Report" | "Feature Request" | "Suggestion";
@@ -534,47 +535,22 @@ export default function FeedbackManagerView() {
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
 
       {/* ── Navbar ─────────────────────────────────────────────────────────── */}
-      <nav
-        style={{
-          position: "sticky", top: 0, zIndex: 100,
-          background: "rgba(11,7,25,0.97)",
-          borderBottom: "1px solid var(--color-stone)",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "0 24px", height: 56,
-          backdropFilter: "blur(8px)",
-        }}
-        role="navigation"
-        aria-label="Main navigation"
-      >
-        {/* Left */}
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <button
-            style={{
-              background: "transparent", border: "none", cursor: "pointer",
-              color: "#fff", fontWeight: 500, fontSize: 14, padding: "4px 0",
-              borderBottom: "2px solid var(--color-wine)",
-              textShadow: "0 0 8px rgba(124,58,237,0.5)",
-              transition: "all 0.2s",
-            }}
-            className="focus-ring"
-            aria-current="page"
-          >
-            Feedback Management
-          </button>
-        </div>
-
-      </nav>
-
       {/* ── Page content ───────────────────────────────────────────────────── */}
-      <main style={{ padding: "28px 24px", maxWidth: 1440, margin: "0 auto" }}>
+      <main className="admin-page-shell">
 
         {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0, lineHeight: 1.2 }}>Feedback Management</h1>
-          <p style={{ margin: "6px 0 0", color: "var(--color-taupe)", fontSize: 14 }}>
-            Review and manage feedback submitted by STREAMFLIX users.
-          </p>
-        </div>
+        <AdminPageHeader
+          eyebrow="Member voice"
+          title="Feedback Management"
+          description="Review member reports and suggestions, inspect supporting details, and keep resolution status current."
+        />
+
+        <AdminStats>
+          <AdminStatCard label="Total feedback" value={feedback.length} hint="Loaded submissions" tone="purple" />
+          <AdminStatCard label="Open" value={feedback.filter((item) => item.status === "Open").length} hint="Awaiting review" tone="blue" />
+          <AdminStatCard label="In progress" value={feedback.filter((item) => item.status === "In Progress").length} hint="Currently being handled" tone="gold" />
+          <AdminStatCard label="Closed" value={feedback.filter((item) => item.status === "Closed").length} hint="Completed submissions" tone="green" />
+        </AdminStats>
 
         {/* ── Filter row ─────────────────────────────────────────────────── */}
         <div
@@ -582,6 +558,7 @@ export default function FeedbackManagerView() {
             display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 20, alignItems: "center",
           }}
           role="search"
+          className="admin-filter-row"
           aria-label="Filter and search feedback"
         >
           {/* Search */}
@@ -729,6 +706,7 @@ export default function FeedbackManagerView() {
 
         {/* ── Two-column workspace ────────────────────────────────────────── */}
         <div
+          className="admin-feedback-grid"
           style={{
             display: "grid",
             gridTemplateColumns: selectedItem ? "1fr 360px" : "1fr",

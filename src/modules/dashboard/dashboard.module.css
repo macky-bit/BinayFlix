@@ -226,6 +226,15 @@
 	border-bottom-color: rgba(245, 168, 0, 0.4);
 }
 
+.adminHeader {
+	background: linear-gradient(90deg, rgba(15, 9, 24, .98), rgba(34, 20, 48, .98) 55%, rgba(76, 29, 149, .92));
+	box-shadow: 0 1px 0 rgba(124, 58, 237, .28), 0 10px 35px rgba(0, 0, 0, .24);
+}
+
+.adminHeader .navLink {
+	font-size: .78rem;
+}
+
 .adminBackLink {
 	display: inline-flex;
 	align-items: center;

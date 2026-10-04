@@ -2,10 +2,11 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import type { Manager, ManagerRole, AccountStatus } from '../types'
 import { useAdminCollection, useAdminRepository } from '../../data'
 import { supabase } from '../../../../lib/supabase'
-import { getInitials, formatDate, generateId } from '../utils'
+import { formatDate, generateId } from '../utils'
 import { RoleBadge, StatusBadge } from '../components/Badge'
 import Toast from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { AdminPageHeader, AdminStatCard, AdminStats } from '../../components/AdminUI'
 
 const ROLES: ManagerRole[] = ['Master Admin', 'Content Manager', 'Comment Manager', 'Feedback Manager', 'User Manager', 'System Manager']
 const ROLE_ACCESS: Record<ManagerRole, string> = {
@@ -40,19 +41,6 @@ interface GrantCandidate {
   existingAdminId: string | null
   existingRole: string | null
   existingStatus: string | null
-}
-
-function Avatar({ name, color, size = 'md' }: { name: string; color: string; size?: 'sm' | 'md' | 'lg' }) {
-  const sizes = { sm: 'w-7 h-7 text-xs', md: 'w-9 h-9 text-sm', lg: 'w-14 h-14 text-lg' }
-  return (
-    <div
-      className={`${sizes[size]} rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0`}
-      style={{ backgroundColor: color }}
-      aria-hidden
-    >
-      {getInitials(name)}
-    </div>
-  )
 }
 
 function LoadingSpinner() {
@@ -161,12 +149,9 @@ function GrantAdminModal({ onGrant, onClose }: {
 
         {candidate && (
           <div className="mt-5 rounded-xl p-4" style={{ border: '1px solid var(--stone)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-            <div className="flex items-center gap-3">
-              <Avatar name={candidate.name || candidate.username} color="#7C3AED" />
-              <div className="min-w-0">
-                <p className="font-semibold text-white truncate">{candidate.name || candidate.username}</p>
-                <p className="text-xs truncate" style={{ color: 'var(--taupe)' }}>{candidate.email}</p>
-              </div>
+            <div className="min-w-0 pb-3" style={{ borderBottom: '1px solid rgba(107,114,128,.28)' }}>
+              <p className="font-semibold text-white truncate">{candidate.name || candidate.username}</p>
+              <p className="text-xs truncate mt-1" style={{ color: 'var(--taupe)' }}>{candidate.email}</p>
             </div>
             <dl className="mt-4 grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 text-xs">
               <dt style={{ color: 'var(--taupe)' }}>Profile UUID</dt><dd className="text-white font-mono break-all">{candidate.userId}</dd>
@@ -533,9 +518,8 @@ function AssignRoleModal({ manager, onAssign, onClose }: {
           </button>
         </div>
         <div className="flex items-center gap-3 mb-6 p-3 rounded-lg" style={{ backgroundColor: 'rgba(26,16,48,0.5)', border: '1px solid var(--stone)' }}>
-          <Avatar name={manager.name} color={manager.avatarColor} size="md" />
           <div>
-            <p className="text-white font-medium text-sm">{manager.name}</p>
+            <p className="text-white font-semibold text-sm">{manager.name}</p>
             <p className="text-xs" style={{ color: 'var(--taupe)' }}>{manager.id}</p>
           </div>
           <div className="ml-auto"><RoleBadge role={manager.role} /></div>
@@ -696,7 +680,7 @@ function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivat
         />
       )}
       <aside
-        className="flex flex-col rounded-xl overflow-hidden flex-shrink-0"
+        className="admin-details-panel flex flex-col rounded-xl overflow-hidden flex-shrink-0"
         style={{ width: 320, backgroundColor: 'var(--ink-soft)', border: '1px solid var(--stone)' }}
         aria-label="Manager Details"
       >
@@ -712,11 +696,10 @@ function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivat
 
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           {/* Profile */}
-          <div className="px-5 py-4 flex items-center gap-3" style={{ borderBottom: '1px solid var(--stone)' }}>
-            <Avatar name={manager.name} color={manager.avatarColor} size="lg" />
+          <div className="px-5 py-5" style={{ borderBottom: '1px solid var(--stone)' }}>
             <div>
-              <p className="text-white font-semibold">{manager.name}</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--taupe)' }}>User ID: {manager.id}</p>
+              <p className="text-white font-semibold text-lg">{manager.name}</p>
+              <p className="text-xs mt-1 font-mono" style={{ color: 'var(--taupe)' }}>User ID: {manager.id}</p>
             </div>
           </div>
 
@@ -1016,7 +999,7 @@ export default function AdminManagement() {
   const confirmTarget = confirmTargetId ? managers.find(m => m.id === confirmTargetId) : null
 
   return (
-    <div className="px-4 md:px-6 py-6 min-h-screen" style={{ backgroundColor: 'var(--ink)' }}>
+    <div className="admin-page-shell">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Confirm: activate/deactivate from actions column */}
@@ -1056,26 +1039,27 @@ export default function AdminManagement() {
         <AssignRoleModal manager={selectedManager} onAssign={handleAssignRole} onClose={() => setModal(null)} />
       )}
 
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Admin Management</h1>
-          <p className="mt-1 text-sm" style={{ color: 'var(--taupe)' }}>Manage STREAMFLIX Manager accounts, roles, and access.</p>
-        </div>
-        <button
-          ref={addBtnRef}
-          onClick={() => setModal('add')}
-          className="btn-gold flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm flex-shrink-0"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-          </svg>
-          Make User Admin
-        </button>
-      </div>
+      <AdminPageHeader
+        eyebrow="Access control"
+        title="Admin Management"
+        description="Manage administrator accounts, assigned roles, and access to StreamFlix operations."
+        actions={
+          <button ref={addBtnRef} onClick={() => setModal('add')} className="btn-primary flex items-center gap-2 px-5 py-2.5">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+            Make User Admin
+          </button>
+        }
+      />
+
+      <AdminStats>
+        <AdminStatCard label="Administrators" value={managers.length} hint="All assigned accounts" tone="purple" />
+        <AdminStatCard label="Active access" value={managers.filter((manager) => manager.status === 'Active').length} hint="Can enter assigned workspaces" tone="green" />
+        <AdminStatCard label="Inactive access" value={managers.filter((manager) => manager.status === 'Inactive').length} hint="Temporarily restricted" tone="gold" />
+        <AdminStatCard label="Assigned roles" value={new Set(managers.map((manager) => manager.role)).size} hint="Roles represented" tone="blue" />
+      </AdminStats>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
+      <div className="admin-filter-row flex flex-wrap items-center gap-3 mb-6">
         <div className="relative flex-1 min-w-48">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--taupe)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
@@ -1121,13 +1105,13 @@ export default function AdminManagement() {
       </div>
 
       {/* Main content: table + panel */}
-      <div className="flex gap-4 items-start">
+      <div className="admin-split-layout flex gap-4 items-start">
         {/* Table */}
         <div className="flex-1 min-w-0 card overflow-hidden">
           <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--stone)' }}>
             <h2 className="text-base font-semibold text-white">Managers ({filtered.length})</h2>
           </div>
-          <div>
+          <div className="overflow-x-auto">
             {managerState.loading
               ? <LoadingSpinner />
               : filtered.length === 0
@@ -1195,9 +1179,9 @@ export default function AdminManagement() {
                               <span className="text-xs font-mono" style={{ color: 'var(--taupe)' }}>{m.id}</span>
                             </td>
                             <td className="px-2 py-3">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <Avatar name={m.name} color={m.avatarColor} size="sm" />
-                                <span className="text-white font-medium truncate text-xs">{m.name}</span>
+                              <div className="min-w-0">
+                                <span className="text-white font-semibold truncate text-xs block">{m.name}</span>
+                                <span className="text-[11px] truncate block mt-0.5" style={{ color: '#7f778d' }}>@{m.username}</span>
                               </div>
                             </td>
                             <td className="px-2 py-3">

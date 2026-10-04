@@ -3,10 +3,10 @@ import {
   useAdminCollection,
   useAdminRepository,
 } from "../data";
+import { AdminPageHeader, AdminStatCard, AdminStats, AdminWorkspaceTabs } from "../components/AdminUI";
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type MainTab = "reviews" | "posts";
-type PostsSubTab = "posts" | "comments";
+type MainTab = "reviews" | "posts" | "comments";
 type PostStatus = "Active" | "Hidden" | "Deleted";
 
 interface Reaction {
@@ -47,6 +47,11 @@ interface Comment {
   subscriberId: string;
   text: string;
   dateCommented: string;
+}
+
+function shortId(id: string) {
+  if (id.length <= 12) return id;
+  return `${id.slice(0, 6)}…${id.slice(-4)}`;
 }
 
 const REACTION_TYPES = [
@@ -238,11 +243,20 @@ function ReviewsTab({ toast }: { toast: (msg: string) => void }) {
   };
 
   const selCount = selected.size;
+  const averageRating = reviews.length
+    ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1)
+    : "0.0";
 
   return (
     <div>
+      <AdminStats>
+        <AdminStatCard label="Reviews" value={reviews.length.toLocaleString()} hint="Published responses" tone="purple" />
+        <AdminStatCard label="Average rating" value={`${averageRating} / 5`} hint="Across loaded reviews" tone="gold" />
+        <AdminStatCard label="Reactions" value={reactionsState.items.length.toLocaleString()} hint="Community engagement" tone="green" />
+        <AdminStatCard label="Filtered results" value={filtered.length.toLocaleString()} hint="Current moderation view" tone="blue" />
+      </AdminStats>
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4">
+      <div className="admin-filter-row flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-[180px]">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#6B7280" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8" /><path strokeLinecap="round" d="m21 21-4.35-4.35" /></svg>
           <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
@@ -286,14 +300,14 @@ function ReviewsTab({ toast }: { toast: (msg: string) => void }) {
                   <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all"
                     className="w-4 h-4 rounded accent-violet-600" />
                 </th>
-                {["Review ID", "Subscriber ID", "Content", "Rating", "Review Text", "Review Date", "Reaction Summary", "Actions"].map(col => (
+                {["Reviewer", "Content", "Rating", "Review", "Date", "Reactions", "Actions"].map(col => (
                   <th key={col} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#9CA3AF" }}>{col}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={9} className="text-center py-12">
+                <tr><td colSpan={8} className="text-center py-12">
                   <div className="flex items-center justify-center gap-2" style={{ color: "#7C3AED" }}>
                     <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
                     Loading…
@@ -301,7 +315,7 @@ function ReviewsTab({ toast }: { toast: (msg: string) => void }) {
                 </td></tr>
               )}
               {!loading && paged.length === 0 && (
-                <tr><td colSpan={9} className="text-center py-16">
+                <tr><td colSpan={8} className="text-center py-16">
                   <p style={{ color: "#9CA3AF" }}>No records match your search or selected filters.</p>
                   <button onClick={reset} className="mt-3 text-sm px-4 py-1.5 rounded-lg" style={{ color: "#8B5CF6", border: "1px solid #7C3AED" }}>Reset Filters</button>
                 </td></tr>
@@ -316,8 +330,10 @@ function ReviewsTab({ toast }: { toast: (msg: string) => void }) {
                     <input type="checkbox" checked={selected.has(review.id)} onChange={() => toggleRow(review.id)} aria-label={`Select ${review.id}`}
                       onClick={e => e.stopPropagation()} className="w-4 h-4 rounded accent-violet-600" />
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs" style={{ color: "#A78BFA" }}>{review.id}</td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "#9CA3AF" }}>{review.subscriberId}</td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm font-medium text-white">{shortId(review.subscriberId)}</div>
+                    <div className="text-xs mt-1" style={{ color: "#716a7d" }}>Review {shortId(review.id)}</div>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <img src={review.contentThumb} alt={review.contentTitle} className="w-8 h-8 rounded object-cover flex-shrink-0" />
@@ -513,26 +529,6 @@ function ReviewDrawer({ review, onClose, onDeleteReview, onDeleteReaction }: {
 
 // ── Posts & Comments Tab ────────────────────────────────────────────────────
 
-function PostsCommentsTab({ toast }: { toast: (msg: string) => void }) {
-  const [subTab, setSubTab] = useState<PostsSubTab>("posts");
-  return (
-    <div>
-      <div className="flex gap-1 mb-5" role="tablist">
-        {(["posts", "comments"] as PostsSubTab[]).map(t => (
-          <button key={t} role="tab" aria-selected={subTab === t} onClick={() => setSubTab(t)}
-            className="px-4 py-2 rounded-lg text-sm font-medium capitalize transition-fast"
-            style={subTab === t
-              ? { background: "rgba(124,58,237,0.25)", color: "#A78BFA", border: "1px solid rgba(124,58,237,0.5)" }
-              : { background: "transparent", color: "#9CA3AF", border: "1px solid transparent" }}>
-            {t === "posts" ? "Posts" : "Comments"}
-          </button>
-        ))}
-      </div>
-      {subTab === "posts" ? <PostsWorkspace toast={toast} /> : <CommentsWorkspace toast={toast} />}
-    </div>
-  );
-}
-
 function PostsWorkspace({ toast }: { toast: (msg: string) => void }) {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("Status");
@@ -561,6 +557,9 @@ function PostsWorkspace({ toast }: { toast: (msg: string) => void }) {
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
   const allSelected = paged.length > 0 && paged.every(p => selected.has(p.id));
   const selCount = selected.size;
+  const activeCount = posts.filter(post => post.status === "Active").length;
+  const hiddenCount = posts.filter(post => post.status === "Hidden").length;
+  const deletedCount = posts.filter(post => post.status === "Deleted").length;
 
   const reset = () => { setSearch(""); setFilterStatus("Status"); setFilterDate("All Dates"); setSort("Newest First"); setPage(1); setSelected(new Set()); };
 
@@ -595,7 +594,13 @@ function PostsWorkspace({ toast }: { toast: (msg: string) => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-3 mb-4">
+      <AdminStats>
+        <AdminStatCard label="Posts" value={posts.length.toLocaleString()} hint="Loaded discussions" tone="purple" />
+        <AdminStatCard label="Active" value={activeCount.toLocaleString()} hint="Visible to members" tone="green" />
+        <AdminStatCard label="Hidden" value={hiddenCount.toLocaleString()} hint="Moderated content" tone="gold" />
+        <AdminStatCard label="Deleted" value={deletedCount.toLocaleString()} hint="Removed content" tone="red" />
+      </AdminStats>
+      <div className="admin-filter-row flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-[180px]">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#6B7280" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8" /><path strokeLinecap="round" d="m21 21-4.35-4.35" /></svg>
           <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search posts..." aria-label="Search posts"
@@ -629,14 +634,14 @@ function PostsWorkspace({ toast }: { toast: (msg: string) => void }) {
                 <th className="w-10 px-4 py-3">
                   <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all" className="w-4 h-4 rounded accent-violet-600" />
                 </th>
-                {["Post ID", "Subscriber ID", "Title", "Post Preview", "Date Posted", "Status", "Comments", "Actions"].map(col => (
+                {["Author", "Post", "Content", "Date", "Status", "Comments", "Actions"].map(col => (
                   <th key={col} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#9CA3AF" }}>{col}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {paged.length === 0 && (
-                <tr><td colSpan={9} className="text-center py-16">
+                <tr><td colSpan={8} className="text-center py-16">
                   <p style={{ color: "#9CA3AF" }}>No records match your search or selected filters.</p>
                   <button onClick={reset} className="mt-3 text-sm px-4 py-1.5 rounded-lg" style={{ color: "#8B5CF6", border: "1px solid #7C3AED" }}>Reset Filters</button>
                 </td></tr>
@@ -647,8 +652,10 @@ function PostsWorkspace({ toast }: { toast: (msg: string) => void }) {
                   <td className="px-4 py-3">
                     <input type="checkbox" checked={selected.has(post.id)} onChange={() => toggleRow(post.id)} aria-label={`Select ${post.id}`} className="w-4 h-4 rounded accent-violet-600" />
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs" style={{ color: "#A78BFA" }}>{post.id}</td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "#9CA3AF" }}>{post.subscriberId}</td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm font-medium text-white">{shortId(post.subscriberId)}</div>
+                    <div className="text-xs mt-1" style={{ color: "#716a7d" }}>Post {shortId(post.id)}</div>
+                  </td>
                   <td className="px-4 py-3 max-w-[150px]">
                     <div className="text-sm font-medium text-white line-clamp-2">{post.title}</div>
                   </td>
@@ -811,6 +818,8 @@ function CommentsWorkspace({ toast }: { toast: (msg: string) => void }) {
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
   const allSelected = paged.length > 0 && paged.every(c => selected.has(c.id));
   const selCount = selected.size;
+  const uniqueAuthors = new Set(comments.map(comment => comment.subscriberId)).size;
+  const uniquePosts = new Set(comments.map(comment => comment.postId)).size;
   const reset = () => { setSearch(""); setFilterPost("All Posts"); setFilterDate("All Dates"); setSort("Newest First"); setPage(1); setSelected(new Set()); };
 
   const doDelete = (id: string) => {
@@ -834,7 +843,13 @@ function CommentsWorkspace({ toast }: { toast: (msg: string) => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-3 mb-4">
+      <AdminStats>
+        <AdminStatCard label="Comments" value={comments.length.toLocaleString()} hint="Loaded responses" tone="purple" />
+        <AdminStatCard label="Contributors" value={uniqueAuthors.toLocaleString()} hint="Unique subscriber IDs" tone="green" />
+        <AdminStatCard label="Discussions" value={uniquePosts.toLocaleString()} hint="Posts with comments" tone="gold" />
+        <AdminStatCard label="Filtered results" value={filtered.length.toLocaleString()} hint="Current moderation view" tone="blue" />
+      </AdminStats>
+      <div className="admin-filter-row flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-[180px]">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#6B7280" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8" /><path strokeLinecap="round" d="m21 21-4.35-4.35" /></svg>
           <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search comments..." aria-label="Search comments"
@@ -867,14 +882,14 @@ function CommentsWorkspace({ toast }: { toast: (msg: string) => void }) {
                 <th className="w-10 px-4 py-3">
                   <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all" className="w-4 h-4 rounded accent-violet-600" />
                 </th>
-                {["Comment ID", "Post ID", "Subscriber ID", "Comment Text", "Date Commented", "Actions"].map(col => (
+                {["Author", "Discussion", "Comment", "Date", "Actions"].map(col => (
                   <th key={col} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#9CA3AF" }}>{col}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {paged.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-16">
+                <tr><td colSpan={6} className="text-center py-16">
                   <p style={{ color: "#9CA3AF" }}>No records match your search or selected filters.</p>
                   <button onClick={reset} className="mt-3 text-sm px-4 py-1.5 rounded-lg" style={{ color: "#8B5CF6", border: "1px solid #7C3AED" }}>Reset Filters</button>
                 </td></tr>
@@ -885,11 +900,16 @@ function CommentsWorkspace({ toast }: { toast: (msg: string) => void }) {
                   <td className="px-4 py-3">
                     <input type="checkbox" checked={selected.has(comment.id)} onChange={() => toggleRow(comment.id)} aria-label={`Select ${comment.id}`} className="w-4 h-4 rounded accent-violet-600" />
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs" style={{ color: "#A78BFA" }}>{comment.id}</td>
-                  <td className="px-4 py-3 font-mono text-xs" style={{ color: "#C4B5FD" }}>{comment.postId}</td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "#9CA3AF" }}>{comment.subscriberId}</td>
-                  <td className="px-4 py-3 max-w-[260px]">
-                    <p className="text-xs line-clamp-2" style={{ color: "#D1D5DB" }}>{comment.text}</p>
+                  <td className="px-4 py-3">
+                    <div className="text-sm font-medium text-white">{shortId(comment.subscriberId)}</div>
+                    <div className="text-xs mt-1" style={{ color: "#716a7d" }}>Comment {shortId(comment.id)}</div>
+                  </td>
+                  <td className="px-4 py-3 max-w-[180px]">
+                    <div className="text-sm font-medium text-white line-clamp-1">{comment.postTitle || shortId(comment.postId)}</div>
+                    <div className="text-xs mt-1" style={{ color: "#716a7d" }}>{shortId(comment.postId)}</div>
+                  </td>
+                  <td className="px-4 py-3 max-w-[360px]">
+                    <p className="text-sm leading-relaxed line-clamp-2" style={{ color: "#D1D5DB" }}>{comment.text}</p>
                   </td>
                   <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "#9CA3AF" }}>{comment.dateCommented}</td>
                   <td className="px-4 py-3">
@@ -992,48 +1012,28 @@ export default function CommentManagerView() {
   const toast = useCallback((msg: string) => { setToastMsg(msg); }, []);
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-ink)" }}>
-      {/* Navbar */}
-      <nav className="sticky top-0 z-30 flex items-center justify-between px-6 py-3"
-        style={{ background: "rgba(11,7,25,0.97)", borderBottom: "1px solid #374151", backdropFilter: "blur(8px)" }}>
-        {/* Left: nav */}
-        <div className="flex items-center gap-6">
-          <div className="hidden sm:flex items-center gap-1">
-            <button className="relative px-3 py-1.5 text-sm font-medium text-white rounded transition-fast"
-              style={{ textShadow: "0 0 12px rgba(124,58,237,0.6)" }}>
-              Community Management
-              <span className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full" style={{ background: "#7C3AED" }} />
-            </button>
-          </div>
-        </div>
+    <div className="admin-page-shell community-workspace">
+      <main>
+        <AdminPageHeader
+          eyebrow="Community moderation"
+          title="Community"
+          description="Moderate reviews, reactions, posts, and comments while preserving the context behind every report."
+        />
 
-      </nav>
+        <AdminWorkspaceTabs
+          tabs={[
+            { id: "reviews", label: "Reviews & Reactions" },
+            { id: "posts", label: "Posts" },
+            { id: "comments", label: "Comments" },
+          ]}
+          active={mainTab}
+          onChange={setMainTab}
+          label="Community management sections"
+        />
 
-      {/* Main */}
-      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8">
-        {/* Page header */}
-        <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Community Management</h1>
-          <p className="text-sm" style={{ color: "#9CA3AF" }}>Manage STREAMFLIX reviews, reactions, posts, and comments.</p>
-        </div>
-
-        {/* Main tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto" role="tablist">
-          {[{ key: "reviews" as const, label: "Reviews & Reactions" }, { key: "posts" as const, label: "Posts & Comments" }].map(tab => (
-            <button key={tab.key} role="tab" aria-selected={mainTab === tab.key} onClick={() => setMainTab(tab.key)}
-              className="px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-fast"
-              style={mainTab === tab.key
-                ? { background: "#7C3AED", color: "#fff", border: "1px solid #7C3AED", boxShadow: "0 0 16px rgba(124,58,237,0.35)" }
-                : { background: "transparent", color: "#9CA3AF", border: "1px solid #374151" }}
-              onMouseEnter={e => { if (mainTab !== tab.key) { (e.currentTarget as HTMLElement).style.color = "#A78BFA"; (e.currentTarget as HTMLElement).style.borderColor = "#7C3AED"; } }}
-              onMouseLeave={e => { if (mainTab !== tab.key) { (e.currentTarget as HTMLElement).style.color = "#9CA3AF"; (e.currentTarget as HTMLElement).style.borderColor = "#374151"; } }}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        {mainTab === "reviews" ? <ReviewsTab toast={toast} /> : <PostsCommentsTab toast={toast} />}
+        {mainTab === "reviews" && <ReviewsTab toast={toast} />}
+        {mainTab === "posts" && <PostsWorkspace toast={toast} />}
+        {mainTab === "comments" && <CommentsWorkspace toast={toast} />}
       </main>
 
       {/* Toast */}
