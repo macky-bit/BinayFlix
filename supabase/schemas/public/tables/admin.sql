@@ -6,6 +6,7 @@ CREATE TABLE "public"."admin" (
   "username"     character varying NOT NULL,
   "password"     character varying NOT NULL,
   "role"         character varying NOT NULL,
+  "status"       character varying(30) NOT NULL DEFAULT 'Active',
   CONSTRAINT "admin_auth_user_id_fkey" FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT "admin_email_key" UNIQUE (email),
   CONSTRAINT "admin_pkey" PRIMARY KEY (admin_id),

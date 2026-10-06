@@ -10,6 +10,6 @@ CREATE OR REPLACE FUNCTION public.get_admin_role()
   limit 1;
 $function$;
 
-GRANT EXECUTE ON FUNCTION "public"."get_admin_role"() TO "postgres", "service_role";
+GRANT EXECUTE ON FUNCTION "public"."get_admin_role"() TO "authenticated", "postgres", "service_role";
 
 REVOKE ALL ON FUNCTION "public"."get_admin_role"() FROM PUBLIC;

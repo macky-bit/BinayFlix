@@ -4,9 +4,10 @@ import styles from "./profile.module.css"
 
 interface Props {
   onBack: () => void
+  activeProfileId: number | null
 }
 
-export default function ProfilePage({ onBack }: Props) {
+export default function ProfilePage({ onBack, activeProfileId }: Props) {
   return (
     <div className={styles.moduleShell}>
       <div className={styles.backRow}>
@@ -26,7 +27,7 @@ export default function ProfilePage({ onBack }: Props) {
           Back to StreamFlix
         </button>
       </div>
-      <ProfileView />
+      <ProfileView activeProfileId={activeProfileId} />
     </div>
   )
 }

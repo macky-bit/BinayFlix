@@ -19,4 +19,5 @@ BEGIN
 END;
 $function$;
 
-GRANT EXECUTE ON FUNCTION "public"."route_user_by_role"() TO PUBLIC, "anon", "authenticated", "postgres", "service_role";
+REVOKE ALL ON FUNCTION "public"."route_user_by_role"() FROM PUBLIC, "anon", "authenticated";
+GRANT EXECUTE ON FUNCTION "public"."route_user_by_role"() TO "postgres", "service_role";

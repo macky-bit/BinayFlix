@@ -15,4 +15,5 @@ begin
 end;
 $function$;
 
-GRANT EXECUTE ON FUNCTION "public"."sync_streamflix_account_email"() TO PUBLIC, "anon", "authenticated", "postgres", "service_role";
+REVOKE ALL ON FUNCTION "public"."sync_streamflix_account_email"() FROM PUBLIC, "anon", "authenticated";
+GRANT EXECUTE ON FUNCTION "public"."sync_streamflix_account_email"() TO "postgres", "service_role";

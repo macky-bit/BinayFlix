@@ -48,6 +48,7 @@ interface Subscription {
   id: string;
   subscriberId: string;
   subscriberName: string;
+  planId: string;
   plan: string;
   startDate: string;
   endDate: string;
@@ -751,7 +752,7 @@ function SubscriptionsTab({ onToast, focusId }: { onToast: (m: string) => void; 
   function saveEdit() {
     if (!editData) return;
     const prevSub = subscriptions.find(s => s.id === editData.id);
-    if (prevSub?.status === "Active" && (editData.status === "Cancelled" || editData.status === "Expired" || editData.plan !== prevSub.plan)) {
+    if (prevSub?.status === "Active" && (editData.status === "Cancelled" || editData.status === "Expired" || editData.planId !== prevSub.planId)) {
       setConfirm({ action: "edit" });
       return;
     }
@@ -837,8 +838,12 @@ function SubscriptionsTab({ onToast, focusId }: { onToast: (m: string) => void; 
           <FormField label="Subscription ID"><TextInput value={editData.id} readOnly /></FormField>
           <FormField label="Subscriber ID"><TextInput value={editData.subscriberId} readOnly /></FormField>
           <FormField label="Plan">
-            <select value={editData.plan} onChange={e => setEditData(d => d ? { ...d, plan: e.target.value } : d)} style={{ width: "100%", padding: "9px 12px", background: "var(--color-ink)", border: "1px solid #374151", borderRadius: 6, color: "#fff", fontSize: 13, fontFamily: "inherit" }}>
-              {planRecords.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+            <select value={editData.planId} onChange={e => setEditData(d => {
+              if (!d) return d;
+              const plan = planRecords.find(p => p.id === e.target.value);
+              return { ...d, planId: e.target.value, plan: plan?.name ?? d.plan };
+            })} style={{ width: "100%", padding: "9px 12px", background: "var(--color-ink)", border: "1px solid #374151", borderRadius: 6, color: "#fff", fontSize: 13, fontFamily: "inherit" }}>
+              {planRecords.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </FormField>
           <FormField label="Start Date"><TextInput value={editData.startDate} onChange={v => setEditData(d => d ? { ...d, startDate: v } : d)} type="date" /></FormField>

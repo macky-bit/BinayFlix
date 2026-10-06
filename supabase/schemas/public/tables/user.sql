@@ -14,6 +14,8 @@ CREATE TABLE "public"."user" (
   "reference_number" character varying(100),
   "end_date"         timestamp with time zone,
   "user_role"        character varying(50)    NOT NULL,
+  "account_status"   character varying(30)    NOT NULL DEFAULT 'Active',
+  "joined_at"        timestamp with time zone NOT NULL DEFAULT now(),
   "auth_user_id"     uuid,
   CONSTRAINT "app_user_email_key" UNIQUE (email),
   CONSTRAINT "app_user_pkey" PRIMARY KEY (user_id),
@@ -38,6 +40,11 @@ CREATE TRIGGER trigger_route_user_by_role
   AFTER INSERT ON public."user"
   FOR EACH ROW
   EXECUTE FUNCTION public.route_user_by_role();
+
+CREATE TRIGGER trigger_protect_user_authorization_fields
+  BEFORE UPDATE OF user_role, account_status, auth_user_id ON public."user"
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_user_authorization_fields();
 
 CREATE POLICY "allow_select_user" ON "public"."user"
   FOR SELECT

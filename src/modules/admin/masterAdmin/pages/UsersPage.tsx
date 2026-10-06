@@ -702,7 +702,7 @@ export default function UsersPage() {
                         className="text-xs whitespace-nowrap"
                         style={{ color: "var(--taupe)" }}
                       >
-                        {formatDate(w.watchedAt)}
+                        {formatDate(w.watchDate)}
                       </span>
                     </Td>
                     <Td>
@@ -714,7 +714,7 @@ export default function UsersPage() {
                           <div
                             className="h-1.5 rounded-full"
                             style={{
-                              width: w.progress,
+                              width: `${Math.min(100, Math.max(0, w.progress))}%`,
                               backgroundColor: "var(--wine)",
                             }}
                           />
@@ -723,7 +723,7 @@ export default function UsersPage() {
                           className="text-xs"
                           style={{ color: "var(--taupe)" }}
                         >
-                          {w.progress}
+                          {Math.min(100, Math.max(0, w.progress))}%
                         </span>
                       </div>
                     </Td>

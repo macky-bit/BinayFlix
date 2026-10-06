@@ -9,6 +9,7 @@ import LoginPage from "./modules/login/LoginPage"
 import RegisterPage from "./modules/register/RegisterPage"
 import SubscriptionPage from "./modules/subscription/SubscriptionPage"
 import ProfileSelectPage from "./modules/profileSelect/ProfileSelectPage"
+import type { Profile } from "./modules/profileSelect/ProfileSelectPage"
 import Dashboard from "./modules/dashboard/Dashboard"
 
 import WatchScreen from "./modules/movie/fixedscreen/movie"
@@ -39,6 +40,8 @@ export default function App() {
 
   const [previewShow, setPreviewShow] = useState<Show | null>(null)
 
+  const [activeProfileId, setActiveProfileId] = useState<number | null>(null)
+
   useEffect(() => {
     let mounted = true
 
@@ -57,18 +60,20 @@ export default function App() {
       else setPage("login")
     })
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
-      window.setTimeout(() => {
-        if (!mounted) return
-        if (event === "PASSWORD_RECOVERY") {
-          setPage("resetPassword")
-        } else if (event === "SIGNED_OUT") {
-          setPage("login")
-        } else if (event === "SIGNED_IN" && session) {
-          void routeSession(session.user.id)
-        }
-      }, 0)
-    })
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        window.setTimeout(() => {
+          if (!mounted) return
+          if (event === "PASSWORD_RECOVERY") {
+            setPage("resetPassword")
+          } else if (event === "SIGNED_OUT") {
+            setPage("login")
+          } else if (event === "SIGNED_IN" && session) {
+            void routeSession(session.user.id)
+          }
+        }, 0)
+      },
+    )
 
     return () => {
       mounted = false
@@ -94,11 +99,15 @@ export default function App() {
 
   return (
     <>
-      {page === "loading" && <div className="module-loading min-h-screen">Loading StreamFlix…</div>}
+      {page === "loading" && (
+        <div className="module-loading min-h-screen">Loading StreamFlix…</div>
+      )}
 
       {page === "login" && <LoginPage onNavigate={(p) => setPage(p)} />}
 
-      {page === "resetPassword" && <ResetPasswordPage onComplete={() => setPage("login")} />}
+      {page === "resetPassword" && (
+        <ResetPasswordPage onComplete={() => setPage("login")} />
+      )}
 
       {page === "admin" && (
         <AdminPage
@@ -121,7 +130,10 @@ export default function App() {
       {page === "profileSelect" && (
         <ProfileSelectPage
           maxProfiles={plan?.MaxUser ?? 1}
-          onSelect={() => setPage("dashboard")}
+          onSelect={(profile: Profile) => {
+            setActiveProfileId(profile.id)
+            setPage("dashboard")
+          }}
         />
       )}
 
@@ -170,7 +182,10 @@ export default function App() {
       )}
 
       {page === "profile" && (
-        <ProfilePage onBack={() => setPage("dashboard")} />
+        <ProfilePage
+          onBack={() => setPage("dashboard")}
+          activeProfileId={activeProfileId}
+        />
       )}
 
       {page === "help" && <HelpPage onBack={() => setPage("dashboard")} />}

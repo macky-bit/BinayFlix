@@ -133,9 +133,9 @@ function ContentForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form onSubmit={handleSubmit} noValidate className="w-full min-w-0">
       {readOnlyId && (
-        <div className="mb-4 p-3 rounded-lg flex items-center gap-3" style={{ backgroundColor: 'rgba(124, 58, 237, 0.1)', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg p-3" style={{ backgroundColor: 'rgba(124, 58, 237, 0.1)', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
           <span className="text-xs" style={{ color: '#9CA3AF' }}>Content ID</span>
           <span className="text-sm font-mono font-semibold" style={{ color: '#8B5CF6' }}>{readOnlyId}</span>
           {readOnlyStreams !== undefined && (
@@ -337,7 +337,7 @@ function ContentForm({
       {/* Availability */}
       <div className="mb-6">
         <Label htmlFor="cnt-avail" required>Availability</Label>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {(['available', 'unavailable'] as const).map((v) => (
             <label key={v} className="flex items-center gap-2 cursor-pointer">
               <input
@@ -361,13 +361,13 @@ function ContentForm({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between gap-3" style={{ borderTop: '1px solid #374151', paddingTop: '1.25rem' }}>
-        <div>
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between" style={{ borderTop: '1px solid #374151', paddingTop: '1.25rem' }}>
+        <div className="w-full sm:w-auto">
           {onDelete && (
             <button
               type="button"
               onClick={onDelete}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              className="min-h-11 w-full rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:w-auto"
               style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#EF4444' }}
               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'; }}
@@ -376,11 +376,11 @@ function ContentForm({
             </button>
           )}
         </div>
-        <div className="flex gap-3">
+        <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="min-h-11 w-full rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:w-auto"
             style={{ backgroundColor: 'transparent', border: '1px solid #374151', color: '#9CA3AF' }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#6B7280'; e.currentTarget.style.color = '#fff'; }}
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#374151'; e.currentTarget.style.color = '#9CA3AF'; }}
@@ -389,7 +389,7 @@ function ContentForm({
           </button>
           <button
             type="submit"
-            className="px-5 py-2 rounded-lg text-sm"
+            className="min-h-11 w-full rounded-lg px-5 py-2 text-sm sm:w-auto"
             style={btnPrimaryStyle}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, #FFB800, #FF8C00)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, #F5A800, #FF6B00)'; }}

@@ -55,7 +55,7 @@ function ContentViewModal({ item, onClose, onEdit }: { item: ContentItem; onClos
             ['Category', item.category],
             ['Genres', item.genres.join(', ')],
             ['Release Year', item.releaseYear],
-            ['Runtime', item.runtime],
+            ['Runtime', `${item.runtime} min`],
             ['Age Rating', item.ageRating],
             ['Total Streams', formatNumber(item.totalStreams)],
             ['Availability', item.availability],
@@ -80,7 +80,8 @@ function ContentEditModal({ item, items, onSave, onClose }: {
   item: ContentItem | null; items: ContentItem[]
   onSave: (updated: ContentItem) => void; onClose: () => void
 }) {
-  const blank: ContentItem = { id: '', title: '', category: 'Movie', genres: [], releaseYear: 2024, runtime: '', ageRating: 'PG-13', totalStreams: 0, availability: 'Available', thumbnail: '' }
+  const currentYear = new Date().getFullYear()
+  const blank: ContentItem = { id: '', title: '', category: '', genres: [], releaseYear: 0, runtime: 0, ageRating: '', totalStreams: 0, availability: 'Unavailable', thumbnail: '' }
   const [form, setForm] = useState<ContentItem>(item ?? blank)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
@@ -89,7 +90,12 @@ function ContentEditModal({ item, items, onSave, onClose }: {
   function validate() {
     const e: Record<string, string> = {}
     if (!form.title.trim()) e.title = 'Title is required.'
-    if (!form.runtime.trim()) e.runtime = 'Runtime is required.'
+    if (!form.category) e.category = 'Select a category.'
+    if (!Number.isInteger(form.releaseYear) || form.releaseYear < 1888 || form.releaseYear > currentYear + 10) {
+      e.releaseYear = `Release year must be between 1888 and ${currentYear + 10}.`
+    }
+    if (!Number.isInteger(form.runtime) || form.runtime < 1) e.runtime = 'Runtime must be a positive whole number.'
+    if (!form.ageRating) e.ageRating = 'Select an age rating.'
     return e
   }
 
@@ -126,14 +132,17 @@ function ContentEditModal({ item, items, onSave, onClose }: {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1.5 text-white">Category</label>
-              <select className="select-field" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+              <label className="block text-sm font-medium mb-1.5 text-white">Category <span className="text-red-400">*</span></label>
+              <select className="select-field" value={form.category} onChange={e => { setForm(f => ({ ...f, category: e.target.value })); setErrors(er => ({ ...er, category: '' })) }}>
+                <option value="" disabled>Select category</option>
                 {['Movie', 'TV Series', 'Documentary', 'Mini-Series'].map(c => <option key={c}>{c}</option>)}
               </select>
+              {errors.category && <p className="mt-1 text-xs text-red-400">{errors.category}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5 text-white">Release Year</label>
-              <input type="number" className="input-field" value={form.releaseYear} onChange={e => setForm(f => ({ ...f, releaseYear: Number(e.target.value) }))} min={1900} max={2030} />
+              <label className="block text-sm font-medium mb-1.5 text-white">Release Year <span className="text-red-400">*</span></label>
+              <input type="number" className="input-field" value={form.releaseYear || ''} onChange={e => { setForm(f => ({ ...f, releaseYear: e.target.value === '' ? 0 : Number(e.target.value) })); setErrors(er => ({ ...er, releaseYear: '' })) }} min={1888} max={currentYear + 10} placeholder={String(currentYear)} />
+              {errors.releaseYear && <p className="mt-1 text-xs text-red-400">{errors.releaseYear}</p>}
             </div>
           </div>
           <div>
@@ -150,15 +159,17 @@ function ContentEditModal({ item, items, onSave, onClose }: {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1.5 text-white">Runtime <span className="text-red-400">*</span></label>
-              <input className="input-field" value={form.runtime} onChange={e => { setForm(f => ({ ...f, runtime: e.target.value })); setErrors(er => ({ ...er, runtime: '' })) }} placeholder="e.g. 148 min" />
+              <label className="block text-sm font-medium mb-1.5 text-white">Runtime (minutes) <span className="text-red-400">*</span></label>
+              <input type="number" min={1} step={1} className="input-field" value={form.runtime || ''} onChange={e => { setForm(f => ({ ...f, runtime: e.target.value === '' ? 0 : Number(e.target.value) })); setErrors(er => ({ ...er, runtime: '' })) }} placeholder="e.g. 148" />
               {errors.runtime && <p className="mt-1 text-xs text-red-400">{errors.runtime}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5 text-white">Age Rating</label>
-              <select className="select-field" value={form.ageRating} onChange={e => setForm(f => ({ ...f, ageRating: e.target.value }))}>
+              <label className="block text-sm font-medium mb-1.5 text-white">Age Rating <span className="text-red-400">*</span></label>
+              <select className="select-field" value={form.ageRating} onChange={e => { setForm(f => ({ ...f, ageRating: e.target.value })); setErrors(er => ({ ...er, ageRating: '' })) }}>
+                <option value="" disabled>Select rating</option>
                 {AGE_RATINGS.map(r => <option key={r}>{r}</option>)}
               </select>
+              {errors.ageRating && <p className="mt-1 text-xs text-red-400">{errors.ageRating}</p>}
             </div>
           </div>
           <div>
@@ -319,7 +330,7 @@ export default function ContentPage() {
                       <td className="px-3 py-3" style={{ color: 'var(--taupe)' }}>{c.category}</td>
                       <td className="px-3 py-3"><div className="flex flex-wrap gap-1">{c.genres.map(g => <span key={g} className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(124,58,237,0.15)', color: '#A78BFA' }}>{g}</span>)}</div></td>
                       <td className="px-3 py-3" style={{ color: 'var(--taupe)' }}>{c.releaseYear}</td>
-                      <td className="px-3 py-3 whitespace-nowrap" style={{ color: 'var(--taupe)' }}>{c.runtime}</td>
+                      <td className="px-3 py-3 whitespace-nowrap" style={{ color: 'var(--taupe)' }}>{c.runtime} min</td>
                       <td className="px-3 py-3" style={{ color: 'var(--taupe)' }}>{c.ageRating}</td>
                       <td className="px-3 py-3 whitespace-nowrap" style={{ color: 'var(--gold)' }}>{formatNumber(c.totalStreams)}</td>
                       <td className="px-3 py-3"><GenericBadge label={c.availability} /></td>

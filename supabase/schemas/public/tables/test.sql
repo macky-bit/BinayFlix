@@ -7,6 +7,14 @@ CREATE TABLE "public"."test" (
 ALTER TABLE "public"."test"
   ENABLE ROW LEVEL SECURITY;
 
+CREATE POLICY "deny_all_client_access" ON "public"."test"
+  FOR ALL
+  TO "anon", "authenticated"
+  USING (false)
+  WITH CHECK (false);
+
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE "public"."test" TO "anon", "authenticated", "postgres", "service_role";
+
+REVOKE ALL ON TABLE "public"."test" FROM "anon", "authenticated";
 
 COMMENT ON COLUMN "public"."test"."created_at" IS '[SENSITIVE]';

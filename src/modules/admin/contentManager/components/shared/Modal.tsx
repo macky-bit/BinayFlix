@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalProps {
   title: string;
@@ -10,17 +11,18 @@ interface ModalProps {
 export default function Modal({ title, onClose, children, wide = false }: ModalProps) {
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const previousOverflow = document.body.style.overflow;
     document.addEventListener('keydown', handleKey);
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
+      document.body.style.overflow = previousOverflow;
     };
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[400] flex items-stretch justify-center p-0 sm:items-center sm:p-4"
       style={{ backgroundColor: 'rgba(11, 7, 25, 0.85)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       role="dialog"
@@ -28,7 +30,7 @@ export default function Modal({ title, onClose, children, wide = false }: ModalP
       aria-label={title}
     >
       <div
-        className={`relative w-full rounded-2xl shadow-2xl flex flex-col max-h-[90vh] ${wide ? 'max-w-3xl' : 'max-w-xl'}`}
+        className={`relative flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden rounded-none shadow-2xl sm:h-[calc(100dvh-2rem)] sm:rounded-2xl ${wide ? 'sm:w-[94vw] sm:max-w-4xl' : 'sm:max-w-xl'}`}
         style={{
           backgroundColor: '#150D2A',
           border: '1px solid rgba(124, 58, 237, 0.4)',
@@ -37,7 +39,7 @@ export default function Modal({ title, onClose, children, wide = false }: ModalP
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-6 py-4 flex-shrink-0"
+          className="flex flex-shrink-0 items-center justify-between px-4 py-3 sm:px-6 sm:py-4"
           style={{ borderBottom: '1px solid #374151' }}
         >
           <h2 className="text-lg font-semibold text-white">{title}</h2>
@@ -53,9 +55,14 @@ export default function Modal({ title, onClose, children, wide = false }: ModalP
           </button>
         </div>
         {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-5">{children}</div>
+        <div
+          className="min-h-0 flex-1 touch-pan-y overflow-y-scroll overscroll-contain px-4 py-4 sm:px-6 sm:py-5"
+          style={{ scrollbarGutter: 'stable', WebkitOverflowScrolling: 'touch' }}
+        >
+          {children}
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
-

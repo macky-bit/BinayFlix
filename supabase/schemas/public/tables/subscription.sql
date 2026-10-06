@@ -33,4 +33,20 @@ CREATE POLICY "master_admin_update_subscription" ON "public"."subscription"
   USING (public.is_master_admin())
   WITH CHECK (public.is_master_admin());
 
+CREATE POLICY "user_manager_delete_subscription" ON "public"."subscription"
+  FOR DELETE
+  TO "authenticated"
+  USING (public.is_admin_role('userManager'::character varying));
+
+CREATE POLICY "user_manager_insert_subscription" ON "public"."subscription"
+  FOR INSERT
+  TO "authenticated"
+  WITH CHECK (public.is_admin_role('userManager'::character varying));
+
+CREATE POLICY "user_manager_update_subscription" ON "public"."subscription"
+  FOR UPDATE
+  TO "authenticated"
+  USING (public.is_admin_role('userManager'::character varying))
+  WITH CHECK (public.is_admin_role('userManager'::character varying));
+
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE "public"."subscription" TO "anon", "authenticated", "postgres", "service_role";

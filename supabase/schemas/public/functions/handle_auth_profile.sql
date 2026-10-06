@@ -10,4 +10,5 @@ begin
 end;
 $function$;
 
-GRANT EXECUTE ON FUNCTION "public"."handle_auth_profile"() TO PUBLIC, "anon", "authenticated", "postgres", "service_role";
+REVOKE ALL ON FUNCTION "public"."handle_auth_profile"() FROM PUBLIC, "anon", "authenticated";
+GRANT EXECUTE ON FUNCTION "public"."handle_auth_profile"() TO "postgres", "service_role";

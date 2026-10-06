@@ -1,9 +1,177 @@
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import styles from "./account.module.css"
 
 import SubscriptionPage from "../subscription/SubscriptionPage"
+import { supabase } from "../../lib/supabase"
 
 import type { Plan } from "../subscription/SubscriptionPage"
+
+type AccountSnapshot = {
+  email: string | null
+  planName: string | null
+  monthlyPrice: number | null
+  maxUser: number | null
+  paymentDate: string | null
+  paymentAmount: number | null
+  endDate: string | null
+  paymentMethod: string | null
+  referenceNumber: string | null
+  joinedAt: string | null
+  accountStatus: string | null
+}
+
+type BillingHistoryEntry = {
+  id: string
+  amount: number
+  paymentMethod: string | null
+  referenceNumber: string | null
+  status: string
+  paidAt: string
+}
+
+type DeviceSession = {
+  id: string
+  name: string
+  type: "Computer" | "Mobile" | "Tablet"
+  location: string
+  lastActive: string
+}
+
+type AccountMemberProfile = {
+  id: number
+  name: string
+  avatarPath: string
+  avatarUrl: string
+  isKids: boolean
+  displayOrder: number
+}
+
+type MemberProfileRow = {
+  member_profile_id: number | string
+  profile_name: string
+  avatar_image: string | null
+  is_kids: boolean
+  display_order: number
+}
+
+type MemberProfileContextRow = {
+  max_profiles: number
+  can_add_profile: boolean
+  allows_kids: boolean
+}
+
+type AvatarChoice = {
+  path: string
+  url: string
+}
+
+const isExternalAvatar = (value: string) =>
+  /^(https?:|data:|blob:)/i.test(value)
+
+function profileInitials(name: string) {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "SF"
+  )
+}
+
+async function getSignedAvatarUrls(paths: string[]) {
+  const uniquePaths = [
+    ...new Set(paths.filter((path) => path && !isExternalAvatar(path))),
+  ]
+  if (!uniquePaths.length) return new Map<string, string>()
+
+  const { data, error } = await supabase.storage
+    .from("avatar")
+    .createSignedUrls(uniquePaths, 60 * 60)
+  if (error) return new Map<string, string>()
+
+  return new Map(
+    (data ?? [])
+      .filter((item) => item.signedUrl)
+      .map((item) => [item.path, item.signedUrl]),
+  )
+}
+
+function getCurrentDeviceSession(): DeviceSession {
+  const userAgent = navigator.userAgent
+  const browser = /Edg\//.test(userAgent)
+    ? "Edge"
+    : /Firefox\//.test(userAgent)
+      ? "Firefox"
+      : /Chrome\//.test(userAgent)
+        ? "Chrome"
+        : /Safari\//.test(userAgent)
+          ? "Safari"
+          : "Web browser"
+  const platform = /iPad/.test(userAgent)
+    ? "iPad"
+    : /iPhone/.test(userAgent)
+      ? "iPhone"
+      : /Android/.test(userAgent)
+        ? "Android"
+        : /Windows/.test(userAgent)
+          ? "Windows"
+          : /Macintosh|Mac OS X/.test(userAgent)
+            ? "macOS"
+            : /Linux/.test(userAgent)
+              ? "Linux"
+              : "Unknown platform"
+  const type = /iPad|Tablet/.test(userAgent)
+    ? "Tablet"
+    : /Mobi|iPhone|Android/.test(userAgent)
+      ? "Mobile"
+      : "Computer"
+
+  return {
+    id: "current-session",
+    name: `${browser} on ${platform}`,
+    type,
+    location: "Location unavailable",
+    lastActive: "Active now",
+  }
+}
+
+function formatCurrency(value: number | null) {
+  if (value == null || !Number.isFinite(value)) return "Not available"
+
+  return new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+  }).format(value)
+}
+
+function formatAccountDate(value: string | null) {
+  if (!value) return "Not available"
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "Not available"
+
+  return new Intl.DateTimeFormat("en-PH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date)
+}
+
+function formatPaymentMethod(
+  method: string | null,
+  referenceNumber: string | null,
+) {
+  if (!method) return "Not available"
+
+  const readableMethod = method
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  const lastFour = referenceNumber?.match(/(?:^|\D)(\d{4})$/)?.[1]
+
+  return lastFour ? `${readableMethod} •••• ${lastFour}` : readableMethod
+}
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -839,23 +1007,51 @@ function DeleteAccountModal2({ onClose }: { onClose: () => void }) {
 
 function SignOutAllModal({ onClose }: { onClose: () => void }) {
   const [done, setDone] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+
+  async function signOutOtherDevices() {
+    setLoading(true)
+    setError("")
+
+    const { error: signOutError } = await supabase.auth.signOut({
+      scope: "others",
+    })
+    if (signOutError) {
+      setError(signOutError.message)
+      setLoading(false)
+      return
+    }
+
+    setDone(true)
+    setLoading(false)
+  }
 
   return (
     <ModalOverlay onClose={onClose}>
-      <ModalBox title="Sign Out of All Devices?" onClose={onClose}>
+      <ModalBox title="Sign Out of Other Devices?" onClose={onClose}>
         {done ? (
           <p
             className="text-sm py-4 text-center"
             style={{ color: "var(--color-taupe)" }}
           >
-            Signed out of all devices.
+            Other devices have been signed out. This device remains active.
           </p>
         ) : (
           <>
             <p className="text-sm mb-6" style={{ color: "var(--color-taupe)" }}>
-              You will be signed out of all devices except this one. You will
-              need to sign in again on those devices.
+              Every other StreamFlix session will need to sign in again. Your
+              current browser will remain signed in.
             </p>
+            {error && (
+              <p
+                role="alert"
+                className="text-sm mb-4"
+                style={{ color: "#ff8a8a" }}
+              >
+                {error}
+              </p>
+            )}
             <div className="flex gap-3">
               <button
                 onClick={onClose}
@@ -877,10 +1073,8 @@ function SignOutAllModal({ onClose }: { onClose: () => void }) {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setDone(true)
-                  setTimeout(onClose, 1200)
-                }}
+                onClick={() => void signOutOtherDevices()}
+                disabled={loading}
                 className="flex-1 py-2.5 rounded text-sm font-semibold transition-colors"
                 style={{
                   background: "linear-gradient(135deg, #F5A800, #FF6B00)",
@@ -894,7 +1088,7 @@ function SignOutAllModal({ onClose }: { onClose: () => void }) {
                     "linear-gradient(135deg, #F5A800, #FF6B00)"
                 }}
               >
-                Sign Out All
+                {loading ? "Signing out…" : "Sign Out Other Devices"}
               </button>
             </div>
           </>
@@ -908,10 +1102,12 @@ function SignOutAllModal({ onClose }: { onClose: () => void }) {
 
 function BillingDetailsModal({
   onClose,
-  plan,
+  account,
+  billingHistory,
 }: {
   onClose: () => void
-  plan: Plan | null
+  account: AccountSnapshot | null
+  billingHistory: BillingHistoryEntry[]
 }) {
   return (
     <ModalOverlay onClose={onClose}>
@@ -920,17 +1116,31 @@ function BillingDetailsModal({
           {[
             {
               label: "Plan",
-              value: plan ? `StreamFlix ${plan.PlanName}` : "No active plan",
+              value: account?.planName
+                ? `StreamFlix ${account.planName}`
+                : "No active plan",
             },
 
             {
               label: "Amount",
-              value: plan ? `${plan.MonthlyPrice} / month` : "—",
+              value:
+                account?.monthlyPrice != null
+                  ? `${formatCurrency(account.monthlyPrice)} / month`
+                  : "Not available",
             },
 
-            { label: "Payment Method", value: "•••• 4242" },
+            {
+              label: "Payment Method",
+              value: formatPaymentMethod(
+                account?.paymentMethod ?? null,
+                account?.referenceNumber ?? null,
+              ),
+            },
 
-            { label: "Next Billing Date", value: "September 27, 2026" },
+            {
+              label: "Next Billing Date",
+              value: formatAccountDate(account?.endDate ?? null),
+            },
           ].map((row) => (
             <div
               key={row.label}
@@ -956,20 +1166,25 @@ function BillingDetailsModal({
           >
             Billing History
           </p>
-          {["Aug 27, 2026", "Jul 27, 2026", "Jun 27, 2026"].map((date) => (
+          {billingHistory.map((entry) => (
             <div
-              key={date}
+              key={entry.id}
               className="flex justify-between py-2"
               style={{ borderBottom: "1px solid var(--color-stone)" }}
             >
               <span className="text-sm" style={{ color: "var(--color-taupe)" }}>
-                {date}
+                {formatAccountDate(entry.paidAt)}
               </span>
               <span className="text-sm" style={{ color: "var(--color-cream)" }}>
-                {plan?.MonthlyPrice ?? "—"}
+                {formatCurrency(entry.amount)}
               </span>
             </div>
           ))}
+          {billingHistory.length === 0 && (
+            <p className="text-sm py-2" style={{ color: "var(--color-taupe)" }}>
+              No billing history is available.
+            </p>
+          )}
         </div>
         <button
           onClick={onClose}
@@ -1017,12 +1232,39 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 function OverviewContent({
   setSection,
   setModal,
+  account,
+  loading,
+  loadError,
 }: {
   setSection: (s: Section) => void
   setModal: (m: Modal) => void
+  account: AccountSnapshot | null
+  loading: boolean
+  loadError: string
 }) {
+  const membershipStatus = account?.planName
+    ? account.accountStatus || "Status unavailable"
+    : "No plan"
+  const joinedYear = account?.joinedAt
+    ? new Date(account.joinedAt).getFullYear()
+    : null
+  const memberSince =
+    joinedYear && Number.isFinite(joinedYear) ? joinedYear : null
+
   return (
     <div className="space-y-8">
+      {loadError && (
+        <p
+          role="alert"
+          className="rounded-lg px-4 py-3 text-sm"
+          style={{
+            border: "1px solid var(--color-wine)",
+            color: "var(--color-cream)",
+          }}
+        >
+          {loadError}
+        </p>
+      )}
       <div
         className="rounded-lg p-5"
         style={{
@@ -1042,7 +1284,11 @@ function OverviewContent({
               className="font-display text-2xl font-bold tracking-wide"
               style={{ color: "var(--color-cream)" }}
             >
-              StreamFlix Premium
+              {loading
+                ? "Loading membership…"
+                : account?.planName
+                  ? `StreamFlix ${account.planName}`
+                  : "No active plan"}
             </p>
           </div>
           <div className="flex flex-col gap-1.5 items-start">
@@ -1057,10 +1303,12 @@ function OverviewContent({
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ backgroundColor: "rgba(21,13,42,0.5)" }}
               />
-              Active
+              {loading ? "Loading" : membershipStatus}
             </span>
             <span className="text-xs" style={{ color: "var(--color-taupe)" }}>
-              Member since 2026
+              {memberSince
+                ? `Member since ${memberSince}`
+                : "Membership date unavailable"}
             </span>
           </div>
           <button
@@ -1089,7 +1337,7 @@ function OverviewContent({
           {[
             {
               label: "Email",
-              value: "kevin@example.com",
+              value: loading ? "Loading…" : account?.email || "Not available",
               action: "Change",
               modal: "email" as Modal,
             },
@@ -1157,7 +1405,7 @@ function OverviewContent({
               className="text-sm font-bold"
               style={{ color: "var(--color-cream)" }}
             >
-              Premium
+              {loading ? "Loading…" : account?.planName || "No active plan"}
             </span>
             <span
               style={{
@@ -1169,7 +1417,11 @@ function OverviewContent({
               }}
             />
             <span className="text-sm" style={{ color: "var(--color-cream)" }}>
-              4K + HDR
+              {account?.maxUser
+                ? `Up to ${account.maxUser} profile${
+                    account.maxUser === 1 ? "" : "s"
+                  }`
+                : "Plan details unavailable"}
             </span>
             <span
               style={{
@@ -1187,7 +1439,10 @@ function OverviewContent({
               <span style={{ color: "var(--color-taupe)" }}>
                 <IconCreditCard />
               </span>
-              •••• 4242
+              {formatPaymentMethod(
+                account?.paymentMethod ?? null,
+                account?.referenceNumber ?? null,
+              )}
             </span>
             <span
               style={{
@@ -1201,7 +1456,7 @@ function OverviewContent({
             <span className="text-sm" style={{ color: "var(--color-taupe)" }}>
               Next billing date:{" "}
               <span style={{ color: "var(--color-cream)" }}>
-                September 27, 2026
+                {formatAccountDate(account?.endDate ?? null)}
               </span>
             </span>
           </div>
@@ -1306,10 +1561,12 @@ function OverviewContent({
 
 function MembershipPage({
   setModal,
-  plan,
+  account,
+  billingHistory,
 }: {
   setModal: (m: Modal) => void
-  plan: Plan | null
+  account: AccountSnapshot | null
+  billingHistory: BillingHistoryEntry[]
 }) {
   const [cancelling, setCancelling] = useState(false)
 
@@ -1330,23 +1587,23 @@ function MembershipPage({
                 className="font-display text-2xl font-bold tracking-wide mb-1"
                 style={{ color: "var(--color-cream)" }}
               >
-                {plan ? `StreamFlix ${plan.PlanName}` : "No active plan"}
+                {account?.planName
+                  ? `StreamFlix ${account.planName}`
+                  : "No active plan"}
               </p>
               <div className="flex flex-wrap gap-3 mt-3">
-                {["4K + HDR", "Dolby Audio", "4 Screens", "Downloads"].map(
-                  (f) => (
-                    <span
-                      key={f}
-                      className="text-xs px-2.5 py-1 rounded"
-                      style={{
-                        border: "1px solid var(--color-stone)",
-                        color: "var(--color-taupe)",
-                      }}
-                    >
-                      {f}
-                    </span>
-                  ),
-                )}
+                {account?.maxUser ? (
+                  <span
+                    className="text-xs px-2.5 py-1 rounded"
+                    style={{
+                      border: "1px solid var(--color-stone)",
+                      color: "var(--color-taupe)",
+                    }}
+                  >
+                    Up to {account.maxUser} profile
+                    {account.maxUser === 1 ? "" : "s"}
+                  </span>
+                ) : null}
               </div>
             </div>
             <div className="text-right">
@@ -1354,7 +1611,7 @@ function MembershipPage({
                 className="font-display text-xl font-bold"
                 style={{ color: "var(--color-cream)" }}
               >
-                {plan?.MonthlyPrice ?? "—"}
+                {formatCurrency(account?.monthlyPrice ?? null)}
               </p>
               <p className="text-xs" style={{ color: "var(--color-taupe)" }}>
                 per month
@@ -1379,7 +1636,7 @@ function MembershipPage({
             e.currentTarget.style.color = "var(--color-taupe)"
           }}
         >
-          {plan ? "Change Plan" : "Choose a Plan"}
+          {account?.planName ? "Change Plan" : "Choose a Plan"}
         </button>
       </div>
 
@@ -1391,21 +1648,27 @@ function MembershipPage({
           {[
             {
               label: "Payment Method",
-              value: "•••• 4242",
+              value: formatPaymentMethod(
+                account?.paymentMethod ?? null,
+                account?.referenceNumber ?? null,
+              ),
               action: "Update",
               onClick: () => setModal("updatePayment"),
             },
 
             {
               label: "Next Billing Date",
-              value: "September 27, 2026",
+              value: formatAccountDate(account?.endDate ?? null),
               action: null,
               onClick: undefined,
             },
 
             {
               label: "Amount",
-              value: plan ? `${plan.MonthlyPrice} / month` : "—",
+              value:
+                account?.monthlyPrice != null
+                  ? `${formatCurrency(account.monthlyPrice)} / month`
+                  : "Not available",
               action: null,
               onClick: undefined,
             },
@@ -1451,38 +1714,20 @@ function MembershipPage({
       <div>
         <SectionHeading>Billing History</SectionHeading>
         <div>
-          {[
-            {
-              date: "Aug 27, 2026",
-              amount: plan?.MonthlyPrice ?? "—",
-              status: "Paid",
-            },
-
-            {
-              date: "Jul 27, 2026",
-              amount: plan?.MonthlyPrice ?? "—",
-              status: "Paid",
-            },
-
-            {
-              date: "Jun 27, 2026",
-              amount: plan?.MonthlyPrice ?? "—",
-              status: "Paid",
-            },
-          ].map((row, i, arr) => (
-            <div key={row.date}>
+          {billingHistory.map((row, i, entries) => (
+            <div key={row.id}>
               <div className="flex items-center py-3 gap-4">
                 <span
                   className="flex-1 text-sm"
                   style={{ color: "var(--color-taupe)" }}
                 >
-                  {row.date}
+                  {formatAccountDate(row.paidAt)}
                 </span>
                 <span
                   className="text-sm"
                   style={{ color: "var(--color-cream)" }}
                 >
-                  {row.amount}
+                  {formatCurrency(row.amount)}
                 </span>
                 <span
                   className="text-xs px-2 py-0.5 rounded"
@@ -1494,9 +1739,14 @@ function MembershipPage({
                   {row.status}
                 </span>
               </div>
-              {i < arr.length - 1 && <Divider />}
+              {i < entries.length - 1 && <Divider />}
             </div>
           ))}
+          {billingHistory.length === 0 && (
+            <p className="text-sm py-3" style={{ color: "var(--color-taupe)" }}>
+              No billing history is available.
+            </p>
+          )}
         </div>
       </div>
 
@@ -1566,7 +1816,17 @@ function MembershipPage({
 
 // ─── Security Page ────────────────────────────────────────────────────────────
 
-function SecurityPage({ setModal }: { setModal: (m: Modal) => void }) {
+function SecurityPage({
+  setModal,
+  currentDevice,
+  deviceLoading,
+  deviceError,
+}: {
+  setModal: (m: Modal) => void
+  currentDevice: DeviceSession | null
+  deviceLoading: boolean
+  deviceError: string
+}) {
   const [twoStep, setTwoStep] = useState(false)
 
   return (
@@ -1668,53 +1928,53 @@ function SecurityPage({ setModal }: { setModal: (m: Modal) => void }) {
       <Divider />
 
       <div>
-        <SectionHeading>Recent Account Access</SectionHeading>
+        <SectionHeading>Current Account Access</SectionHeading>
         <div>
-          {[
-            {
-              device: "Chrome on Mac",
-              location: "New York, US",
-              time: "Active now",
-            },
-
-            {
-              device: "Safari on iPhone",
-              location: "New York, US",
-              time: "2 hours ago",
-            },
-
-            {
-              device: "StreamFlix TV App",
-              location: "New York, US",
-              time: "Yesterday",
-            },
-          ].map((row, i, arr) => (
-            <div key={row.device}>
+          {deviceLoading && (
+            <p className="text-sm py-3" style={{ color: "var(--color-taupe)" }}>
+              Loading account access…
+            </p>
+          )}
+          {deviceError && (
+            <p
+              role="alert"
+              className="text-sm py-3"
+              style={{ color: "#ff8a8a" }}
+            >
+              {deviceError}
+            </p>
+          )}
+          {!deviceLoading && !deviceError && currentDevice && (
+            <div>
               <div className="flex items-center py-3 gap-4">
                 <div className="flex-1">
                   <p
                     className="text-sm"
                     style={{ color: "var(--color-cream)" }}
                   >
-                    {row.device}
+                    {currentDevice.name}
                   </p>
                   <p
                     className="text-xs mt-0.5"
                     style={{ color: "var(--color-taupe)" }}
                   >
-                    {row.location}
+                    {currentDevice.type} · Current browser
                   </p>
                 </div>
                 <span
                   className="text-xs"
                   style={{ color: "var(--color-taupe)" }}
                 >
-                  {row.time}
+                  {currentDevice.lastActive}
                 </span>
               </div>
-              {i < arr.length - 1 && <Divider />}
             </div>
-          ))}
+          )}
+          {!deviceLoading && !deviceError && !currentDevice && (
+            <p className="text-sm py-3" style={{ color: "var(--color-taupe)" }}>
+              No active session was found.
+            </p>
+          )}
         </div>
       </div>
 
@@ -1732,7 +1992,7 @@ function SecurityPage({ setModal }: { setModal: (m: Modal) => void }) {
             e.currentTarget.style.color = "var(--color-taupe)"
           }}
         >
-          Sign Out of All Devices
+          Sign Out of Other Devices
         </button>
       </div>
     </div>
@@ -1741,52 +2001,54 @@ function SecurityPage({ setModal }: { setModal: (m: Modal) => void }) {
 
 // ─── Devices Page ─────────────────────────────────────────────────────────────
 
-function DevicesPage() {
-  const [devices, setDevices] = useState([
-    {
-      id: 1,
-      name: "Chrome on Mac",
-      type: "Computer",
-      location: "New York, US",
-      last: "Active now",
-      download: true,
-    },
+function DevicesPage({
+  currentDevice,
+  loading,
+  loadError,
+}: {
+  currentDevice: DeviceSession | null
+  loading: boolean
+  loadError: string
+}) {
+  const [signingOut, setSigningOut] = useState(false)
+  const [signOutError, setSignOutError] = useState("")
 
-    {
-      id: 2,
-      name: "Safari on iPhone 15",
-      type: "Mobile",
-      location: "New York, US",
-      last: "2 hours ago",
-      download: true,
-    },
+  async function signOutCurrentDevice() {
+    setSigningOut(true)
+    setSignOutError("")
 
-    {
-      id: 3,
-      name: "StreamFlix Smart TV",
-      type: "TV",
-      location: "New York, US",
-      last: "Yesterday",
-      download: false,
-    },
-
-    {
-      id: 4,
-      name: "Firefox on Windows",
-      type: "Computer",
-      location: "New York, US",
-      last: "3 days ago",
-      download: false,
-    },
-  ])
+    const { error } = await supabase.auth.signOut({ scope: "local" })
+    if (error) {
+      setSignOutError(error.message)
+      setSigningOut(false)
+    }
+  }
 
   return (
     <div className="space-y-8 pb-6">
       <div>
-        <SectionHeading>Signed-In Devices</SectionHeading>
+        <SectionHeading>Current Device</SectionHeading>
+        <p className="text-xs mb-2" style={{ color: "var(--color-taupe)" }}>
+          Remote device details are not exposed by the authentication provider.
+          You can revoke every other session from Security settings.
+        </p>
         <div>
-          {devices.map((d, i, arr) => (
-            <div key={d.id}>
+          {loading && (
+            <p className="text-sm py-4" style={{ color: "var(--color-taupe)" }}>
+              Loading signed-in devices…
+            </p>
+          )}
+          {(loadError || signOutError) && (
+            <p
+              role="alert"
+              className="text-sm py-4"
+              style={{ color: "#ff8a8a" }}
+            >
+              {loadError || signOutError}
+            </p>
+          )}
+          {!loading && !loadError && currentDevice && (
+            <div key={currentDevice.id}>
               <div className="flex items-center py-4 gap-4">
                 <div
                   className="w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
@@ -1801,30 +2063,28 @@ function DevicesPage() {
                     className="text-sm font-medium"
                     style={{ color: "var(--color-cream)" }}
                   >
-                    {d.name}
+                    {currentDevice.name}
                   </p>
                   <p
                     className="text-xs mt-0.5"
                     style={{ color: "var(--color-taupe)" }}
                   >
-                    {d.type} · {d.location} · {d.last}
+                    {currentDevice.type} · {currentDevice.location} ·{" "}
+                    {currentDevice.lastActive}
                   </p>
                 </div>
-                {d.download && (
-                  <span
-                    className="text-xs px-2 py-0.5 rounded hidden sm:inline"
-                    style={{
-                      border: "1px solid var(--color-stone)",
-                      color: "var(--color-taupe)",
-                    }}
-                  >
-                    Downloads
-                  </span>
-                )}
+                <span
+                  className="text-xs px-2 py-0.5 rounded hidden sm:inline"
+                  style={{
+                    border: "1px solid var(--color-stone)",
+                    color: "var(--color-taupe)",
+                  }}
+                >
+                  This device
+                </span>
                 <button
-                  onClick={() =>
-                    setDevices((prev) => prev.filter((x) => x.id !== d.id))
-                  }
+                  onClick={() => void signOutCurrentDevice()}
+                  disabled={signingOut}
                   className="text-xs flex-shrink-0 transition-colors"
                   style={{ color: "var(--color-taupe)" }}
                   onMouseEnter={(e) => {
@@ -1834,12 +2094,16 @@ function DevicesPage() {
                     e.currentTarget.style.color = "var(--color-taupe)"
                   }}
                 >
-                  Sign Out
+                  {signingOut ? "Signing out…" : "Sign Out"}
                 </button>
               </div>
-              {i < arr.length - 1 && <Divider />}
             </div>
-          ))}
+          )}
+          {!loading && !loadError && !currentDevice && (
+            <p className="text-sm py-4" style={{ color: "var(--color-taupe)" }}>
+              No active session was found.
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -1849,178 +2113,407 @@ function DevicesPage() {
 // ─── Profiles Page ────────────────────────────────────────────────────────────
 
 function ProfilesPage() {
-  const [profiles] = useState([
-    {
-      id: 1,
-      initials: "KC",
-      name: "Kevin",
-      rating: "All",
-      lang: "English",
-      locked: false,
-      primary: true,
-    },
-
-    {
-      id: 2,
-      initials: "MR",
-      name: "Movies",
-      rating: "18+",
-      lang: "English",
-      locked: false,
-      primary: false,
-    },
-
-    {
-      id: 3,
-      initials: "KI",
-      name: "Kids",
-      rating: "G",
-      lang: "English",
-      locked: true,
-      primary: false,
-    },
-  ])
-
+  const [profiles, setProfiles] = useState<AccountMemberProfile[]>([])
+  const [avatars, setAvatars] = useState<AvatarChoice[]>([])
+  const [maxProfiles, setMaxProfiles] = useState<number | null>(null)
+  const [canAddProfile, setCanAddProfile] = useState(false)
+  const [allowsKidsProfiles, setAllowsKidsProfiles] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState("")
   const [adding, setAdding] = useState(false)
-
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [newName, setNewName] = useState("")
+  const [selectedAvatar, setSelectedAvatar] = useState("")
+  const [isKids, setIsKids] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState("")
+
+  const loadProfiles = useCallback(async () => {
+    setLoading(true)
+    setLoadError("")
+
+    try {
+      const [profilesResult, contextResult, avatarListResult] =
+        await Promise.all([
+          supabase.rpc("get_my_member_profiles"),
+          supabase.rpc("get_my_member_profile_context"),
+          supabase.storage.from("avatar").list("", {
+            limit: 24,
+            sortBy: { column: "name", order: "asc" },
+          }),
+        ])
+
+      if (profilesResult.error) throw profilesResult.error
+      if (contextResult.error) throw contextResult.error
+
+      const rows = (profilesResult.data ?? []) as MemberProfileRow[]
+      const context = ((contextResult.data ?? [])[0] ??
+        null) as MemberProfileContextRow | null
+      const avatarFiles = avatarListResult.error
+        ? []
+        : (avatarListResult.data ?? []).filter((file) => file.id)
+      const signedUrls = await getSignedAvatarUrls([
+        ...rows.map((row) => row.avatar_image?.trim() ?? ""),
+        ...avatarFiles.map((file) => file.name),
+      ])
+
+      setProfiles(
+        rows.map((row) => {
+          const avatarPath = row.avatar_image?.trim() ?? ""
+          return {
+            id: Number(row.member_profile_id),
+            name: row.profile_name,
+            avatarPath,
+            avatarUrl: isExternalAvatar(avatarPath)
+              ? avatarPath
+              : (signedUrls.get(avatarPath) ?? ""),
+            isKids: row.is_kids,
+            displayOrder: row.display_order,
+          }
+        }),
+      )
+      setAvatars(
+        avatarFiles
+          .map((file) => ({
+            path: file.name,
+            url: signedUrls.get(file.name) ?? "",
+          }))
+          .filter((avatar) => avatar.url),
+      )
+      setMaxProfiles(context?.max_profiles ?? null)
+      setCanAddProfile(context?.can_add_profile ?? false)
+      setAllowsKidsProfiles(context?.allows_kids ?? false)
+    } catch (error) {
+      console.error("Unable to load account profiles", error)
+      setLoadError("We couldn't load your profiles. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadProfiles()
+  }, [loadProfiles])
+
+  function closeEditor() {
+    setAdding(false)
+    setEditingId(null)
+    setNewName("")
+    setSelectedAvatar("")
+    setIsKids(false)
+    setSaveError("")
+  }
+
+  function beginAdd() {
+    setAdding(true)
+    setEditingId(null)
+    setNewName("")
+    setSelectedAvatar(avatars[0]?.path ?? "")
+    setIsKids(false)
+    setSaveError("")
+  }
+
+  function beginEdit(profile: AccountMemberProfile) {
+    setAdding(false)
+    setEditingId(profile.id)
+    setNewName(profile.name)
+    setSelectedAvatar(
+      avatars.some((avatar) => avatar.path === profile.avatarPath)
+        ? profile.avatarPath
+        : (avatars[0]?.path ?? ""),
+    )
+    setIsKids(profile.isKids)
+    setSaveError("")
+  }
+
+  async function saveProfile() {
+    const name = newName.trim()
+    if (!name) {
+      setSaveError("Enter a profile name.")
+      return
+    }
+    if (!selectedAvatar) {
+      setSaveError("Choose an avatar before saving.")
+      return
+    }
+
+    setSaving(true)
+    setSaveError("")
+
+    const result = editingId
+      ? await supabase.rpc("update_my_member_profile", {
+          selected_profile_id: editingId,
+          selected_profile_name: name,
+          selected_avatar_path: selectedAvatar,
+          selected_pin: null,
+          remove_pin: false,
+        })
+      : await supabase.rpc("create_my_member_profile", {
+          selected_profile_name: name,
+          selected_avatar_path: selectedAvatar,
+          selected_is_kids: isKids,
+          selected_pin: null,
+        })
+
+    if (result.error) {
+      setSaveError(result.error.message || "We couldn't save that profile.")
+      setSaving(false)
+      return
+    }
+
+    await loadProfiles()
+    setSaving(false)
+    closeEditor()
+  }
+
+  const editorOpen = adding || editingId != null
 
   return (
     <div className="space-y-8 pb-6">
       <div>
         <SectionHeading>Profiles</SectionHeading>
-        <div>
-          {profiles.map((p, i, arr) => (
-            <div key={p.id}>
-              <div className="flex items-center py-4 gap-4">
-                <div
-                  className="w-9 h-9 rounded font-display font-bold text-sm flex items-center justify-center flex-shrink-0"
-                  style={{
-                    background: "linear-gradient(135deg, #F5A800, #FF6B00)",
-                    color: "#08080F",
-                  }}
-                >
-                  {p.initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="text-sm font-medium"
-                    style={{ color: "var(--color-cream)" }}
-                  >
-                    {p.name}{" "}
-                    {p.primary && (
-                      <span
-                        className="text-xs ml-1"
-                        style={{ color: "var(--color-taupe)" }}
-                      >
-                        (Primary)
-                      </span>
-                    )}
-                  </p>
-                  <p
-                    className="text-xs mt-0.5"
-                    style={{ color: "var(--color-taupe)" }}
-                  >
-                    {p.rating} · {p.lang}
-                    {p.locked ? " · Locked" : ""}
-                  </p>
-                </div>
-                <button
-                  className="text-xs transition-colors"
-                  style={{ color: "var(--color-taupe)" }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = "#F5A800"
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = "var(--color-taupe)"
-                  }}
-                >
-                  Edit
-                </button>
-              </div>
-              {i < arr.length - 1 && <Divider />}
-            </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          {!adding ? (
+        {maxProfiles != null && !loading && (
+          <p className="text-xs mb-2" style={{ color: "var(--color-taupe)" }}>
+            {profiles.length} of {maxProfiles} profiles used
+          </p>
+        )}
+        {loading && (
+          <p className="text-sm py-4" style={{ color: "var(--color-taupe)" }}>
+            Loading profiles…
+          </p>
+        )}
+        {loadError && (
+          <div role="alert" className="py-4">
+            <p className="text-sm mb-3" style={{ color: "#ff8a8a" }}>
+              {loadError}
+            </p>
             <button
-              onClick={() => setAdding(true)}
-              className="text-sm font-medium px-4 py-2 rounded transition-colors"
-              style={{
-                border: "1px solid var(--color-stone)",
-                color: "var(--color-taupe)",
-                backgroundColor: "transparent",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-taupe)"
-                e.currentTarget.style.color = "#F5A800"
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-stone)"
-                e.currentTarget.style.color = "var(--color-taupe)"
-              }}
+              type="button"
+              onClick={() => void loadProfiles()}
+              className="text-sm font-medium"
+              style={{ color: "var(--color-taupe)" }}
             >
-              + Add Profile
+              Try Again
             </button>
-          ) : (
-            <div
-              className="rounded-lg p-4"
-              style={{
-                border: "1px solid var(--color-stone)",
-                backgroundColor: "rgba(21,13,42,0.5)",
-              }}
-            >
+          </div>
+        )}
+        {!loading && !loadError && (
+          <div>
+            {profiles.map((p, i, arr) => (
+              <div key={p.id}>
+                <div className="flex items-center py-4 gap-4">
+                  <div
+                    className="relative w-9 h-9 overflow-hidden rounded font-display font-bold text-sm flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: "linear-gradient(135deg, #F5A800, #FF6B00)",
+                      color: "#08080F",
+                    }}
+                  >
+                    {profileInitials(p.name)}
+                    {p.avatarUrl && (
+                      <img
+                        src={p.avatarUrl}
+                        alt=""
+                        className="absolute inset-0 h-full w-full rounded object-cover"
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none"
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-sm font-medium"
+                      style={{ color: "var(--color-cream)" }}
+                    >
+                      {p.name}
+                    </p>
+                    <p
+                      className="text-xs mt-0.5"
+                      style={{ color: "var(--color-taupe)" }}
+                    >
+                      {p.isKids ? "Kids profile" : `Profile ${p.displayOrder}`}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => beginEdit(p)}
+                    className="text-xs transition-colors"
+                    style={{ color: "var(--color-taupe)" }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "#F5A800"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = "var(--color-taupe)"
+                    }}
+                  >
+                    Edit
+                  </button>
+                </div>
+                {i < arr.length - 1 && <Divider />}
+              </div>
+            ))}
+            {!profiles.length && (
               <p
-                className="text-xs font-medium mb-2 tracking-wide uppercase"
+                className="text-sm py-4"
                 style={{ color: "var(--color-taupe)" }}
               >
-                Profile Name
+                No profiles have been created yet.
               </p>
-              <input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="New profile name"
-                className="w-full px-3 py-2.5 rounded text-sm outline-none mb-3"
-                style={{
-                  backgroundColor: "var(--color-ink)",
-                  border: "1px solid var(--color-stone)",
-                  color: "var(--color-cream)",
-                  fontFamily: "Barlow, sans-serif",
-                }}
-              />
-              <div className="flex gap-3">
+            )}
+          </div>
+        )}
+      </div>
+      <div className="mt-4">
+        {!editorOpen && !loading && !loadError ? (
+          <button
+            type="button"
+            onClick={beginAdd}
+            disabled={!canAddProfile}
+            className="text-sm font-medium px-4 py-2 rounded transition-colors"
+            style={{
+              border: "1px solid var(--color-stone)",
+              color: canAddProfile
+                ? "var(--color-taupe)"
+                : "var(--color-stone)",
+              backgroundColor: "transparent",
+              cursor: canAddProfile ? "pointer" : "not-allowed",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "var(--color-taupe)"
+              e.currentTarget.style.color = "#F5A800"
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--color-stone)"
+              e.currentTarget.style.color = "var(--color-taupe)"
+            }}
+          >
+            {canAddProfile ? "+ Add Profile" : "Profile limit reached"}
+          </button>
+        ) : editorOpen ? (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              void saveProfile()
+            }}
+            className="rounded-lg p-4"
+            style={{
+              border: "1px solid var(--color-stone)",
+              backgroundColor: "rgba(21,13,42,0.5)",
+            }}
+          >
+            <p
+              className="text-xs font-medium mb-2 tracking-wide uppercase"
+              style={{ color: "var(--color-taupe)" }}
+            >
+              {editingId ? "Edit Profile" : "Add Profile"}
+            </p>
+            <label
+              htmlFor="account-profile-name"
+              className="block text-xs font-medium mb-2 tracking-wide uppercase"
+              style={{ color: "var(--color-taupe)" }}
+            >
+              Profile Name
+            </label>
+            <input
+              id="account-profile-name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="New profile name"
+              maxLength={50}
+              className="w-full px-3 py-2.5 rounded text-sm outline-none mb-3"
+              style={{
+                backgroundColor: "var(--color-ink)",
+                border: "1px solid var(--color-stone)",
+                color: "var(--color-cream)",
+                fontFamily: "Barlow, sans-serif",
+              }}
+            />
+            <p
+              className="text-xs font-medium mb-2 tracking-wide uppercase"
+              style={{ color: "var(--color-taupe)" }}
+            >
+              Avatar
+            </p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {avatars.map((avatar, index) => (
                 <button
-                  onClick={() => {
-                    setAdding(false)
-                    setNewName("")
-                  }}
-                  className="px-4 py-2 rounded text-sm transition-colors"
+                  key={avatar.path}
+                  type="button"
+                  onClick={() => setSelectedAvatar(avatar.path)}
+                  aria-label={`Choose avatar ${index + 1}`}
+                  aria-pressed={selectedAvatar === avatar.path}
+                  className="h-11 w-11 overflow-hidden rounded"
                   style={{
-                    border: "1px solid var(--color-stone)",
-                    color: "var(--color-taupe)",
-                    backgroundColor: "transparent",
+                    border:
+                      selectedAvatar === avatar.path
+                        ? "2px solid #F5A800"
+                        : "1px solid var(--color-stone)",
                   }}
                 >
-                  Cancel
+                  <img
+                    src={avatar.url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
                 </button>
-                <button
-                  onClick={() => {
-                    setAdding(false)
-                    setNewName("")
-                  }}
-                  className="px-4 py-2 rounded text-sm font-semibold transition-colors"
-                  style={{
-                    background: "linear-gradient(135deg, #F5A800, #FF6B00)",
-                    color: "#08080F",
-                  }}
-                >
-                  Save
-                </button>
-              </div>
+              ))}
+              {!avatars.length && (
+                <p className="text-sm" style={{ color: "var(--color-taupe)" }}>
+                  No profile avatars are currently available.
+                </p>
+              )}
             </div>
-          )}
-        </div>
+            {!editingId && allowsKidsProfiles && (
+              <label
+                className="mb-3 flex items-center gap-2 text-sm"
+                style={{ color: "var(--color-taupe)" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isKids}
+                  onChange={(event) => setIsKids(event.target.checked)}
+                />
+                Kids profile
+              </label>
+            )}
+            {saveError && (
+              <p
+                role="alert"
+                className="text-sm mb-3"
+                style={{ color: "#ff8a8a" }}
+              >
+                {saveError}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={closeEditor}
+                disabled={saving}
+                className="px-4 py-2 rounded text-sm transition-colors"
+                style={{
+                  border: "1px solid var(--color-stone)",
+                  color: "var(--color-taupe)",
+                  backgroundColor: "transparent",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving || !newName.trim() || !selectedAvatar}
+                className="px-4 py-2 rounded text-sm font-semibold transition-colors"
+                style={{
+                  background: "linear-gradient(135deg, #F5A800, #FF6B00)",
+                  color: "#08080F",
+                }}
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </form>
+        ) : null}
       </div>
     </div>
   )
@@ -2194,7 +2687,7 @@ function UpdatePaymentModal({ onClose }: { onClose: () => void }) {
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-const sidebarItems: { key: Section; label: string; icon: React.ReactNode }[] = [
+const sidebarItems: { key: Section label: string icon: React.ReactNode }[] = [
   { key: "overview", label: "Overview", icon: <IconHome /> },
 
   { key: "membership", label: "Membership", icon: <IconCard /> },
@@ -2270,7 +2763,6 @@ function Sidebar({
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 export function AccountView({
-  plan,
   onPlanChange,
 }: {
   plan: Plan | null
@@ -2281,6 +2773,157 @@ export function AccountView({
   const [modal, setModal] = useState<Modal>(null)
 
   const [deleteStep, setDeleteStep] = useState(1)
+
+  const [account, setAccount] = useState<AccountSnapshot | null>(null)
+  const [billingHistory, setBillingHistory] = useState<BillingHistoryEntry[]>(
+    [],
+  )
+  const [accountLoading, setAccountLoading] = useState(true)
+  const [accountLoadError, setAccountLoadError] = useState("")
+  const [currentDevice, setCurrentDevice] = useState<DeviceSession | null>(null)
+  const [deviceLoading, setDeviceLoading] = useState(true)
+  const [deviceLoadError, setDeviceLoadError] = useState("")
+
+  const loadAccount = useCallback(async () => {
+    setAccountLoading(true)
+    setAccountLoadError("")
+
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError) throw authError
+    if (!authData.user)
+      throw new Error("You must be signed in to view account details.")
+
+    const [settingsResult, accountResult] = await Promise.all([
+      supabase.rpc("get_my_account_settings"),
+      supabase
+        .from("user")
+        .select("user_id, joined_at, account_status, reference_number")
+        .eq("auth_user_id", authData.user.id)
+        .maybeSingle(),
+    ])
+
+    if (settingsResult.error) throw settingsResult.error
+    if (accountResult.error) throw accountResult.error
+    if (!accountResult.data)
+      throw new Error("No account is linked to this sign-in.")
+
+    const paymentsResult = await supabase
+      .from("payment_transaction")
+      .select(
+        "payment_id, amount, payment_method, reference_number, status, paid_at, created_at",
+      )
+      .eq("user_id", accountResult.data.user_id)
+      .order("created_at", { ascending: false })
+      .limit(12)
+
+    if (paymentsResult.error) throw paymentsResult.error
+
+    const settings = Array.isArray(settingsResult.data)
+      ? settingsResult.data[0]
+      : settingsResult.data
+    if (!settings) throw new Error("No account is linked to this sign-in.")
+
+    const numberOrNull = (value: unknown) => {
+      if (value == null) return null
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? parsed : null
+    }
+
+    const snapshot: AccountSnapshot = {
+      email: settings.email ? String(settings.email) : null,
+      planName: settings.plan_name ? String(settings.plan_name) : null,
+      monthlyPrice: numberOrNull(settings.monthly_price),
+      maxUser: numberOrNull(settings.max_user),
+      paymentDate: settings.payment_date ? String(settings.payment_date) : null,
+      paymentAmount: numberOrNull(settings.payment_amount),
+      endDate: settings.end_date ? String(settings.end_date) : null,
+      paymentMethod: settings.payment_method
+        ? String(settings.payment_method)
+        : null,
+      referenceNumber: accountResult.data?.reference_number
+        ? String(accountResult.data.reference_number)
+        : null,
+      joinedAt: accountResult.data?.joined_at
+        ? String(accountResult.data.joined_at)
+        : null,
+      accountStatus: accountResult.data?.account_status
+        ? String(accountResult.data.account_status)
+        : null,
+    }
+
+    const history = (paymentsResult.data ?? []).map((payment) => ({
+      id: String(payment.payment_id),
+      amount: Number(payment.amount),
+      paymentMethod: payment.payment_method
+        ? String(payment.payment_method)
+        : null,
+      referenceNumber: payment.reference_number
+        ? String(payment.reference_number)
+        : null,
+      status: String(payment.status),
+      paidAt: String(payment.paid_at ?? payment.created_at),
+    }))
+
+    if (
+      history.length === 0 &&
+      snapshot.paymentDate &&
+      snapshot.paymentAmount != null
+    ) {
+      history.push({
+        id: `account-payment-${snapshot.paymentDate}`,
+        amount: snapshot.paymentAmount,
+        paymentMethod: snapshot.paymentMethod,
+        referenceNumber: snapshot.referenceNumber,
+        status: "Paid",
+        paidAt: snapshot.paymentDate,
+      })
+    }
+
+    setAccount(snapshot)
+    setBillingHistory(history)
+    setAccountLoading(false)
+  }, [])
+
+  useEffect(() => {
+    void loadAccount().catch((error: unknown) => {
+      setAccountLoadError(
+        error instanceof Error
+          ? error.message
+          : "Account details could not be loaded.",
+      )
+      setAccountLoading(false)
+    })
+  }, [loadAccount])
+
+  const loadCurrentDevice = useCallback(async () => {
+    setDeviceLoading(true)
+    setDeviceLoadError("")
+
+    const [sessionResult, userResult] = await Promise.all([
+      supabase.auth.getSession(),
+      supabase.auth.getUser(),
+    ])
+    if (sessionResult.error) throw sessionResult.error
+    if (userResult.error) throw userResult.error
+
+    setCurrentDevice(
+      sessionResult.data.session && userResult.data.user
+        ? getCurrentDeviceSession()
+        : null,
+    )
+    setDeviceLoading(false)
+  }, [])
+
+  useEffect(() => {
+    void loadCurrentDevice().catch((error: unknown) => {
+      setDeviceLoadError(
+        error instanceof Error
+          ? error.message
+          : "Signed-in devices could not be loaded.",
+      )
+      setDeviceLoading(false)
+    })
+  }, [loadCurrentDevice])
 
   const sectionTitles: Record<Section, string> = {
     overview: "Account",
@@ -2312,13 +2955,36 @@ export function AccountView({
           <Sidebar active={section} setActive={setSection} />
           <div className="flex-1 min-w-0">
             {section === "overview" && (
-              <OverviewContent setSection={setSection} setModal={setModal} />
+              <OverviewContent
+                setSection={setSection}
+                setModal={setModal}
+                account={account}
+                loading={accountLoading}
+                loadError={accountLoadError}
+              />
             )}
             {section === "membership" && (
-              <MembershipPage setModal={setModal} plan={plan} />
+              <MembershipPage
+                setModal={setModal}
+                account={account}
+                billingHistory={billingHistory}
+              />
             )}
-            {section === "security" && <SecurityPage setModal={setModal} />}
-            {section === "devices" && <DevicesPage />}
+            {section === "security" && (
+              <SecurityPage
+                setModal={setModal}
+                currentDevice={currentDevice}
+                deviceLoading={deviceLoading}
+                deviceError={deviceLoadError}
+              />
+            )}
+            {section === "devices" && (
+              <DevicesPage
+                currentDevice={currentDevice}
+                loading={deviceLoading}
+                loadError={deviceLoadError}
+              />
+            )}
             {section === "profiles" && <ProfilesPage />}
             {section === "privacy" && <PrivacyPage />}
           </div>
@@ -2331,7 +2997,11 @@ export function AccountView({
       )}
       {modal === "phone" && <AddPhoneModal onClose={() => setModal(null)} />}
       {modal === "billing" && (
-        <BillingDetailsModal onClose={() => setModal(null)} plan={plan} />
+        <BillingDetailsModal
+          onClose={() => setModal(null)}
+          account={account}
+          billingHistory={billingHistory}
+        />
       )}
       {modal === "signout" && (
         <SignOutAllModal onClose={() => setModal(null)} />
@@ -2342,7 +3012,10 @@ export function AccountView({
       {modal === "changePlan" && (
         <div className={styles.subscriptionOverlay}>
           <SubscriptionPage
-            onSubscribe={onPlanChange}
+            onSubscribe={(nextPlan) => {
+              onPlanChange(nextPlan)
+              void loadAccount()
+            }}
             onComplete={() => setModal(null)}
             onBack={() => setModal(null)}
           />

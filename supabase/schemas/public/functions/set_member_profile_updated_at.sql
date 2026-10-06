@@ -9,4 +9,5 @@ begin
 end;
 $function$;
 
-GRANT EXECUTE ON FUNCTION "public"."set_member_profile_updated_at"() TO PUBLIC, "anon", "authenticated", "postgres", "service_role";
+REVOKE ALL ON FUNCTION "public"."set_member_profile_updated_at"() FROM PUBLIC, "anon", "authenticated";
+GRANT EXECUTE ON FUNCTION "public"."set_member_profile_updated_at"() TO "postgres", "service_role";

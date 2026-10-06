@@ -29,7 +29,7 @@ export interface ContentItem {
   category: string
   genres: string[]
   releaseYear: number
-  runtime: string
+  runtime: number
   ageRating: string
   totalStreams: number
   availability: ContentAvailability
@@ -130,8 +130,8 @@ export interface WatchHistory {
   subscriberId: string
   subscriberName: string
   contentTitle: string
-  watchedAt: string
-  progress: string
+  watchDate: string
+  progress: number
 }
 
 export type SubscriptionStatus = 'Active' | 'Expired' | 'Cancelled'

@@ -25,6 +25,13 @@ interface ResourceConfiguration {
 
 const text = (value: unknown) => (value == null ? "" : String(value))
 const number = (value: unknown) => Number(value ?? 0)
+const positiveInteger = (value: unknown, label: string) => {
+  const parsed = Number(value)
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${label} must be a positive integer`)
+  }
+  return parsed
+}
 const date = (value: unknown) =>
   value ? new Date(String(value)).toLocaleString() : ""
 const colorFor = (id: unknown) => {
@@ -92,7 +99,7 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
   content: {
     table: "content",
     idColumn: "content_id",
-    select: "*, category(category_name), genre(genre_name), content_genre(genre_id, genre(genre_name))",
+    select: "*, category(category_name), content_genre(genre_id, genre(genre_name))",
     orderColumn: "content_id",
     fromRow: (row) => ({
       id: text(row.content_id),
@@ -124,7 +131,7 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
       category_id: record.categoryId ? number(record.categoryId) : null,
       synopsis: record.synopsis,
       release_year: record.releaseYear,
-      runtime: record.runtime,
+      runtime: record.runtime === undefined ? undefined : positiveInteger(record.runtime, "Runtime"),
       age_rating: record.ageRating,
       thumbnail: record.thumbnailUrl,
       video_file: record.videoFilename,
@@ -242,13 +249,15 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
   reviews: {
     table: "content_review",
     idColumn: "review_id",
-    select: "*, content(title, release_year, thumbnail, category(category_name))",
+    select: "*, user(first_name, last_name), content(title, release_year, thumbnail, category(category_name))",
     orderColumn: "created_at",
     fromRow: (row) => {
       const content = related(row.content)
+      const user = related(row.user)
       return {
         id: text(row.review_id),
         subscriberId: text(row.user_id),
+        subscriberName: `${text(user?.first_name)} ${text(user?.last_name)}`.trim(),
         contentTitle: text(content?.title),
         contentCategory: text(related(content?.category)?.category_name),
         contentYear: number(content?.release_year),
@@ -271,25 +280,25 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
   reactions: {
     table: "reaction",
     idColumn: "reaction_id",
-    select: "*",
+    select: "*, user(first_name, last_name), content(title)",
     orderColumn: "created_at",
-    fromRow: (row) => ({ id: text(row.reaction_id), subscriberId: text(row.user_id), contentId: text(row.content_id), emoji: text(row.emoji), label: text(row.emoji), date: date(row.created_at) }),
+    fromRow: (row) => { const user = related(row.user); const content = related(row.content); return { id: text(row.reaction_id), subscriberId: text(row.user_id), subscriberName: `${text(user?.first_name)} ${text(user?.last_name)}`.trim(), contentId: text(row.content_id), contentTitle: text(content?.title), emoji: text(row.emoji), label: text(row.emoji), type: text(row.emoji), date: date(row.created_at) } },
     toRow: (record) => ({ user_id: record.subscriberId, content_id: number(record.contentId), emoji: record.emoji }),
   },
   "forum-posts": {
     table: "community_post",
     idColumn: "post_id",
-    select: "*, community_comment(count)",
+    select: "*, user(first_name, last_name), community_comment(count)",
     orderColumn: "created_at",
-    fromRow: (row) => ({ id: text(row.post_id), subscriberId: text(row.user_id), title: text(row.title), content: text(row.body), body: text(row.body), datePosted: date(row.created_at), date: text(row.created_at), status: text(row.status), commentCount: number(related(row.community_comment)?.count) }),
+    fromRow: (row) => { const user = related(row.user); return { id: text(row.post_id), subscriberId: text(row.user_id), authorName: `${text(user?.first_name)} ${text(user?.last_name)}`.trim(), title: text(row.title), content: text(row.body), body: text(row.body), datePosted: date(row.created_at), date: text(row.created_at), status: text(row.status), commentCount: number(related(row.community_comment)?.count) } },
     toRow: (record) => ({ user_id: record.subscriberId, title: record.title, body: record.content ?? record.body, status: record.status }),
   },
   "forum-comments": {
     table: "community_comment",
     idColumn: "community_comment_id",
-    select: "*, community_post(title)",
+    select: "*, user(first_name, last_name), community_post(title)",
     orderColumn: "created_at",
-    fromRow: (row) => ({ id: text(row.community_comment_id), postId: text(row.post_id), postTitle: text(related(row.community_post)?.title), subscriberId: text(row.user_id), text: text(row.body), body: text(row.body), dateCommented: date(row.created_at), date: text(row.created_at), status: text(row.status) }),
+    fromRow: (row) => { const user = related(row.user); return { id: text(row.community_comment_id), postId: text(row.post_id), postTitle: text(related(row.community_post)?.title), subscriberId: text(row.user_id), authorName: `${text(user?.first_name)} ${text(user?.last_name)}`.trim(), text: text(row.body), body: text(row.body), dateCommented: date(row.created_at), date: text(row.created_at), status: text(row.status) } },
     toRow: (record) => ({ post_id: number(record.postId), user_id: record.subscriberId, body: record.text ?? record.body, status: record.status }),
   },
   subscribers: {
@@ -321,8 +330,14 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
     idColumn: "user_subscription_id",
     select: "*, user(first_name, last_name), subscription(plan_name)",
     orderColumn: "created_at",
-    fromRow: (row) => { const user = related(row.user); const plan = related(row.subscription); return { id: text(row.user_subscription_id), subscriberId: text(row.user_id), subscriberName: `${text(user?.first_name)} ${text(user?.last_name)}`.trim(), plan: text(plan?.plan_name), planName: text(plan?.plan_name), startDate: text(row.started_at).slice(0, 10), endDate: text(row.ends_at).slice(0, 10), status: text(row.status) } },
-    toRow: (record) => ({ user_id: record.subscriberId, subscription_id: number(record.planId), started_at: record.startDate, ends_at: record.endDate, status: record.status }),
+    fromRow: (row) => { const user = related(row.user); const plan = related(row.subscription); return { id: text(row.user_subscription_id), subscriberId: text(row.user_id), subscriberName: `${text(user?.first_name)} ${text(user?.last_name)}`.trim(), planId: text(row.subscription_id), plan: text(plan?.plan_name), planName: text(plan?.plan_name), startDate: text(row.started_at).slice(0, 10), endDate: text(row.ends_at).slice(0, 10), status: text(row.status) } },
+    toRow: (record) => ({
+      ...(record.subscriberId !== undefined ? { user_id: record.subscriberId } : {}),
+      ...(record.planId !== undefined ? { subscription_id: positiveInteger(record.planId, "Subscription plan ID") } : {}),
+      ...(record.startDate !== undefined ? { started_at: record.startDate } : {}),
+      ...(record.endDate !== undefined ? { ends_at: record.endDate || null } : {}),
+      ...(record.status !== undefined ? { status: record.status } : {}),
+    }),
   },
   payments: {
     table: "payment_transaction",
@@ -338,7 +353,7 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
     select: "*",
     orderColumn: "created_at",
     fromRow: (row) => ({ id: text(row.system_log_id), dateTime: date(row.created_at), eventType: text(row.event_type), userSource: text(row.actor_auth_user_id || "system"), description: text(row.message), ip: text(row.metadata?.ip), severity: text(row.severity), status: text(row.status) }),
-    toRow: (record) => ({ event_type: record.eventType, severity: record.severity, status: record.status, message: record.description, metadata: record.metadata ?? {} }),
+    toRow: (record) => ({ event_type: record.eventType, severity: record.severity, status: record.status, message: record.description, metadata: record.metadata }),
   },
   backups: {
     table: "backup_job",

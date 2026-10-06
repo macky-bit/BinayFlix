@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "../../lib/supabase";
 import styles from "./profileSelect.module.css";
 import logoImg from "/streamflix_logo.svg";
 
@@ -7,28 +8,52 @@ export interface Profile {
 	name: string;
 	label: string;
 	avatar: string;
+	avatarPath: string;
+	isKids: boolean;
 }
 
-const DEFAULT_PROFILES: Profile[] = [
-	{
-		id: 1,
-		name: "Maria Santos",
-		label: "Profile 1",
-		avatar: "https://images.unsplash.com/photo-1542880941-1abfea46bba6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400&q=80",
-	},
-	{
-		id: 2,
-		name: "Engels Manzano",
-		label: "Profile 2",
-		avatar: "https://images.unsplash.com/photo-1670597991538-facc824e7cae?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400&q=80",
-	},
-	{
-		id: 3,
-		name: "Alexa",
-		label: "Profile 3",
-		avatar: "https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400&q=80",
-	},
-];
+interface MemberProfileRow {
+	member_profile_id: number | string;
+	profile_name: string;
+	avatar_image: string | null;
+	is_kids: boolean;
+	display_order: number;
+}
+
+interface ProfileContextRow {
+	max_profiles: number;
+	can_add_profile: boolean;
+}
+
+interface AvatarOption {
+	path: string;
+	url: string;
+}
+
+const isExternalAvatar = (value: string) => /^(https?:|data:|blob:)/i.test(value);
+
+const initialsFor = (name: string) =>
+	name
+		.trim()
+		.split(/\s+/)
+		.map((part) => part[0])
+		.join("")
+		.slice(0, 2)
+		.toUpperCase() || "SF";
+
+async function signedAvatarUrls(paths: string[]) {
+	const uniquePaths = [...new Set(paths.filter((path) => path && !isExternalAvatar(path)))];
+	if (!uniquePaths.length) return new Map<string, string>();
+
+	const { data, error } = await supabase.storage.from("avatar").createSignedUrls(uniquePaths, 60 * 60);
+	if (error) return new Map<string, string>();
+
+	return new Map(
+		(data ?? [])
+			.filter((item) => item.signedUrl)
+			.map((item) => [item.path, item.signedUrl]),
+	);
+}
 
 function CheckIcon() {
 	return (
@@ -109,7 +134,19 @@ function ProfileCard({
 			aria-pressed={selected}
 		>
 			<div className={styles.avatarWrap}>
-				<img src={profile.avatar} alt={profile.name} className={styles.avatarImg} />
+				<div className={styles.avatarFallback} aria-hidden>
+					{initialsFor(profile.name)}
+				</div>
+				{profile.avatar && (
+					<img
+						src={profile.avatar}
+						alt=""
+						className={styles.avatarImg}
+						onError={(event) => {
+							event.currentTarget.style.display = "none";
+						}}
+					/>
+				)}
 				{selected && (
 					<div className={styles.checkBadge}><CheckIcon /></div>
 				)}
@@ -135,18 +172,198 @@ function AddProfileCard({ onClick }: { onClick: () => void }) {
 	);
 }
 
+function AddProfileDialog({
+	avatars,
+	creating,
+	error,
+	onCancel,
+	onCreate,
+}: {
+	avatars: AvatarOption[];
+	creating: boolean;
+	error: string;
+	onCancel: () => void;
+	onCreate: (name: string, avatarPath: string, isKids: boolean) => Promise<void>;
+}) {
+	const [name, setName] = useState("");
+	const [avatarPath, setAvatarPath] = useState(avatars[0]?.path ?? "");
+	const [isKids, setIsKids] = useState(false);
+
+	return (
+		<div className={styles.dialogBackdrop} role="presentation" onMouseDown={onCancel}>
+			<div
+				className={styles.dialog}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="add-profile-title"
+				onMouseDown={(event) => event.stopPropagation()}
+			>
+				<h2 id="add-profile-title" className={styles.dialogTitle}>Add profile</h2>
+				<p className={styles.dialogCopy}>Create a profile for someone who watches on this account.</p>
+
+				<form
+					onSubmit={(event) => {
+						event.preventDefault();
+						void onCreate(name, avatarPath, isKids);
+					}}
+				>
+					<label className={styles.fieldLabel} htmlFor="profile-name">Profile name</label>
+					<input
+						id="profile-name"
+						className={styles.textInput}
+						value={name}
+						onChange={(event) => setName(event.target.value)}
+						maxLength={50}
+						autoComplete="off"
+						autoFocus
+						required
+					/>
+
+					<span className={styles.fieldLabel}>Choose an avatar</span>
+					{avatars.length ? (
+						<div className={styles.avatarOptions}>
+							{avatars.map((avatar, index) => (
+								<button
+									type="button"
+									key={avatar.path}
+									className={`${styles.avatarOption} ${avatarPath === avatar.path ? styles.avatarOptionSelected : ""}`}
+									onClick={() => setAvatarPath(avatar.path)}
+									aria-label={`Choose avatar ${index + 1}`}
+									aria-pressed={avatarPath === avatar.path}
+								>
+									<img src={avatar.url} alt="" />
+								</button>
+							))}
+						</div>
+					) : (
+						<p className={styles.inlineError}>No profile avatars are available.</p>
+					)}
+
+					<label className={styles.checkboxLabel}>
+						<input type="checkbox" checked={isKids} onChange={(event) => setIsKids(event.target.checked)} />
+						Kids profile
+					</label>
+
+					{error && <p className={styles.inlineError} role="alert">{error}</p>}
+
+					<div className={styles.dialogActions}>
+						<button type="button" className={styles.secondaryBtn} onClick={onCancel} disabled={creating}>Cancel</button>
+						<button type="submit" className={styles.primaryBtn} disabled={creating || !name.trim() || !avatarPath}>
+							{creating ? "Creating…" : "Create profile"}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	);
+}
+
 interface Props {
 	maxProfiles?: number;
 	onSelect: (profile: Profile) => void;
 }
 
 export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) {
-	const [profiles] = useState<Profile[]>(() =>
-		DEFAULT_PROFILES.slice(0, Math.min(maxProfiles, 3))
-	);
-	const [selected, setSelected] = useState<Profile>(profiles[0]);
+	const [profiles, setProfiles] = useState<Profile[]>([]);
+	const [selected, setSelected] = useState<Profile | null>(null);
+	const [profileLimit, setProfileLimit] = useState(Math.max(1, maxProfiles));
+	const [canAddProfile, setCanAddProfile] = useState(false);
+	const [avatars, setAvatars] = useState<AvatarOption[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState("");
+	const [showAddProfile, setShowAddProfile] = useState(false);
+	const [creating, setCreating] = useState(false);
+	const [createError, setCreateError] = useState("");
 
-	const canAdd = profiles.length < Math.min(maxProfiles, 4);
+	const loadProfiles = useCallback(async () => {
+		setLoading(true);
+		setLoadError("");
+
+		try {
+			const [profilesResult, contextResult, avatarListResult] = await Promise.all([
+				supabase.rpc("get_my_member_profiles"),
+				supabase.rpc("get_my_member_profile_context"),
+				supabase.storage.from("avatar").list("", {
+					limit: 24,
+					sortBy: { column: "name", order: "asc" },
+				}),
+			]);
+
+			if (profilesResult.error) throw profilesResult.error;
+			if (contextResult.error) throw contextResult.error;
+
+			const rows = (profilesResult.data ?? []) as MemberProfileRow[];
+			const context = ((contextResult.data ?? [])[0] ?? null) as ProfileContextRow | null;
+			const avatarFiles = avatarListResult.error
+				? []
+				: (avatarListResult.data ?? []).filter((file) => file.id);
+			const storedPaths = [
+				...rows.map((row) => row.avatar_image ?? ""),
+				...avatarFiles.map((file) => file.name),
+			];
+			const signedUrls = await signedAvatarUrls(storedPaths);
+
+			const loadedProfiles = rows.map((row) => {
+				const avatarPath = row.avatar_image?.trim() ?? "";
+				return {
+					id: Number(row.member_profile_id),
+					name: row.profile_name,
+					label: row.is_kids ? "Kids profile" : `Profile ${row.display_order}`,
+					avatarPath,
+					avatar: isExternalAvatar(avatarPath) ? avatarPath : (signedUrls.get(avatarPath) ?? ""),
+					isKids: row.is_kids,
+				};
+			});
+
+			setProfiles(loadedProfiles);
+			setSelected((current) =>
+				loadedProfiles.find((profile) => profile.id === current?.id) ?? loadedProfiles[0] ?? null,
+			);
+			setProfileLimit(context?.max_profiles ?? Math.max(1, maxProfiles));
+			setCanAddProfile(
+				context?.can_add_profile ?? loadedProfiles.length < Math.max(1, maxProfiles),
+			);
+			setAvatars(
+				avatarFiles
+					.map((file) => ({ path: file.name, url: signedUrls.get(file.name) ?? "" }))
+					.filter((avatar) => avatar.url),
+			);
+		} catch (error) {
+			console.error("Unable to load member profiles", error);
+			setLoadError("We couldn't load your profiles. Please try again.");
+		} finally {
+			setLoading(false);
+		}
+	}, [maxProfiles]);
+
+	useEffect(() => {
+		void loadProfiles();
+	}, [loadProfiles]);
+
+	const createProfile = async (name: string, avatarPath: string, isKids: boolean) => {
+		setCreating(true);
+		setCreateError("");
+
+		const { error } = await supabase.rpc("create_my_member_profile", {
+			selected_profile_name: name.trim(),
+			selected_avatar_path: avatarPath,
+			selected_is_kids: isKids,
+			selected_pin: null,
+		});
+
+		if (error) {
+			console.error("Unable to create member profile", error);
+			setCreateError(error.message || "We couldn't create that profile.");
+			setCreating(false);
+			return;
+		}
+
+		await loadProfiles();
+		setCreating(false);
+		setShowAddProfile(false);
+	};
+
+	const canAdd = canAddProfile && profiles.length < profileLimit;
 
 	return (
 		<div className={styles.page}>
@@ -156,23 +373,40 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 				<StreamflixLogo />
 
 				<h1 className={styles.heading}>{"Who's watching?"}</h1>
-				<p className={styles.subheading}>Select a profile to continue.</p>
+				<p className={styles.subheading}>
+					{loading ? "Loading your profiles…" : `Select a profile to continue · ${profiles.length}/${profileLimit}`}
+				</p>
 
-				<div className={styles.profileRow}>
-					{profiles.map((p) => (
-						<ProfileCard
-							key={p.id}
-							profile={p}
-							selected={selected.id === p.id}
-							onSelect={setSelected}
-						/>
-					))}
-					{canAdd && <AddProfileCard onClick={() => {}} />}
-				</div>
+				{loadError ? (
+					<div className={styles.statePanel} role="alert">
+						<p>{loadError}</p>
+						<button type="button" className={styles.secondaryBtn} onClick={() => void loadProfiles()}>Try again</button>
+					</div>
+				) : (
+					<div className={styles.profileRow} aria-busy={loading}>
+						{profiles.map((profile) => (
+							<ProfileCard
+								key={profile.id}
+								profile={profile}
+								selected={selected?.id === profile.id}
+								onSelect={setSelected}
+							/>
+						))}
+						{!loading && canAdd && <AddProfileCard onClick={() => { setCreateError(""); setShowAddProfile(true); }} />}
+					</div>
+				)}
 
-				<button className={styles.continueBtn} onClick={() => onSelect(selected)}>
+				{!loading && !loadError && !profiles.length && !canAdd && (
+					<p className={styles.inlineError}>No active profiles are available for this subscription.</p>
+				)}
+
+				<button
+					className={styles.continueBtn}
+					onClick={() => selected && onSelect(selected)}
+					disabled={!selected || loading}
+				>
 					<PlayIcon />
-					Continue as {selected.name}
+					{selected ? `Continue as ${selected.name}` : "Choose a profile"}
 				</button>
 
 				<p className={styles.secureNote}>
@@ -180,6 +414,16 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 					Profiles are private and secure.
 				</p>
 			</div>
+
+			{showAddProfile && (
+				<AddProfileDialog
+					avatars={avatars}
+					creating={creating}
+					error={createError}
+					onCancel={() => !creating && setShowAddProfile(false)}
+					onCreate={createProfile}
+				/>
+			)}
 		</div>
 	);
 }
