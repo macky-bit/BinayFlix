@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import StreamFlixSelect from "../../components/StreamFlixSelect"
 import { supabase } from "../../lib/supabase"
 import styles from "./profile.module.css"
 
@@ -310,7 +311,7 @@ function PlusIcon({ size = 18 }: { size?: number }) {
 
 // ── Toggle ─────────────────────────────────────────────────────────────────
 
-function Toggle({ on, onChange }: { on: boolean onChange: () => void }) {
+function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
   return (
     <button
       role="switch"
@@ -338,32 +339,24 @@ function SelectDropdown({
   options,
 
   onChange,
+
+  ariaLabel = "Select option",
 }: {
   value: string
 
   options: string[]
 
   onChange: (v: string) => void
+
+  ariaLabel?: string
 }) {
   return (
-    <div className="relative flex items-center gap-1">
-      <span className="text-[var(--color-taupe)] text-sm">{value}</span>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="absolute inset-0 opacity-0 cursor-pointer w-full"
-          aria-label="Select option"
-        >
-          {options.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-        <ChevronDownIcon size={14} className="text-[var(--color-taupe)]" />
-      </div>
-    </div>
+    <StreamFlixSelect
+      value={value}
+      options={options}
+      onChange={onChange}
+      ariaLabel={ariaLabel}
+    />
   )
 }
 
@@ -483,13 +476,12 @@ function EditProfileModal({
             >
               Default Language
             </label>
-            <select
+            <StreamFlixSelect
               value={lang}
-              onChange={(e) => setLang(e.target.value)}
-              className="w-full bg-[var(--color-ink)] border border-[var(--color-stone)] text-[var(--color-cream)] px-3 py-2 rounded-sm text-sm focus:outline-none focus:border-[var(--color-wine)]"
-              style={{ fontFamily: "'Barlow', sans-serif" }}
-            >
-              {[
+              onChange={setLang}
+              ariaLabel="Default language"
+              fullWidth
+              options={[
                 "English",
 
                 "Spanish",
@@ -501,12 +493,8 @@ function EditProfileModal({
                 "Korean",
 
                 "Portuguese",
-              ].map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </select>
+              ]}
+            />
           </div>
 
           <div>
@@ -516,13 +504,12 @@ function EditProfileModal({
             >
               Maturity Rating
             </label>
-            <select
+            <StreamFlixSelect
               value={maturity}
-              onChange={(e) => setMaturity(e.target.value)}
-              className="w-full bg-[var(--color-ink)] border border-[var(--color-stone)] text-[var(--color-cream)] px-3 py-2 rounded-sm text-sm focus:outline-none focus:border-[var(--color-wine)]"
-              style={{ fontFamily: "'Barlow', sans-serif" }}
-            >
-              {[
+              onChange={setMaturity}
+              ariaLabel="Maturity rating"
+              fullWidth
+              options={[
                 "All Maturity Ratings",
 
                 "18+",
@@ -534,12 +521,8 @@ function EditProfileModal({
                 "7+",
 
                 "All Ages",
-              ].map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+              ]}
+            />
           </div>
         </div>
 
@@ -1127,7 +1110,7 @@ function SettingRow({
 }) {
   return (
     <div
-      className={`flex items-center gap-4 py-4 ${
+      className={`flex flex-wrap items-center gap-4 py-4 sm:flex-nowrap ${
         !last ? "border-b border-[var(--color-stone)]" : ""
       }`}
     >
@@ -1146,7 +1129,9 @@ function SettingRow({
           {description}
         </p>
       </div>
-      <div className="flex-shrink-0">{control}</div>
+      <div className="w-full pl-10 sm:w-auto sm:pl-0 sm:flex-shrink-0">
+        {control}
+      </div>
     </div>
   )
 }
@@ -1176,12 +1161,13 @@ function RightPanelRow({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-3 py-3.5 text-left hover:bg-[var(--color-wine)] rounded-sm transition-colors group ${
+      className={`${styles.interactiveRow} ${
         !last ? "border-b border-[var(--color-stone)]" : ""
       }`}
     >
-      <div className="text-[var(--color-taupe)] flex-shrink-0">{icon}</div>
+      <div className={styles.interactiveRowIcon}>{icon}</div>
       <div className="flex-1 min-w-0">
         <p
           className="text-[var(--color-cream)] text-sm font-medium"
@@ -1196,7 +1182,9 @@ function RightPanelRow({
           {description}
         </p>
       </div>
-      <ChevronRightIcon size={16} />
+      <span className={styles.interactiveRowChevron}>
+        <ChevronRightIcon size={16} />
+      </span>
     </button>
   )
 }
@@ -1476,6 +1464,7 @@ export function ProfileView({
                 control={
                   <SelectDropdown
                     value={subtitle}
+                    ariaLabel="Subtitle appearance"
                     options={["Small", "Medium", "Large"]}
                     onChange={(v) => {
                       setSubtitle(v)
@@ -1492,6 +1481,7 @@ export function ProfileView({
                 control={
                   <SelectDropdown
                     value={maturity}
+                    ariaLabel="Maturity rating"
                     options={[
                       "All Maturity Ratings",
 
@@ -1520,6 +1510,7 @@ export function ProfileView({
                 control={
                   <SelectDropdown
                     value={language}
+                    ariaLabel="Default language"
                     options={[
                       "English",
 

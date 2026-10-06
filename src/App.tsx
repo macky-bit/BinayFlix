@@ -28,6 +28,7 @@ import AdminPage from "./modules/admin/AdminPage"
 import { supabase } from "./lib/supabase"
 import { getSignedInDestination } from "./lib/auth"
 import ResetPasswordPage from "./modules/auth/ResetPasswordPage"
+import { LOGO_SVG } from "./modules/auth/AuthUI"
 
 type Page = "loading" | "login" | "register" | "resetPassword" | "subscription" | "profileSelect" | "dashboard" | "watch" | "account" | "profile" | "help" | "settings" | "admin"
 
@@ -100,7 +101,13 @@ export default function App() {
   return (
     <>
       {page === "loading" && (
-        <div className="module-loading min-h-screen">Loading StreamFlix…</div>
+        <div className="app-loading" role="status" aria-live="polite">
+          <div className="app-loading__content">
+            <div className="app-loading__logo">{LOGO_SVG}</div>
+            <div className="app-loading__spinner" aria-hidden="true" />
+            <p className="app-loading__text">Loading StreamFlix…</p>
+          </div>
+        </div>
       )}
 
       {page === "login" && <LoginPage onNavigate={(p) => setPage(p)} />}

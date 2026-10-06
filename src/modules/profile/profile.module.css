@@ -142,3 +142,118 @@
 	font-size: 0.875rem;
 	margin-bottom: 2rem;
 }
+
+.profileSelect {
+	width: 100%;
+	min-width: 10rem;
+	max-width: 100%;
+	min-height: 42px;
+	appearance: none;
+	color-scheme: dark;
+	background-color: rgba(21, 13, 42, 0.94);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23C5B8D7' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 0.85rem center;
+	border: 1px solid rgba(124, 58, 237, 0.48);
+	border-radius: 9px;
+	padding: 0.62rem 2.6rem 0.62rem 0.85rem;
+	color: var(--color-cream);
+	font-family: var(--font-body);
+	font-size: 0.875rem;
+	line-height: 1.25;
+	cursor: pointer;
+	transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+@media (min-width: 640px) {
+	.profileSelect {
+		width: 14rem;
+	}
+}
+
+.profileSelectFull {
+	width: 100%;
+	min-width: 0;
+}
+
+.profileSelect:hover {
+	border-color: rgba(245, 168, 0, 0.7);
+	background-color: rgba(33, 20, 59, 0.98);
+}
+
+.profileSelect:focus,
+.profileSelect:focus-visible {
+	border-color: #f5a800;
+	outline: none;
+	box-shadow: 0 0 0 3px rgba(245, 168, 0, 0.16);
+}
+
+.profileSelect:disabled {
+	cursor: not-allowed;
+	opacity: 0.52;
+}
+
+.profileSelect option {
+	background: #150d2a;
+	color: var(--color-cream);
+}
+
+.interactiveRow {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	width: calc(100% + 1.5rem);
+	min-height: 64px;
+	margin-left: -0.75rem;
+	padding: 0.8rem 0.75rem;
+	border-radius: 8px;
+	color: var(--color-cream);
+	text-align: left;
+	transition:
+		background-color 0.16s ease,
+		box-shadow 0.16s ease,
+		transform 0.1s ease;
+}
+
+.interactiveRow:hover {
+	background: rgba(124, 58, 237, 0.2);
+}
+
+.interactiveRow:focus-visible {
+	outline: 2px solid var(--color-gold);
+	outline-offset: 2px;
+	background: rgba(124, 58, 237, 0.2);
+}
+
+.interactiveRow:active {
+	background: rgba(124, 58, 237, 0.32);
+	transform: translateY(1px);
+}
+
+.interactiveRowIcon,
+.interactiveRowChevron {
+	display: inline-flex;
+	flex-shrink: 0;
+	color: var(--color-taupe);
+	transition: color 0.16s ease, transform 0.16s ease;
+}
+
+.interactiveRow:hover .interactiveRowIcon,
+.interactiveRow:hover .interactiveRowChevron,
+.interactiveRow:focus-visible .interactiveRowIcon,
+.interactiveRow:focus-visible .interactiveRowChevron {
+	color: var(--color-cream);
+}
+
+.interactiveRow:hover .interactiveRowChevron,
+.interactiveRow:focus-visible .interactiveRowChevron {
+	transform: translateX(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.interactiveRow,
+	.interactiveRowIcon,
+	.interactiveRowChevron {
+		transition: none;
+	}
+}

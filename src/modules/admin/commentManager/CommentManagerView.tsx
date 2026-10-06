@@ -4,6 +4,7 @@ import {
   useAdminRepository,
 } from "../data";
 import { AdminPageHeader, AdminStatCard, AdminStats, AdminWorkspaceTabs } from "../components/AdminUI";
+import AdminDetailsPanel from "../components/AdminDetailsPanel";
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type MainTab = "reviews" | "posts" | "comments";
@@ -442,25 +443,18 @@ function ReviewDrawer({ review, onClose, onDeleteReview, onDeleteReaction }: {
   onDeleteReview: () => void;
   onDeleteReaction: (id: string) => void;
 }) {
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
-
   return (
-    <div className="fixed inset-0 z-40 flex" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onClose}>
-      <div className="ml-auto w-full max-w-lg h-full overflow-y-auto shadow-2xl"
-        style={{ background: "#150D2A", borderLeft: "1px solid #7C3AED" }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid #374151" }}>
-          <h2 className="text-lg font-semibold text-white">Review Details</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded flex items-center justify-center transition-fast" style={{ color: "#9CA3AF" }}
-            onMouseEnter={e => { (e.target as HTMLElement).style.color = "#fff"; }}
-            onMouseLeave={e => { (e.target as HTMLElement).style.color = "#9CA3AF"; }}
-            aria-label="Close">✕</button>
+    <AdminDetailsPanel
+      title="Review Details"
+      onClose={onClose}
+      footer={(
+        <div className="admin-details-actions">
+          <button onClick={onClose} className="admin-details-button admin-details-button--secondary">Close</button>
+          <button onClick={onDeleteReview} className="admin-details-button admin-details-button--danger">Delete Review</button>
         </div>
-        <div className="p-6 space-y-5">
+      )}
+    >
+      <div className="space-y-5">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div><div className="text-xs mb-1" style={{ color: "#6B7280" }}>Review ID</div><div className="font-mono" style={{ color: "#A78BFA" }}>{review.id}</div></div>
             <div><div className="text-xs mb-1" style={{ color: "#6B7280" }}>Subscriber ID</div><div style={{ color: "#9CA3AF" }}>{review.subscriberId}</div></div>
@@ -513,17 +507,8 @@ function ReviewDrawer({ review, onClose, onDeleteReview, onDeleteReaction }: {
                 </div>
               )}
           </div>
-        </div>
-        <div className="flex gap-3 px-6 pb-6">
-          <button onClick={onClose} className="flex-1 py-2 rounded-lg text-sm font-medium transition-fast"
-            style={{ border: "1px solid #374151", color: "#9CA3AF" }}>Close</button>
-          <button onClick={onDeleteReview} className="flex-1 py-2 rounded-lg text-sm font-medium transition-fast"
-            style={{ border: "1px solid rgba(153,27,27,0.5)", color: "#FCA5A5", background: "rgba(153,27,27,0.1)" }}>
-            Delete Review
-          </button>
-        </div>
       </div>
-    </div>
+    </AdminDetailsPanel>
   );
 }
 

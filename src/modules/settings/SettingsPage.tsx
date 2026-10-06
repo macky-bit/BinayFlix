@@ -1,4 +1,5 @@
 import { useState, type ReactElement } from "react"
+import StreamFlixSelect from "../../components/StreamFlixSelect"
 import styles from "./settings.module.css"
 
 interface Props {
@@ -46,23 +47,20 @@ function Select({
   value,
   options,
   onChange,
+  ariaLabel,
 }: {
   value: string
   options: string[]
   onChange: (v: string) => void
+  ariaLabel: string
 }) {
   return (
-    <select
+    <StreamFlixSelect
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={styles.select}
-    >
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-    </select>
+      options={options}
+      onChange={onChange}
+      ariaLabel={ariaLabel}
+    />
   )
 }
 
@@ -125,6 +123,7 @@ function PlaybackTab() {
           </div>
           <Select
             value={quality}
+            ariaLabel="Streaming quality"
             options={["Auto", "Low", "Medium", "High", "Ultra HD"]}
             onChange={setQuality}
           />
@@ -138,6 +137,7 @@ function PlaybackTab() {
           </div>
           <Select
             value={dataUsage}
+            ariaLabel="Data usage per screen"
             options={["Low", "Medium", "High", "Unlimited"]}
             onChange={setDataUsage}
           />
@@ -291,6 +291,7 @@ function AppearanceTab() {
           </div>
           <Select
             value={theme}
+            ariaLabel="Theme"
             options={["Dark", "System"]}
             onChange={setTheme}
           />
@@ -304,6 +305,7 @@ function AppearanceTab() {
           </div>
           <Select
             value={language}
+            ariaLabel="Display language"
             options={["English", "Spanish", "French", "German", "Japanese"]}
             onChange={setLanguage}
           />
@@ -320,6 +322,7 @@ function AppearanceTab() {
           </div>
           <Select
             value={subtitleSize}
+            ariaLabel="Subtitle size"
             options={["Small", "Medium", "Large", "Extra Large"]}
             onChange={setSubtitleSize}
           />

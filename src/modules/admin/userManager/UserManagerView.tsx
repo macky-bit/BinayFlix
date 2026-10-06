@@ -4,6 +4,11 @@ import {
   useAdminRepository,
 } from "../data";
 import { AdminPageHeader, AdminStatCard, AdminStats, AdminWorkspaceTabs } from "../components/AdminUI";
+import AdminDetailsPanel, {
+  AdminDetailField,
+  AdminDetailGrid,
+  AdminDetailsSection,
+} from "../components/AdminDetailsPanel";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type AccountStatus = "Active" | "Suspended" | "Inactive";
@@ -526,44 +531,60 @@ function SubscribersTab({ onToast, navigateToSubscription }: { onToast: (m: stri
 
       {/* Subscriber Details Panel */}
       {selected && viewMode === "details" && (
-        <Panel title="Subscriber Details" onClose={() => setViewMode(null)} width={420}>
+        <AdminDetailsPanel
+          title="Subscriber Details"
+          onClose={() => setViewMode(null)}
+          footer={(
+            <div className="admin-details-actions">
+              <button onClick={() => setViewMode(null)} className="admin-details-button admin-details-button--secondary">Close</button>
+              <button onClick={() => openEdit(selected)} className="admin-details-button admin-details-button--primary">Edit Subscriber</button>
+            </div>
+          )}
+        >
           <div style={{ marginBottom: 22, paddingBottom: 18, borderBottom: "1px solid rgba(107,114,128,.3)" }}>
             <h3 style={{ margin: "0 0 3px", fontSize: 20, fontWeight: 700 }}>{selected.firstName} {selected.lastName}</h3>
             <p style={{ margin: 0, fontSize: 13, color: "#9CA3AF" }}>@{selected.username}</p>
+            <div className="mt-3"><StatusBadge status={selected.status} /></div>
           </div>
-          <DetailRow label="Subscriber ID" value={selected.id} mono />
-          <DetailRow label="First Name" value={selected.firstName} />
-          <DetailRow label="Last Name" value={selected.lastName} />
-          <DetailRow label="Email" value={selected.email} />
-          <DetailRow label="Username" value={`@${selected.username}`} />
-          <DetailRow label="Date of Birth" value={selected.dob} />
-          <DetailRow label="Mobile Number" value={selected.mobile} />
-          <DetailRow label="Registration Date" value={selected.registeredAt} />
-          <div style={{ marginBottom: 12 }}><span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.04em" }}>Account Status</span><div style={{ marginTop: 6 }}><StatusBadge status={selected.status} /></div></div>
+
+          <AdminDetailsSection title="Account Information">
+            <AdminDetailField label="Subscriber ID" value={selected.id} mono />
+            <AdminDetailGrid>
+              <AdminDetailField label="First Name" value={selected.firstName} />
+              <AdminDetailField label="Last Name" value={selected.lastName} />
+            </AdminDetailGrid>
+            <AdminDetailField label="Email" value={selected.email} />
+            <AdminDetailField label="Username" value={`@${selected.username}`} />
+          </AdminDetailsSection>
+
+          <AdminDetailsSection title="Personal Information">
+            <AdminDetailGrid>
+              <AdminDetailField label="Date of Birth" value={selected.dob} />
+              <AdminDetailField label="Mobile Number" value={selected.mobile} />
+            </AdminDetailGrid>
+            <AdminDetailField label="Registration Date" value={selected.registeredAt} />
+          </AdminDetailsSection>
 
           {/* Subscription Summary */}
           {linkedSub && (
-            <div style={{ background: "rgba(26,16,48,0.6)", border: "1px solid #374151", borderRadius: 8, padding: 14, marginTop: 16 }}>
-              <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>Subscription Summary</p>
-              <DetailRow label="Subscription ID" value={linkedSub.id} mono />
-              <DetailRow label="Plan" value={linkedSub.plan} />
-              <DetailRow label="Start Date" value={linkedSub.startDate} />
-              <DetailRow label="End Date" value={linkedSub.endDate} />
-              <div style={{ marginBottom: 10 }}><span style={{ fontSize: 12, color: "#9CA3AF" }}>Status</span><div style={{ marginTop: 4 }}><StatusBadge status={linkedSub.status} /></div></div>
+            <AdminDetailsSection title="Subscription Summary">
+              <AdminDetailField label="Subscription ID" value={linkedSub.id} mono />
+              <AdminDetailGrid>
+                <AdminDetailField label="Plan" value={linkedSub.plan} />
+                <AdminDetailField label="Status"><StatusBadge status={linkedSub.status} /></AdminDetailField>
+                <AdminDetailField label="Start Date" value={linkedSub.startDate} />
+                <AdminDetailField label="End Date" value={linkedSub.endDate} />
+              </AdminDetailGrid>
               <button
                 onClick={() => navigateToSubscription(linkedSub.id)}
                 style={{ background: "none", border: "none", color: "#7C3AED", fontSize: 13, cursor: "pointer", padding: 0, textDecoration: "underline", fontFamily: "inherit" }}
               >
                 View Full Subscription →
               </button>
-            </div>
+            </AdminDetailsSection>
           )}
 
-          <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <VioletBtn onClick={() => setViewMode(null)} style={{ flex: 1 }}>Close</VioletBtn>
-            <GoldBtn onClick={() => openEdit(selected)} style={{ flex: 1 }}>Edit Subscriber</GoldBtn>
-          </div>
-        </Panel>
+        </AdminDetailsPanel>
       )}
 
       {/* Edit Subscriber Panel */}

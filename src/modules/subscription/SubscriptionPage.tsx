@@ -283,9 +283,10 @@ interface Props {
 	onComplete: () => void;
 	onBack?: () => void;
 	onSubscribe?: (plan: Plan) => void;
+	backLabel?: string;
 }
 
-export default function SubscriptionPage({ onComplete, onBack, onSubscribe }: Props) {
+export default function SubscriptionPage({ onComplete, onBack, onSubscribe, backLabel = "Back to StreamFlix" }: Props) {
 	const [pageState, setPageState] = useState<PageState>("loading");
 	const [plans, setPlans] = useState<Plan[]>([]);
 	const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
@@ -354,10 +355,30 @@ export default function SubscriptionPage({ onComplete, onBack, onSubscribe }: Pr
 			<main className={styles.main}>
 				{/* Header */}
 				<header className={styles.header}>
-					<h1 className={styles.heading}>
-						Choose <span className={styles.headingAccent}>Your Plan</span>
-					</h1>
-					<p className={styles.headingSub}>Upgrade your experience. Cancel anytime.</p>
+					{onBack && (
+						<button type="button" className={styles.backButton} onClick={onBack}>
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								strokeWidth="2.4"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								aria-hidden="true"
+							>
+								<polyline points="15 18 9 12 15 6" />
+							</svg>
+							<span>{backLabel}</span>
+						</button>
+					)}
+					<div className={styles.headerCopy}>
+						<h1 className={styles.heading}>
+							Choose <span className={styles.headingAccent}>Your Plan</span>
+						</h1>
+						<p className={styles.headingSub}>Upgrade your experience. Cancel anytime.</p>
+					</div>
 				</header>
 
 				{/* Loading */}
@@ -396,11 +417,6 @@ export default function SubscriptionPage({ onComplete, onBack, onSubscribe }: Pr
 
 						<p className={styles.footNote}>You can change or cancel your plan anytime from Account settings.</p>
 
-						{onBack && (
-							<div style={{ textAlign: "center", marginTop: 12 }}>
-								<button className={styles.backLink} onClick={onBack}>Back to StreamFlix</button>
-							</div>
-						)}
 					</>
 				)}
 			</main>

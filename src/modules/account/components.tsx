@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import StreamFlixSelect from "../../components/StreamFlixSelect"
 import styles from "./account.module.css"
 
 import SubscriptionPage from "../subscription/SubscriptionPage"
@@ -825,23 +826,13 @@ function AddPhoneModal({ onClose }: { onClose: () => void }) {
               >
                 Country or Region
               </label>
-              <select
+              <StreamFlixSelect
                 value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                className="w-full px-3 py-2.5 rounded text-sm outline-none"
-                style={{
-                  backgroundColor: "var(--color-ink)",
-                  border: "1px solid var(--color-stone)",
-                  color: "var(--color-cream)",
-                  fontFamily: "Barlow, sans-serif",
-                }}
-              >
-                <option>US +1</option>
-                <option>UK +44</option>
-                <option>CA +1</option>
-                <option>AU +61</option>
-                <option>DE +49</option>
-              </select>
+                options={["US +1", "UK +44", "CA +1", "AU +61", "DE +49"]}
+                onChange={setCountry}
+                ariaLabel="Country or region"
+                fullWidth
+              />
             </div>
             <FormField
               label="Phone Number"
@@ -2687,7 +2678,7 @@ function UpdatePaymentModal({ onClose }: { onClose: () => void }) {
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-const sidebarItems: { key: Section label: string icon: React.ReactNode }[] = [
+const sidebarItems: { key: Section; label: string; icon: React.ReactNode }[] = [
   { key: "overview", label: "Overview", icon: <IconHome /> },
 
   { key: "membership", label: "Membership", icon: <IconCard /> },
@@ -2720,32 +2711,20 @@ function Sidebar({
           return (
             <li key={item.key} className="flex-1 md:flex-initial">
               <button
+                type="button"
                 onClick={() => setActive(item.key)}
-                className="w-full flex items-center gap-2.5 py-3 px-3 rounded transition-colors relative text-left"
-                style={{
-                  color: isActive ? "var(--color-cream)" : "var(--color-taupe)",
-                  backgroundColor: isActive
-                    ? "var(--color-wine)"
-                    : "transparent",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) e.currentTarget.style.color = "#F5A800"
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive)
-                    e.currentTarget.style.color = "var(--color-taupe)"
-                }}
+                className={`w-full flex items-center gap-2.5 py-3 px-3 rounded relative text-left ${styles.accountNavItem} ${
+                  isActive ? styles.accountNavItemActive : ""
+                }`}
                 aria-current={isActive ? "page" : undefined}
               >
                 {isActive && (
                   <span
                     className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full hidden md:block"
-                    style={{ backgroundColor: "var(--color-wine)" }}
+                    style={{ backgroundColor: "var(--color-gold)" }}
                   />
                 )}
-                <span
-                  style={{ color: isActive ? "var(--color-wine)" : "inherit" }}
-                >
+                <span className={styles.accountNavIcon}>
                   {item.icon}
                 </span>
                 <span className="text-sm font-medium hidden sm:block">
@@ -2771,6 +2750,17 @@ export function AccountView({
   const [section, setSection] = useState<Section>("overview")
 
   const [modal, setModal] = useState<Modal>(null)
+
+  useEffect(() => {
+    if (modal !== "changePlan") return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [modal])
 
   const [deleteStep, setDeleteStep] = useState(1)
 
@@ -2943,11 +2933,9 @@ export function AccountView({
     <div className={`min-h-screen ${styles.page}`}>
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 pb-8 md:pt-6 md:pb-10">
         <h1
-          className="font-display font-black tracking-wider mb-6 md:mb-8"
-          style={{
-            color: "var(--color-cream)",
-            fontSize: "clamp(32px, 5vw, 48px)",
-          }}
+          className={`font-display font-black tracking-wider mb-6 md:mb-8 ${styles.accountPageHeading} ${
+            section === "membership" ? styles.membershipPageHeading : ""
+          }`}
         >
           {sectionTitles[section]}
         </h1>
@@ -3010,7 +2998,12 @@ export function AccountView({
         <UpdatePaymentModal onClose={() => setModal(null)} />
       )}
       {modal === "changePlan" && (
-        <div className={styles.subscriptionOverlay}>
+        <div
+          className={styles.subscriptionOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose a subscription plan"
+        >
           <SubscriptionPage
             onSubscribe={(nextPlan) => {
               onPlanChange(nextPlan)
@@ -3018,6 +3011,7 @@ export function AccountView({
             }}
             onComplete={() => setModal(null)}
             onBack={() => setModal(null)}
+            backLabel="Back to Membership"
           />
         </div>
       )}

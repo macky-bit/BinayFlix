@@ -1,4 +1,4 @@
-import { useState, useRef } from "react"
+import { useEffect, useState, useRef } from "react"
 import type { Show } from "../movie/types"
 
 import styles from "./dashboard.module.css"
@@ -111,6 +111,61 @@ function ChevronDown() {
       strokeLinejoin="round"
     >
       <polyline points="6 9 12 15 18 9" />
+    </svg>
+  )
+}
+
+type AccountMenuIconName = "profile" | "account" | "settings" | "help" | "signout"
+
+function AccountMenuIcon({ name }: { name: AccountMenuIconName }) {
+  const paths: Record<AccountMenuIconName, React.ReactNode> = {
+    profile: (
+      <>
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M5 20c.7-4 3-6 7-6s6.3 2 7 6" />
+      </>
+    ),
+    account: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <circle cx="8" cy="11" r="2" />
+        <path d="M13 10h5M13 14h4" />
+      </>
+    ),
+    settings: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
+      </>
+    ),
+    help: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9.7 9a2.4 2.4 0 1 1 3.4 2.2c-.8.4-1.1.9-1.1 1.8" />
+        <path d="M12 17h.01" />
+      </>
+    ),
+    signout: (
+      <>
+        <path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5" />
+        <path d="m16 16 4-4-4-4M20 12H9" />
+      </>
+    ),
+  }
+
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[name]}
     </svg>
   )
 }
@@ -649,6 +704,30 @@ export function Navbar({
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
+  const profileMenuRef = useRef<HTMLDivElement>(null)
+  const notificationMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!profileMenuRef.current?.contains(target)) setProfileOpen(false)
+      if (!notificationMenuRef.current?.contains(target)) setNotifOpen(false)
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setProfileOpen(false)
+        setNotifOpen(false)
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown)
+    document.addEventListener("keydown", handleKeyDown)
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown)
+      document.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [])
+
   const adminProfileKey =
     adminItems && adminItems.length > 1
       ? "master"
@@ -833,7 +912,7 @@ export function Navbar({
           </button>
         )}
 
-        <div className="relative">
+        <div className="relative" ref={notificationMenuRef}>
           <button
             onClick={() => {
               setNotifOpen((n) => !n)
@@ -842,6 +921,8 @@ export function Navbar({
             }}
             className={`relative transition-colors ${styles.iconBtn}`}
             aria-label="Notifications"
+            aria-expanded={notifOpen}
+            aria-haspopup="menu"
           >
             <BellIcon />
           </button>
@@ -858,15 +939,17 @@ export function Navbar({
           )}
         </div>
 
-        <div className="relative">
+        <div className="relative" ref={profileMenuRef}>
           <button
             onClick={() => {
               setProfileOpen((p) => !p)
 
               setNotifOpen(false)
             }}
-            className="flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors hover:bg-white/5"
+            className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors ${styles.profileTrigger}`}
             aria-label={adminProfile ? "Open admin profile menu" : "Profile"}
+            aria-expanded={profileOpen}
+            aria-haspopup="menu"
           >
             <span
               className={`w-7 h-7 rounded flex items-center justify-center text-xs font-bold shrink-0 ${styles.avatarBadge}`}
@@ -883,15 +966,15 @@ export function Navbar({
                 </span>
               </span>
             )}
-            <span className={`hidden sm:inline ${styles.iconBtn}`}>
+            <span className={`hidden sm:inline-flex ${styles.profileChevron} ${profileOpen ? styles.profileChevronOpen : ""}`}>
               <ChevronDown />
             </span>
           </button>
           {profileOpen && (
             <div
-              className={`absolute right-0 top-10 ${
-                adminProfile ? "w-52" : "w-44"
-              } rounded-xl overflow-hidden shadow-2xl ${styles.dropdown}`}
+              className={`absolute right-0 top-11 ${styles.profileMenu}`}
+              role="menu"
+              aria-label="Account menu"
             >
               {adminProfile ? (
                 <>
@@ -907,8 +990,10 @@ export function Navbar({
                   <button
                     type="button"
                     onClick={() => setProfileOpen(false)}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[var(--color-wine)]/30 ${styles.dropdownItem}`}
+                    className={styles.profileMenuItem}
+                    role="menuitem"
                   >
+                    <AccountMenuIcon name="account" />
                     Account / Profile
                   </button>
                 </>
@@ -928,18 +1013,35 @@ export function Navbar({
 
                         if (item === "Help Center") onNavigatePage?.("help")
                       }}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[var(--color-wine)]/30 ${styles.dropdownItem}`}
+                      className={styles.profileMenuItem}
+                      role="menuitem"
                     >
+                      <AccountMenuIcon
+                        name={
+                          item === "Profile"
+                            ? "profile"
+                            : item === "Account"
+                              ? "account"
+                              : item === "Settings"
+                                ? "settings"
+                                : "help"
+                        }
+                      />
                       {item}
                     </button>
                   ),
                 )
               )}
-              <div className={`border-t ${styles.dropdownDivider}`} />
+              <div className={styles.profileMenuDivider} />
               <button
-                onClick={onSignOut}
-                className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[var(--color-wine)]/30 ${styles.dropdownItemMuted}`}
+                onClick={() => {
+                  setProfileOpen(false)
+                  onSignOut()
+                }}
+                className={`${styles.profileMenuItem} ${styles.profileMenuSignOut}`}
+                role="menuitem"
               >
+                <AccountMenuIcon name="signout" />
                 Sign Out
               </button>
             </div>

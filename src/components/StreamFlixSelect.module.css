@@ -1,0 +1,140 @@
+.root {
+	position: relative;
+	width: 14rem;
+	max-width: 100%;
+	font-family: var(--font-body);
+}
+
+.fullWidth {
+	width: 100%;
+}
+
+.trigger {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	width: 100%;
+	min-height: 42px;
+	padding: 0.62rem 0.8rem 0.62rem 0.85rem;
+	border: 1px solid rgba(124, 58, 237, 0.5);
+	border-radius: 9px;
+	background: #150d2a;
+	color: var(--color-cream);
+	font: inherit;
+	font-size: 0.875rem;
+	line-height: 1.25;
+	text-align: left;
+	cursor: pointer;
+	transition:
+		background-color 0.16s ease,
+		border-color 0.16s ease,
+		box-shadow 0.16s ease;
+}
+
+.trigger:hover:not(:disabled) {
+	background: #21143b;
+	border-color: rgba(139, 92, 246, 0.9);
+}
+
+.trigger:focus-visible {
+	outline: 2px solid var(--color-gold);
+	outline-offset: 2px;
+	border-color: var(--color-gold);
+}
+
+.trigger:disabled {
+	cursor: not-allowed;
+	opacity: 0.52;
+}
+
+.value {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chevron {
+	flex-shrink: 0;
+	color: #c5b8d7;
+	transition: transform 0.16s ease, color 0.16s ease;
+}
+
+.trigger:hover .chevron,
+.trigger:focus-visible .chevron {
+	color: var(--color-cream);
+}
+
+.chevronOpen {
+	transform: rotate(180deg);
+}
+
+.menu {
+	position: fixed;
+	z-index: 1000;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	margin: 0;
+	padding: 0.25rem;
+	list-style: none;
+	border: 1px solid rgba(124, 58, 237, 0.55);
+	border-radius: 8px;
+	background: #150d2a;
+	box-shadow: 0 12px 28px rgba(4, 2, 10, 0.55);
+	scrollbar-width: thin;
+	scrollbar-color: rgba(139, 92, 246, 0.65) transparent;
+}
+
+.menu:focus {
+	outline: none;
+}
+
+.option {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	min-height: 34px;
+	padding: 0.4rem 0.6rem;
+	border-radius: 5px;
+	color: #c5b8d7;
+	font-size: 0.875rem;
+	line-height: 1.25;
+	cursor: pointer;
+	transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.option + .option {
+	border-top: 1px solid rgba(124, 58, 237, 0.12);
+}
+
+.optionHighlighted {
+	background: rgba(124, 58, 237, 0.22);
+	color: var(--color-cream);
+}
+
+.optionSelected {
+	background: rgba(124, 58, 237, 0.36);
+	color: var(--color-cream);
+	font-weight: 600;
+}
+
+.optionSelected svg {
+	color: var(--color-gold);
+	flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+	.root {
+		width: 100%;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.trigger,
+	.chevron,
+	.option {
+		transition: none;
+	}
+}

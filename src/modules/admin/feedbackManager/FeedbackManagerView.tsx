@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAdminCollection, useAdminRepository } from "../data";
 import { AdminPageHeader, AdminStatCard, AdminStats } from "../components/AdminUI";
+import AdminDetailsPanel, {
+  AdminDetailField,
+  AdminDetailsSection,
+} from "../components/AdminDetailsPanel";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type FeedbackType = "Bug Report" | "Feature Request" | "Suggestion";
@@ -236,22 +240,7 @@ function FeedbackDetailsPanel({
   };
 
   return (
-    <div
-      className="slide-in-right"
-      style={{
-        background: "rgba(21,13,42,0.6)",
-        border: "1px solid var(--color-stone)",
-        borderRadius: 12,
-        padding: 20,
-        display: "flex",
-        flexDirection: "column",
-        gap: 0,
-        height: "100%",
-        overflowY: "auto",
-      }}
-      role="region"
-      aria-label="Feedback Details"
-    >
+    <>
       {showDiscard && (
         <DiscardDialog
           onContinue={() => setShowDiscard(false)}
@@ -262,29 +251,20 @@ function FeedbackDetailsPanel({
         <ScreenshotModal src={item.screenshot} onClose={() => setShowScreenshot(false)} />
       )}
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>Feedback Details</span>
-        <button
-          onClick={handleClose}
-          className="focus-ring"
-          aria-label="Close feedback details"
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "var(--color-taupe)",
-            cursor: "pointer",
-            fontSize: 18,
-            lineHeight: 1,
-            padding: "2px 6px",
-            borderRadius: 4,
-            transition: "color 0.2s",
-          }}
-        >
-          ×
-        </button>
-      </div>
+      <AdminDetailsPanel
+        title="Feedback Details"
+        onClose={handleClose}
+        footer={(
+          <div className="admin-details-actions">
+            <button onClick={handleClose} className="admin-details-button admin-details-button--secondary">Close</button>
+            <button onClick={handleSave} disabled={!hasUnsaved || saving} className="admin-details-button admin-details-button--primary">
+              {saving && <Spinner size={14} />} Save Status
+            </button>
+          </div>
+        )}
+      >
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
+      <AdminDetailsSection title="Feedback Information">
         {[
           { label: "Feedback ID", value: <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{item.id}</span> },
           { label: "Subscriber ID", value: <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{item.subscriberId}</span> },
@@ -306,15 +286,11 @@ function FeedbackDetailsPanel({
             ),
           },
         ].map(({ label, value }) => (
-          <div key={label} style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "start" }}>
-            <span style={{ fontSize: 13, color: "var(--color-taupe)", paddingTop: 2 }}>{label}</span>
-            <div>{value}</div>
-          </div>
+          <AdminDetailField key={label} label={label}>{value}</AdminDetailField>
         ))}
 
         {/* Screenshot */}
-        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "start" }}>
-          <span style={{ fontSize: 13, color: "var(--color-taupe)", paddingTop: 2 }}>Screenshot</span>
+        <AdminDetailField label="Screenshot">
           <div>
             {item.screenshot ? (
               <div>
@@ -361,16 +337,13 @@ function FeedbackDetailsPanel({
               <span style={{ fontSize: 13, color: "var(--color-taupe)" }}>No screenshot was included.</span>
             )}
           </div>
-        </div>
+        </AdminDetailField>
 
-        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "start" }}>
-          <span style={{ fontSize: 13, color: "var(--color-taupe)", paddingTop: 2 }}>Submission Date</span>
-          <span style={{ fontSize: 13 }}>{item.date}</span>
-        </div>
+        <AdminDetailField label="Submission Date" value={item.date} />
+      </AdminDetailsSection>
 
-        {/* Status */}
-        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "center" }}>
-          <span style={{ fontSize: 13, color: "var(--color-taupe)" }}>Status</span>
+      <AdminDetailsSection title="Status">
+        <AdminDetailField label="Status">
           <div style={{ position: "relative" }}>
             <select
               className="select-dark focus-ring"
@@ -385,29 +358,11 @@ function FeedbackDetailsPanel({
             </select>
             <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-taupe)", fontSize: 11 }}>▼</span>
           </div>
-        </div>
-      </div>
+        </AdminDetailField>
+      </AdminDetailsSection>
 
-      {/* Actions */}
-      <div style={{ display: "flex", gap: 10, marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--color-stone)" }}>
-        <button
-          className="btn-violet focus-ring"
-          style={{ flex: 1, borderRadius: 8, padding: "10px 0", fontSize: 14, fontWeight: 500 }}
-          onClick={handleClose}
-        >
-          Close
-        </button>
-        <button
-          className="btn-gold focus-ring"
-          style={{ flex: 1, borderRadius: 8, padding: "10px 0", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-          onClick={handleSave}
-          disabled={!hasUnsaved || saving}
-        >
-          {saving && <Spinner size={14} />}
-          Save Status
-        </button>
-      </div>
-    </div>
+      </AdminDetailsPanel>
+    </>
   );
 }
 
@@ -709,7 +664,7 @@ export default function FeedbackManagerView() {
           className="admin-feedback-grid"
           style={{
             display: "grid",
-            gridTemplateColumns: selectedItem ? "1fr 360px" : "1fr",
+            gridTemplateColumns: "1fr",
             gap: 16,
             alignItems: "start",
           }}
@@ -970,25 +925,13 @@ export default function FeedbackManagerView() {
           </div>
 
           {/* ── Details panel ─────────────────────────────────────────────── */}
-          {selectedItem ? (
+          {selectedItem && (
             <FeedbackDetailsPanel
               key={selectedItem.id}
               item={selectedItem}
               onClose={() => setSelectedId(null)}
               onStatusSaved={handleStatusSaved}
             />
-          ) : (
-            <div
-              className="panel-surface"
-              style={{
-                borderRadius: 12, padding: 40,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                minHeight: 200, color: "var(--color-taupe)", fontSize: 14, textAlign: "center",
-              }}
-              aria-live="polite"
-            >
-              Select a feedback record to view its details.
-            </div>
           )}
         </div>
       </main>

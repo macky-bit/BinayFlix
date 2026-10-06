@@ -6,6 +6,70 @@
 	min-height: 100vh;
 }
 
+.subscriptionOverlay {
+	position: fixed;
+	inset: 0;
+	z-index: 100;
+	overflow-x: hidden;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	background: rgba(8, 8, 15, 0.99);
+	scrollbar-gutter: stable;
+}
+
+.accountPageHeading {
+	color: var(--color-cream);
+	font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.membershipPageHeading {
+	font-size: clamp(1.75rem, 3vw, 2.25rem);
+}
+
+.accountNavItem {
+	color: var(--color-taupe);
+	background: transparent;
+	transition:
+		color 0.16s ease,
+		background-color 0.16s ease,
+		box-shadow 0.16s ease;
+}
+
+.accountNavItem:hover {
+	color: var(--color-cream);
+	background: rgba(124, 58, 237, 0.18);
+}
+
+.accountNavItem:focus-visible {
+	outline: 2px solid var(--color-gold);
+	outline-offset: 2px;
+	color: var(--color-cream);
+	background: rgba(124, 58, 237, 0.22);
+}
+
+.accountNavItemActive {
+	color: var(--color-cream);
+	background: var(--color-wine);
+}
+
+.accountNavItemActive:hover,
+.accountNavItemActive:focus-visible {
+	color: var(--color-cream);
+	background: var(--color-wine-hover);
+}
+
+.accountNavIcon {
+	display: inline-flex;
+	flex-shrink: 0;
+	color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.accountNavItem {
+		transition: none;
+	}
+}
+
 .backRow {
 	max-width: 80rem;
 	margin: 0 auto;

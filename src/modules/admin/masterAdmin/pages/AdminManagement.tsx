@@ -7,6 +7,10 @@ import { RoleBadge, StatusBadge } from '../components/Badge'
 import Toast from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { AdminPageHeader, AdminStatCard, AdminStats } from '../../components/AdminUI'
+import AdminDetailsPanel, {
+  AdminDetailField,
+  AdminDetailsSection,
+} from '../../components/AdminDetailsPanel'
 
 const ROLES: ManagerRole[] = ['Master Admin', 'Content Manager', 'Comment Manager', 'Feedback Manager', 'User Manager', 'System Manager']
 const ROLE_ACCESS: Record<ManagerRole, string> = {
@@ -660,6 +664,32 @@ function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivat
   }
 
   const hasChanges = panelRole !== manager.role || panelStatus !== manager.status
+  const footer = (
+    <div className="space-y-2">
+      <div className="admin-details-actions">
+        <button onClick={onClose} className="admin-details-button admin-details-button--secondary">Close</button>
+        <button onClick={hasChanges ? handleSave : onEdit} className="admin-details-button admin-details-button--primary">
+          {hasChanges ? 'Save Changes' : 'Edit Manager'}
+        </button>
+      </div>
+      {!hasChanges && (
+        <button onClick={onAssignRole} className="admin-details-button admin-details-button--purple w-full">Assign Role</button>
+      )}
+      <div className="admin-details-actions">
+        {manager.status === 'Active' ? (
+          <button onClick={onDeactivate} className="admin-details-button admin-details-button--deactivate">
+            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18.36 6.64a9 9 0 11-12.73 0M12 3v9" />
+            </svg>
+            <span>Deactivate Account</span>
+          </button>
+        ) : (
+          <button onClick={onActivate} className="admin-details-button admin-details-button--success">Activate Account</button>
+        )}
+        <button onClick={onRemove} className="admin-details-button admin-details-button--danger-strong">Remove as Admin</button>
+      </div>
+    </div>
+  )
 
   return (
     <>
@@ -679,58 +709,31 @@ function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivat
           loading={loading}
         />
       )}
-      <aside
-        className="admin-details-panel flex flex-col rounded-xl overflow-hidden flex-shrink-0"
-        style={{ width: 320, backgroundColor: 'var(--ink-soft)', border: '1px solid var(--stone)' }}
-        aria-label="Manager Details"
+      <AdminDetailsPanel
+        title="Manager Details"
+        onClose={onClose}
+        closeOnBackdrop={!hasChanges}
+        closeOnEscape={!hasChanges}
+        footer={footer}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--stone)' }}>
-          <h2 className="text-base font-semibold text-white">Manager Details</h2>
-          <button onClick={onClose} className="text-[#9CA3AF] hover:text-white transition-colors p-1 rounded" aria-label="Close Manager Details">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto scrollbar-thin">
           {/* Profile */}
-          <div className="px-5 py-5" style={{ borderBottom: '1px solid var(--stone)' }}>
+          <div className="pb-5" style={{ borderBottom: '1px solid var(--stone)' }}>
             <div>
               <p className="text-white font-semibold text-lg">{manager.name}</p>
               <p className="text-xs mt-1 font-mono" style={{ color: 'var(--taupe)' }}>User ID: {manager.id}</p>
             </div>
           </div>
 
-          {/* Fields */}
-          <div className="px-5 py-4 flex flex-col gap-3" style={{ borderBottom: '1px solid var(--stone)' }}>
-            {[
-              { label: 'Email', value: manager.email },
-              { label: 'Username', value: manager.username },
-            ].map(({ label, value }) => (
-              <div key={label} className="flex items-start justify-between gap-2">
-                <span className="text-xs flex-shrink-0" style={{ color: 'var(--taupe)' }}>{label}</span>
-                <span className="text-xs text-white text-right break-all">{value}</span>
-              </div>
-            ))}
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs flex-shrink-0" style={{ color: 'var(--taupe)' }}>Role</span>
-              <RoleBadge role={manager.role} />
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs flex-shrink-0" style={{ color: 'var(--taupe)' }}>Account Status</span>
-              <StatusBadge status={manager.status} />
-            </div>
-            <div className="flex items-start justify-between gap-2">
-              <span className="text-xs flex-shrink-0" style={{ color: 'var(--taupe)' }}>Last Login</span>
-              <span className="text-xs text-white text-right">{formatDate(manager.lastLogin)}</span>
-            </div>
-          </div>
+          <AdminDetailsSection title="Account Information">
+            <AdminDetailField label="Email" value={manager.email} />
+            <AdminDetailField label="Username" value={manager.username} />
+            <AdminDetailField label="Role"><RoleBadge role={manager.role} /></AdminDetailField>
+            <AdminDetailField label="Account Status"><StatusBadge status={manager.status} /></AdminDetailField>
+            <AdminDetailField label="Last Login" value={formatDate(manager.lastLogin)} />
+          </AdminDetailsSection>
 
           {/* Role & Access section */}
-          <div className="px-5 py-4 flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-white">Role & Access</h3>
+          <AdminDetailsSection title="Role & Access">
             <div>
               <label htmlFor="panel-role" className="block text-xs mb-1.5" style={{ color: 'var(--taupe)' }}>Role</label>
               <select id="panel-role" className="select-field text-sm"
@@ -757,53 +760,8 @@ function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivat
                 <span className="text-xs text-white">{panelStatus}</span>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="px-5 py-4 flex flex-col gap-2" style={{ borderTop: '1px solid var(--stone)' }}>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="btn-ghost flex-1 py-2 rounded-lg text-sm font-medium">Close</button>
-            <button
-              onClick={hasChanges ? handleSave : onEdit}
-              className="btn-gold flex-1 py-2 rounded-lg text-sm"
-            >
-              {hasChanges ? 'Save Changes' : 'Edit Manager'}
-            </button>
-          </div>
-          {!hasChanges && (
-            <button onClick={onAssignRole} className="btn-wine py-2 rounded-lg text-sm font-medium w-full">
-              Assign Role
-            </button>
-          )}
-          <div className="pt-1">
-            {manager.status === 'Active'
-              ? (
-                <button onClick={onDeactivate} className="flex items-center gap-2 text-sm font-medium w-full justify-center py-1.5 rounded-lg transition-colors text-red-400 hover:bg-red-400/10">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                  Deactivate Account
-                </button>
-              )
-              : (
-                <button onClick={onActivate} className="flex items-center gap-2 text-sm font-medium w-full justify-center py-1.5 rounded-lg transition-colors" style={{ color: '#10B981' }}
-                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(16,185,129,0.1)')}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Activate Account
-                </button>
-              )
-            }
-          </div>
-          <button onClick={onRemove} className="flex items-center justify-center gap-2 rounded-lg border border-red-500/30 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-9 0h12" /></svg>
-            Remove as Admin
-          </button>
-        </div>
-      </aside>
+          </AdminDetailsSection>
+      </AdminDetailsPanel>
     </>
   )
 }
@@ -814,7 +772,7 @@ export default function AdminManagement() {
     useAdminRepository<Manager>('managers'),
   )
   const managers = managerState.items
-  const [selectedId, setSelectedId] = useState<string | null>('ADM-001')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
@@ -1111,23 +1069,23 @@ export default function AdminManagement() {
           <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--stone)' }}>
             <h2 className="text-base font-semibold text-white">Managers ({filtered.length})</h2>
           </div>
-          <div className="overflow-x-auto">
+          <div className="admin-manager-table-frame">
             {managerState.loading
               ? <LoadingSpinner />
               : filtered.length === 0
                 ? <EmptyState message="No Manager accounts match your search or selected filters." onReset={resetFilters} />
                 : (
-                  <table className="w-full text-sm" style={{ tableLayout: 'fixed' }} role="grid">
+                  <table className="admin-manager-table text-sm" role="grid">
                     <colgroup>
-                      <col style={{ width: 36 }} />
-                      <col style={{ width: 80 }} />
-                      <col style={{ width: '16%' }} />
-                      <col style={{ width: '18%' }} />
-                      <col style={{ width: '13%' }} />
-                      <col style={{ width: '17%' }} />
-                      <col style={{ width: 96 }} />
-                      <col style={{ width: '15%' }} />
-                      <col style={{ width: 244 }} />
+                      <col style={{ width: '4%' }} />
+                      <col style={{ width: '7%' }} />
+                      <col style={{ width: '10%' }} />
+                      <col style={{ width: '12%' }} />
+                      <col style={{ width: '9%' }} />
+                      <col style={{ width: '14%' }} />
+                      <col style={{ width: '8%' }} />
+                      <col style={{ width: '10%' }} />
+                      <col style={{ width: '26%' }} />
                     </colgroup>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--stone)' }}>
@@ -1190,26 +1148,26 @@ export default function AdminManagement() {
                             <td className="px-2 py-3">
                               <span className="text-xs truncate block" style={{ color: 'var(--taupe)' }}>{m.username}</span>
                             </td>
-                            <td className="px-2 py-3"><RoleBadge role={m.role} /></td>
-                            <td className="px-2 py-3"><StatusBadge status={m.status} /></td>
+                            <td className="px-2 py-3"><div className="overflow-hidden"><RoleBadge role={m.role} /></div></td>
+                            <td className="px-2 py-3"><div className="overflow-hidden"><StatusBadge status={m.status} /></div></td>
                             <td className="px-2 py-3">
                               <span className="text-xs block truncate" style={{ color: 'var(--taupe)' }}>{formatDate(m.lastLogin)}</span>
                             </td>
                             <td className="px-2 py-3" onClick={e => e.stopPropagation()}>
-                              <div className="flex items-center gap-1">
+                              <div className="admin-manager-table__actions">
                                 <button
                                   onClick={() => { setSelectedId(m.id) }}
-                                  className="btn-wine px-2 py-1 rounded text-xs font-medium flex-shrink-0"
+                                  className="admin-manager-table__compact-action btn-wine py-1 rounded text-xs font-medium flex-shrink-0"
                                   aria-label={`View ${m.name}`}
                                 >View</button>
                                 <button
                                   onClick={() => { setSelectedId(m.id); setModal('edit') }}
-                                  className="btn-wine px-2 py-1 rounded text-xs font-medium flex-shrink-0"
+                                  className="admin-manager-table__compact-action btn-wine py-1 rounded text-xs font-medium flex-shrink-0"
                                   aria-label={`Edit ${m.name}`}
                                 >Edit</button>
                                 <button
                                   onClick={() => { setSelectedId(m.id); setModal('assignRole') }}
-                                  className="btn-wine px-2 py-1 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap"
+                                  className="admin-manager-table__compact-action btn-wine py-1 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap"
                                   aria-label={`Assign role to ${m.name}`}
                                 >Role</button>
                                 <button
@@ -1218,9 +1176,21 @@ export default function AdminManagement() {
                                     setConfirmTargetId(m.id)
                                     setConfirmType(m.status === 'Active' ? 'deactivate' : 'activate')
                                   }}
-                                  className={`px-2 py-1 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap transition-colors ${m.status === 'Active' ? 'text-red-300 hover:bg-red-500/10' : 'text-emerald-300 hover:bg-emerald-500/10'}`}
+                                  className={`manager-status-action ${m.status === 'Active' ? 'manager-status-action--deactivate' : 'manager-status-action--activate'}`}
+                                  disabled={actionPending}
                                   aria-label={`${m.status === 'Active' ? 'Deactivate' : 'Activate'} ${m.name}`}
-                                >{m.status === 'Active' ? 'Deactivate' : 'Activate'}</button>
+                                >
+                                  {m.status === 'Active' ? (
+                                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18.36 18.36A9 9 0 0 0 5.64 5.64m12.72 12.72A9 9 0 0 1 5.64 5.64m12.72 12.72L5.64 5.64" />
+                                    </svg>
+                                  ) : (
+                                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="m8.5 12 2.25 2.25L15.5 9.5m5.5 2.5a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                    </svg>
+                                  )}
+                                  <span>{m.status === 'Active' ? 'Deactivate' : 'Activate'}</span>
+                                </button>
                               </div>
                             </td>
                           </tr>

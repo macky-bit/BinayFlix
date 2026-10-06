@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import type { Content, Category, Genre, Toast } from '../../types';
+import AdminDetailsPanel, { AdminDetailsSection } from '../../../components/AdminDetailsPanel';
 import ConfirmDialog from '../shared/ConfirmDialog';
 import Modal from '../shared/Modal';
 
@@ -420,39 +421,19 @@ function DetailDrawer({
   const cat = categories.find((c) => c.id === item.categoryId);
   const itemGenres = genres.filter((g) => item.genreIds.includes(g.id));
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
   return (
-    <div
-      className="fixed inset-0 z-40 flex justify-end"
-      style={{ backgroundColor: 'rgba(11, 7, 25, 0.6)', backdropFilter: 'blur(2px)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div
-        className="w-full max-w-lg h-full flex flex-col overflow-hidden"
-        style={{ backgroundColor: '#150D2A', borderLeft: '1px solid rgba(124, 58, 237, 0.3)' }}
-        role="complementary"
-        aria-label="Content details"
-      >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-6 py-4 flex-shrink-0"
-          style={{ borderBottom: '1px solid #374151' }}
-        >
-          <h2 className="text-base font-semibold text-white">Content Details</h2>
-          <button onClick={onClose} aria-label="Close details" className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" style={{ color: '#9CA3AF' }}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+    <AdminDetailsPanel
+      title="Content Details"
+      onClose={onClose}
+      footer={(
+        <div className="admin-details-actions">
+          <button onClick={onDelete} className="admin-details-button admin-details-button--danger">Delete</button>
+          <button onClick={onClose} className="admin-details-button admin-details-button--secondary">Close</button>
+          <button onClick={onEdit} className="admin-details-button admin-details-button--primary">Edit Content</button>
         </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+      )}
+    >
+      <div className="space-y-5">
           {/* Thumbnail */}
           {item.thumbnailUrl && (
             <img
@@ -463,6 +444,7 @@ function DetailDrawer({
             />
           )}
 
+          <AdminDetailsSection title="Content Information">
           {/* IDs */}
           <div className="grid grid-cols-2 gap-3">
             <DetailField label="Content ID" value={item.id} mono />
@@ -498,51 +480,17 @@ function DetailDrawer({
             <DetailField label="Runtime" value={formatRuntime(item.runtime)} />
             <DetailField label="Age Rating" value={item.ageRating} />
           </div>
+          </AdminDetailsSection>
 
+          <AdminDetailsSection title="Media Files">
           <div className="space-y-2">
             <FileField label="Thumbnail" filename={item.thumbnailFilename} />
             <FileField label="Video" filename={item.videoFilename} />
             <FileField label="Subtitles" filename={item.subtitleFilename || '—'} />
           </div>
-        </div>
-
-        {/* Footer */}
-        <div
-          className="flex items-center justify-between gap-3 px-6 py-4 flex-shrink-0"
-          style={{ borderTop: '1px solid #374151' }}
-        >
-          <button
-            onClick={onDelete}
-            className="px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-            style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#EF4444' }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'; }}
-          >
-            Delete
-          </button>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-              style={{ border: '1px solid #374151', color: '#9CA3AF', backgroundColor: 'transparent' }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#6B7280'; e.currentTarget.style.color = '#fff'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#374151'; e.currentTarget.style.color = '#9CA3AF'; }}
-            >
-              Close
-            </button>
-            <button
-              onClick={onEdit}
-              className="px-3 py-2 rounded-lg text-sm font-semibold transition-all"
-              style={{ background: 'linear-gradient(135deg, #F5A800, #FF6B00)', color: '#1a0a00', border: 'none' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, #FFB800, #FF8C00)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, #F5A800, #FF6B00)'; }}
-            >
-              Edit Content
-            </button>
-          </div>
-        </div>
+          </AdminDetailsSection>
       </div>
-    </div>
+    </AdminDetailsPanel>
   );
 }
 
@@ -663,19 +611,37 @@ export default function ContentTab({ content, categories, genres, onAdd, onEdit,
   function SortIcon({ col }: { col: keyof Content }) {
     const active = sortKey === col;
     return (
-      <span className="ml-1 inline-flex flex-col gap-0" aria-hidden="true">
-        <svg className="w-2.5 h-2.5" style={{ color: active && sortDir === 'asc' ? '#7C3AED' : '#374151' }} fill="currentColor" viewBox="0 0 10 10"><path d="M5 0l5 5H0z" /></svg>
-        <svg className="w-2.5 h-2.5" style={{ color: active && sortDir === 'desc' ? '#7C3AED' : '#374151' }} fill="currentColor" viewBox="0 0 10 10"><path d="M0 5l5 5 5-5z" /></svg>
+      <span className="content-table__sort-icon" aria-hidden="true">
+        <svg className={active && sortDir === 'asc' ? 'is-active' : ''} fill="currentColor" viewBox="0 0 10 10"><path d="M5 0l5 5H0z" /></svg>
+        <svg className={active && sortDir === 'desc' ? 'is-active' : ''} fill="currentColor" viewBox="0 0 10 10"><path d="M0 5l5 5 5-5z" /></svg>
       </span>
+    );
+  }
+
+  function SortableHeader({ label, col, align = 'left' }: { label: string; col: keyof Content; align?: 'left' | 'right' }) {
+    const active = sortKey === col;
+    return (
+      <th
+        scope="col"
+        className={`content-table__head-cell ${align === 'right' ? 'content-table__head-cell--right' : ''}`}
+        aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        <button
+          type="button"
+          className="content-table__sort-button"
+          onClick={() => handleSort(col)}
+          aria-label={`Sort by ${label}${active ? `, currently ${sortDir === 'asc' ? 'ascending' : 'descending'}` : ''}`}
+        >
+          {label}
+          <SortIcon col={col} />
+        </button>
+      </th>
     );
   }
 
   const detailItem = detailId ? content.find((c) => c.id === detailId) : null;
   const editItem = editId ? content.find((c) => c.id === editId) : null;
   const deleteItem = deleteId ? content.find((c) => c.id === deleteId) : null;
-
-  const thClass = "px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide cursor-pointer select-none whitespace-nowrap";
-  const thStyle: React.CSSProperties = { color: '#9CA3AF' };
 
   return (
     <div>
@@ -736,22 +702,35 @@ export default function ContentTab({ content, categories, genres, onAdd, onEdit,
       </div>
 
       {/* Table */}
-      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #374151' }}>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm" style={{ backgroundColor: '#150D2A' }}>
+      <div className="content-table-frame">
+        <div className="content-table-scroll scrollbar-thin">
+          <table className="content-admin-table">
+            <colgroup>
+              <col className="content-table__col-thumbnail" />
+              <col className="content-table__col-id" />
+              <col className="content-table__col-title" />
+              <col className="content-table__col-category" />
+              <col className="content-table__col-genres" />
+              <col className="content-table__col-year" />
+              <col className="content-table__col-runtime" />
+              <col className="content-table__col-rating" />
+              <col className="content-table__col-streams" />
+              <col className="content-table__col-status" />
+              <col className="content-table__col-actions" />
+            </colgroup>
             <thead>
-              <tr style={{ borderBottom: '1px solid #374151' }}>
-                <th className={thClass} style={thStyle}>Thumbnail</th>
-                <th className={thClass} style={thStyle} onClick={() => handleSort('id')}>Content ID <SortIcon col="id" /></th>
-                <th className={thClass} style={thStyle} onClick={() => handleSort('title')}>Title <SortIcon col="title" /></th>
-                <th className={thClass} style={thStyle} onClick={() => handleSort('categoryId')}>Category <SortIcon col="categoryId" /></th>
-                <th className={thClass} style={thStyle}>Genres</th>
-                <th className={thClass} style={thStyle} onClick={() => handleSort('releaseYear')}>Year <SortIcon col="releaseYear" /></th>
-                <th className={thClass} style={thStyle} onClick={() => handleSort('runtime')}>Runtime <SortIcon col="runtime" /></th>
-                <th className={thClass} style={{ ...thStyle, minWidth: '80px' }}>Rating</th>
-                <th className={thClass} style={thStyle} onClick={() => handleSort('totalStreams')}>Streams <SortIcon col="totalStreams" /></th>
-                <th className={thClass} style={thStyle}>Status</th>
-                <th className={thClass} style={thStyle}>Actions</th>
+              <tr>
+                <th scope="col" className="content-table__head-cell">Thumbnail</th>
+                <SortableHeader label="Content ID" col="id" />
+                <SortableHeader label="Title" col="title" />
+                <SortableHeader label="Category" col="categoryId" />
+                <th scope="col" className="content-table__head-cell">Genres</th>
+                <SortableHeader label="Year" col="releaseYear" />
+                <SortableHeader label="Runtime" col="runtime" />
+                <th scope="col" className="content-table__head-cell content-table__head-cell--center">Rating</th>
+                <SortableHeader label="Streams" col="totalStreams" align="right" />
+                <th scope="col" className="content-table__head-cell">Status</th>
+                <th scope="col" className="content-table__head-cell">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -787,25 +766,15 @@ export default function ContentTab({ content, categories, genres, onAdd, onEdit,
                   <tr
                     key={item.id}
                     onClick={() => setSelectedId(isSelected ? null : item.id)}
-                    className="cursor-pointer"
-                    style={{
-                      borderBottom: '1px solid #1F2937',
-                      backgroundColor: isSelected ? 'rgba(124, 58, 237, 0.1)' : 'transparent',
-                      borderLeft: isSelected ? '3px solid #7C3AED' : '3px solid transparent',
-                    }}
-                    onMouseEnter={(e) => { if (!isSelected) (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(124, 58, 237, 0.06)'; }}
-                    onMouseLeave={(e) => { if (!isSelected) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+                    className={`content-table__row ${isSelected ? 'is-selected' : ''}`}
                   >
                     {/* Thumbnail */}
-                    <td className="px-3 py-2">
-                      <div
-                        className="w-16 h-10 rounded overflow-hidden flex-shrink-0 cursor-pointer"
-                        style={{ border: '1px solid #374151', backgroundColor: 'var(--color-ink)' }}
+                    <td>
+                      <button
+                        type="button"
+                        className="content-table__thumbnail"
                         onClick={(e) => { e.stopPropagation(); setDetailId(item.id); }}
-                        role="button"
                         aria-label={`View details for ${item.title}`}
-                        tabIndex={0}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setDetailId(item.id); }}}
                       >
                         {item.thumbnailUrl ? (
                           <img src={item.thumbnailUrl} alt={`${item.title} thumbnail`} className="w-full h-full object-cover" />
@@ -816,62 +785,49 @@ export default function ContentTab({ content, categories, genres, onAdd, onEdit,
                             </svg>
                           </div>
                         )}
-                      </div>
+                      </button>
                     </td>
                     {/* ID */}
-                    <td className="px-3 py-2">
-                      <span className="font-mono text-xs" style={{ color: '#8B5CF6' }}>{item.id}</span>
+                    <td>
+                      <span className="content-table__id" title={item.id}>{item.id}</span>
                     </td>
                     {/* Title */}
-                    <td className="px-3 py-2 max-w-[180px]">
-                      <span className="font-medium text-white truncate block">{item.title}</span>
+                    <td>
+                      <span className="content-table__title" title={item.title}>{item.title}</span>
                     </td>
                     {/* Category */}
-                    <td className="px-3 py-2">
-                      <span style={{ color: '#9CA3AF' }}>{cat?.name ?? '—'}</span>
+                    <td>
+                      <span className="content-table__category" title={cat?.name}>{cat?.name ?? '—'}</span>
                     </td>
                     {/* Genres */}
-                    <td className="px-3 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {itemGenres.slice(0, 2).map((g) => (
-                          <span key={g.id} className="px-1.5 py-0.5 rounded text-xs font-medium" style={{ backgroundColor: 'rgba(124, 58, 237, 0.2)', color: '#C4B5FD' }}>{g.name}</span>
+                    <td>
+                      <div className="content-table__genres" title={itemGenres.map((g) => g.name).join(', ')}>
+                        {itemGenres.slice(0, 1).map((g) => (
+                          <span key={g.id} className="content-table__genre-badge">{g.name}</span>
                         ))}
-                        {itemGenres.length > 2 && (
-                          <span className="px-1.5 py-0.5 rounded text-xs" style={{ color: '#9CA3AF' }}>+{itemGenres.length - 2} more</span>
+                        {itemGenres.length > 1 && (
+                          <span className="content-table__genre-more">+{itemGenres.length - 1}</span>
                         )}
                       </div>
                     </td>
                     {/* Year */}
-                    <td className="px-3 py-2 text-white">{item.releaseYear}</td>
+                    <td className="content-table__compact">{item.releaseYear}</td>
                     {/* Runtime */}
-                    <td className="px-3 py-2" style={{ color: '#9CA3AF' }}>{formatRuntime(item.runtime)}</td>
+                    <td className="content-table__compact content-table__muted">{formatRuntime(item.runtime)}</td>
                     {/* Rating */}
-                    <td className="px-3 py-2">
-                      <span
-                        className="inline-block px-1.5 py-0.5 rounded font-bold"
-                        style={{
-                          fontSize: '0.6rem',
-                          letterSpacing: '0.04em',
-                          border: '1.5px solid #6B7280',
-                          color: '#E5E7EB',
-                          backgroundColor: 'rgba(55, 65, 81, 0.35)',
-                          minWidth: '3.2rem',
-                          textAlign: 'center',
-                        }}
-                      >
-                        {item.ageRating}
-                      </span>
+                    <td className="content-table__center">
+                      <span className="content-table__rating-badge">{item.ageRating}</span>
                     </td>
                     {/* Streams */}
-                    <td className="px-3 py-2 font-semibold" style={{ color: '#F5A800' }}>{formatStreams(item.totalStreams)}</td>
+                    <td className="content-table__streams">{formatStreams(item.totalStreams)}</td>
                     {/* Status */}
-                    <td className="px-3 py-2"><AvailBadge status={item.availability} /></td>
+                    <td><AvailBadge status={item.availability} /></td>
                     {/* Actions */}
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        <ActionBtn label="View" onClick={() => setDetailId(item.id)} />
-                        <ActionBtn label="Edit" onClick={() => setEditId(item.id)} />
-                        <ActionBtn label="Delete" onClick={() => setDeleteId(item.id)} danger />
+                    <td>
+                      <div className="content-table__actions" onClick={(e) => e.stopPropagation()}>
+                        <ActionBtn label="View" aria-label={`View ${item.title}`} onClick={() => setDetailId(item.id)} />
+                        <ActionBtn label="Edit" aria-label={`Edit ${item.title}`} onClick={() => setEditId(item.id)} />
+                        <ActionBtn label="Delete" aria-label={`Delete ${item.title}`} onClick={() => setDeleteId(item.id)} danger />
                       </div>
                     </td>
                   </tr>
@@ -993,22 +949,21 @@ function ActionBtn({
   label?: string; onClick: () => void; danger?: boolean; children?: React.ReactNode;
   'aria-label'?: string; disabled?: boolean; active?: boolean; 'aria-current'?: string;
 }) {
+  const icon = label === 'View'
+    ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z" />
+    : label === 'Edit'
+      ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="m4 16-.75 4.75L8 20l10.8-10.8a2.12 2.12 0 0 0-3-3L5 17v3h3 M14.5 7.5l3 3" />
+      : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 7h16 M9 7V4h6v3 M7 7l1 13h8l1-13 M10 11v5 M14 11v5" />;
+
   return (
     <button
+      type="button"
       onClick={onClick}
       aria-label={ariaLabel ?? label}
-      className="px-2 py-1 rounded text-xs font-medium transition-colors duration-150"
-      style={{
-        border: `1px solid ${danger ? 'rgba(239, 68, 68, 0.4)' : 'rgba(124, 58, 237, 0.4)'}`,
-        color: danger ? '#EF4444' : '#A78BFA',
-        backgroundColor: 'transparent',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = danger ? 'rgba(239, 68, 68, 0.1)' : 'rgba(124, 58, 237, 0.15)';
-      }}
-      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+      title={label}
+      className={`content-table__action ${danger ? 'content-table__action--danger' : ''}`}
     >
-      {children ?? label}
+      {children ?? <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">{icon}</svg>}
     </button>
   );
 }
