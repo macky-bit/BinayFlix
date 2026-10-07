@@ -842,6 +842,9 @@ export default function ContentTab({ content, categories, genres, onAdd, onEdit,
           className="flex flex-wrap items-center justify-between gap-4 px-4 py-3"
           style={{ borderTop: '1px solid #374151', backgroundColor: 'rgba(11, 7, 25, 0.3)' }}
         >
+          <p className="text-xs" style={{ color: '#9CA3AF' }}>
+            Showing {filtered.length === 0 ? '0' : `${(page - 1) * rowsPerPage + 1}–${Math.min(page * rowsPerPage, filtered.length)}`} of {filtered.length} content items
+          </p>
           <div className="flex items-center gap-1">
             <PageBtn onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} aria-label="Previous page">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>

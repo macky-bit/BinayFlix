@@ -1038,7 +1038,7 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
 .admin-table-pagination {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 1rem;
   padding: .8rem .15rem 0;
   color: var(--taupe);
@@ -1188,125 +1188,6 @@ input:checked + .toggle-slider:before { transform: translateX(18px); }
 .btn-gold { box-shadow: 0 6px 18px rgba(255,107,0,.16); }
 .btn-gold:focus-visible { outline-color: var(--gold); }
 .modal-panel { box-shadow: 0 24px 80px rgba(0,0,0,.65); }
-
-/* System Manager controls and dense operational tables. */
-.system-overview-filters {
-  align-items: center;
-  gap: .75rem !important;
-  padding: 1rem !important;
-}
-.system-overview-search { flex: 1 1 22rem; min-width: 14rem; }
-.system-overview-severity { flex: 0 0 10.5rem; }
-.system-overview-view-all {
-  min-height: 2.5rem;
-  margin-left: auto;
-  padding: .55rem 1rem;
-  border-radius: .5rem;
-  white-space: nowrap;
-}
-.system-overview-actions { align-items: stretch; }
-.system-overview-action {
-  display: inline-flex;
-  min-height: 2.65rem;
-  align-items: center;
-  justify-content: center;
-  gap: .55rem;
-  padding: .65rem 1rem;
-  border-radius: .55rem;
-}
-.system-overview-actions .btn-ghost {
-  border-color: rgba(124,58,237,.6);
-  background: rgba(124,58,237,.06);
-  color: #c4b5fd;
-}
-.system-overview-actions .btn-ghost:hover { background: rgba(124,58,237,.14); color: #fff; }
-
-.system-table-surface,
-.system-table-frame { width: 100%; min-width: 0; }
-.system-table-frame { overflow: visible; }
-.system-data-table {
-  width: 100%;
-  min-width: 0;
-  table-layout: fixed;
-  border-collapse: collapse;
-}
-.system-data-table th,
-.system-data-table td {
-  min-width: 0;
-  padding: .7rem .35rem;
-  overflow: hidden;
-}
-.system-data-table th {
-  line-height: 1.2;
-  white-space: normal;
-  overflow-wrap: normal;
-}
-.system-data-table th:first-child,
-.system-data-table td:first-child { padding-left: .65rem; }
-.system-data-table th:last-child,
-.system-data-table td:last-child { padding-right: .65rem; overflow: visible; }
-.system-cell-ellipsis {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.system-data-table [role="status"] {
-  max-width: 100%;
-  gap: .3rem;
-  padding-inline: .45rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.system-table-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: center;
-  gap: .25rem;
-}
-.system-table-actions .system-table-action {
-  width: 100%;
-  min-width: 0;
-}
-.system-table-actions .system-table-action:last-child { grid-column: 1 / -1; }
-.system-table-action {
-  min-height: 1.8rem;
-  padding: .3rem .4rem;
-  border-radius: .4rem;
-  white-space: nowrap;
-}
-.system-logs-table .col-select { width: 4%; }
-.system-logs-table .col-id { width: 7%; }
-.system-logs-table .col-date { width: 11%; }
-.system-logs-table .col-event { width: 10%; }
-.system-logs-table .col-source { width: 10%; }
-.system-logs-table .col-description { width: 20%; }
-.system-logs-table .col-ip { width: 9%; }
-.system-logs-table .col-severity { width: 9%; }
-.system-logs-table .col-status { width: 11%; }
-.system-logs-table .col-actions { width: 9%; }
-.security-events-table .col-id { width: 7%; }
-.security-events-table .col-date { width: 11%; }
-.security-events-table .col-event { width: 11%; }
-.security-events-table .col-source { width: 10%; }
-.security-events-table .col-ip { width: 9%; }
-.security-events-table .col-description { width: 16%; }
-.security-events-table .col-severity { width: 10%; }
-.security-events-table .col-status { width: 11%; }
-.security-events-table .col-actions { width: 15%; }
-
-@media (max-width: 760px) {
-  .system-overview-search,
-  .system-overview-severity,
-  .system-overview-view-all { flex: 1 1 100%; width: 100%; min-width: 0; margin-left: 0; }
-  .system-overview-actions { flex-direction: column; }
-  .system-overview-action { width: 100%; }
-  .system-table-frame { overflow-x: auto; }
-  .system-logs-table { min-width: 760px; }
-  .security-events-table { min-width: 820px; }
-}
 
 @media (max-width: 1024px) {
   .admin-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
