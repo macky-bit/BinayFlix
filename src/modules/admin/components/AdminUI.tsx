@@ -107,8 +107,6 @@ export function AdminTablePagination({
 }) {
   const totalPages = Math.max(1, Math.ceil(total / perPage))
   const safePage = Math.min(page, totalPages)
-  const first = total === 0 ? 0 : (safePage - 1) * perPage + 1
-  const last = Math.min(safePage * perPage, total)
   const visiblePages = Array.from(
     { length: Math.min(5, totalPages) },
     (_, index) => {
@@ -122,9 +120,6 @@ export function AdminTablePagination({
 
   return (
     <div className="admin-table-pagination" aria-label={`${label} pagination`}>
-      <p>
-        Showing {first}–{last} of {total} {label}
-      </p>
       <div className="admin-pagination-controls">
         <button
           type="button"

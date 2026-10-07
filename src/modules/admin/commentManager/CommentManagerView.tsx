@@ -384,7 +384,6 @@ function ReviewsTab({ toast }: { toast: (msg: string) => void }) {
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm" style={{ color: "#9CA3AF" }}>Showing {Math.min((page - 1) * perPage + 1, filtered.length)}–{Math.min(page * perPage, filtered.length)} of {filtered.length.toLocaleString()} reviews</span>
             <div className="flex items-center gap-1">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="w-8 h-8 rounded text-xs disabled:opacity-30 flex items-center justify-center" style={{ border: "1px solid #374151", color: "#9CA3AF" }}>‹</button>
               {Array.from({ length: Math.min(5, Math.ceil(filtered.length / perPage)) }, (_, i) => i + 1).map(p => (
@@ -687,7 +686,6 @@ function PostsWorkspace({ toast }: { toast: (msg: string) => void }) {
               Delete Selected
             </button>
           </div>
-          <span className="text-sm" style={{ color: "#9CA3AF" }}>Showing {Math.min((page - 1) * perPage + 1, filtered.length)}–{Math.min(page * perPage, filtered.length)} of {filtered.length} posts</span>
         </div>
       </div>
 
@@ -916,7 +914,6 @@ function CommentsWorkspace({ toast }: { toast: (msg: string) => void }) {
               Delete Selected
             </button>
           </div>
-          <span className="text-sm" style={{ color: "#9CA3AF" }}>Showing {Math.min((page - 1) * perPage + 1, filtered.length)}–{Math.min(page * perPage, filtered.length)} of {filtered.length} comments</span>
         </div>
       </div>
 

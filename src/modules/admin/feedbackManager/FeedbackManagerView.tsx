@@ -835,9 +835,6 @@ export default function FeedbackManagerView() {
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ marginRight: 8 }}>
-                    Showing {(page - 1) * rowsPerPage + 1}–{Math.min(page * rowsPerPage, filtered.length)} of {filtered.length} feedback items
-                  </span>
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}

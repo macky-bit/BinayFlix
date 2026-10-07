@@ -2,6 +2,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
@@ -26,6 +27,9 @@ export default function AdminDetailsPanel({
   closeOnEscape = true,
 }: AdminDetailsPanelProps) {
   const titleId = useId()
+  const panelRef = useRef<HTMLElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   const [drawerBounds, setDrawerBounds] = useState<{
     top: number
     height: number
@@ -40,8 +44,7 @@ export default function AdminDetailsPanel({
 
       const navbarRect = navbar.getBoundingClientRect()
       const layoutHeight = navbar.offsetHeight
-      const pageScale =
-        layoutHeight > 0 ? navbarRect.height / layoutHeight : 1
+      const pageScale = layoutHeight > 0 ? navbarRect.height / layoutHeight : 1
       const normalizedScale =
         Number.isFinite(pageScale) && pageScale > 0 ? pageScale : 1
 
@@ -66,9 +69,34 @@ export default function AdminDetailsPanel({
   }, [])
 
   useEffect(() => {
+    const returnFocusTo = document.activeElement as HTMLElement | null
     const previousOverflow = document.body.style.overflow
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && closeOnEscape) onClose()
+      if (event.key === "Escape" && closeOnEscape) {
+        onCloseRef.current()
+        return
+      }
+
+      if (event.key !== "Tab" || !panelRef.current) return
+      const focusable = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => element.getClientRects().length > 0)
+      if (focusable.length === 0) {
+        event.preventDefault()
+        panelRef.current.focus()
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
     }
 
     document.body.style.overflow = "hidden"
@@ -76,8 +104,16 @@ export default function AdminDetailsPanel({
     return () => {
       document.body.style.overflow = previousOverflow
       window.removeEventListener("keydown", handleKey)
+      returnFocusTo?.focus()
     }
-  }, [closeOnEscape, onClose])
+  }, [closeOnEscape])
+
+  useEffect(() => {
+    if (!drawerBounds) return
+    panelRef.current
+      ?.querySelector<HTMLElement>("button, [href], input, select, textarea")
+      ?.focus()
+  }, [drawerBounds])
 
   if (!drawerBounds) return null
 
@@ -90,6 +126,8 @@ export default function AdminDetailsPanel({
       }}
     >
       <aside
+        ref={panelRef}
+        tabIndex={-1}
         className="admin-details-shell flex h-full w-full max-w-lg flex-col overflow-hidden shadow-2xl"
         role="dialog"
         aria-modal="true"
@@ -169,9 +207,15 @@ export function AdminDetailField({
     <div className="admin-detail-field">
       <div className="admin-detail-label">{label}</div>
       <div
-        className={`admin-detail-value ${mono ? "font-mono break-all" : "break-words"}`}
+        className={`admin-detail-value ${
+          mono ? "font-mono break-all" : "break-words"
+        }`}
       >
-        {missing ? <span className="admin-detail-missing">Not provided</span> : content}
+        {missing ? (
+          <span className="admin-detail-missing">Not provided</span>
+        ) : (
+          content
+        )}
       </div>
     </div>
   )

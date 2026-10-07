@@ -194,8 +194,6 @@ interface PaginationProps {
 
 function Pagination({ total, page, perPage, onPage, label }: PaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / perPage));
-  const start = (page - 1) * perPage + 1;
-  const end = Math.min(page * perPage, total);
 
   const pageNums: (number | "...")[] = [];
   if (totalPages <= 7) {
@@ -217,10 +215,7 @@ function Pagination({ total, page, perPage, onPage, label }: PaginationProps) {
   });
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderTop: "1px solid #374151", flexWrap: "wrap", gap: 12 }}>
-      <span style={{ fontSize: 13, color: "#9CA3AF" }}>
-        Showing {total === 0 ? 0 : start}–{end} of {total} {label}
-      </span>
+    <div aria-label={`${label} pagination`} style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "14px 16px", borderTop: "1px solid #374151", flexWrap: "wrap", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <button
           onClick={() => onPage(Math.max(1, page - 1))}
