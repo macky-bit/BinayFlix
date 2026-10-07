@@ -1,4 +1,4 @@
-export type AdminResourceName = "managers" | "content" | "categories" | "genres" | "soundtracks" | "film-refreshers" | "reviews" | "reactions" | "forum-posts" | "forum-comments" | "feedback" | "subscribers" | "watch-history" | "subscriptions" | "plans" | "payments" | "system-logs" | "backups"
+export type AdminResourceName = "managers" | "content" | "categories" | "genres" | "soundtracks" | "film-refreshers" | "reviews" | "reactions" | "content-comments" | "forum-posts" | "forum-comments" | "feedback" | "subscribers" | "watch-history" | "subscriptions" | "plans" | "payments" | "system-logs" | "backups"
 
 export type SortDirection = "asc" | "desc"
 

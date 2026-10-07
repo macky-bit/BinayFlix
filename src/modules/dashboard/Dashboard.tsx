@@ -4,6 +4,7 @@ import type { Show } from "../movie/types"
 import { Navbar, type DashboardView } from "./components"
 import CatalogPage from "./CatalogPage"
 import { MyListView } from "./myList/components"
+import SearchResultsPage from "./SearchResultsPage"
 
 interface Props {
   onSignOut: () => void
@@ -12,7 +13,9 @@ interface Props {
 
   onInfo: (show: Show) => void
 
-  onNavigate: (page: "account" | "profile" | "help" | "settings" | "admin") => void
+  onNavigate: (
+    page: "account" | "profile" | "help" | "settings" | "admin",
+  ) => void
 }
 
 export default function Dashboard({
@@ -23,6 +26,8 @@ export default function Dashboard({
 }: Props) {
   const [searchOpen, setSearchOpen] = useState(false)
 
+  const [searchQuery, setSearchQuery] = useState("")
+
   const [view, setView] = useState<DashboardView>("home")
 
   const [showAdminLink, setShowAdminLink] = useState(false)
@@ -31,12 +36,15 @@ export default function Dashboard({
     let active = true
     void supabase.rpc("get_my_admin_access").then(({ data, error }) => {
       if (!active) return
-      const status = data && typeof data === "object"
-        ? String((data as { status?: unknown }).status).toLowerCase()
-        : ""
+      const status =
+        data && typeof data === "object"
+          ? String((data as { status?: unknown }).status).toLowerCase()
+          : ""
       setShowAdminLink(!error && status === "active")
     })
-    return () => { active = false }
+    return () => {
+      active = false
+    }
   }, [])
 
   return (
@@ -46,15 +54,28 @@ export default function Dashboard({
         onSignOut={onSignOut}
         searchOpen={searchOpen}
         setSearchOpen={setSearchOpen}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
         onNavigatePage={onNavigate}
-        onNavigateView={setView}
+        onNavigateView={(nextView) => {
+          setSearchQuery("")
+          setSearchOpen(false)
+          setView(nextView)
+        }}
         showAdminLink={showAdminLink}
       />
 
-      {view !== "myList" && (
+      {searchQuery.trim() && (
+        <SearchResultsPage
+          query={searchQuery}
+          onWatch={onWatch}
+          onInfo={onInfo}
+        />
+      )}
+      {!searchQuery.trim() && view !== "myList" && (
         <CatalogPage kind={view} onWatch={onWatch} onInfo={onInfo} />
       )}
-      {view === "myList" && (
+      {!searchQuery.trim() && view === "myList" && (
         <MyListView onBrowse={() => setView("home")} onInfo={onInfo} />
       )}
     </div>

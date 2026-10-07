@@ -317,7 +317,7 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 
 			setProfiles(loadedProfiles);
 			setSelected((current) =>
-				loadedProfiles.find((profile) => profile.id === current?.id) ?? loadedProfiles[0] ?? null,
+				loadedProfiles.find((profile) => profile.id === current?.id) ?? null,
 			);
 			setProfileLimit(context?.max_profiles ?? Math.max(1, maxProfiles));
 			setCanAddProfile(

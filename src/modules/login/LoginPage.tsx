@@ -7,7 +7,7 @@ import styles from "../auth/auth.module.css";
 export default function LoginPage({
 	onNavigate,
 }: {
-	onNavigate: (p: "register" | "subscription" | "dashboard" | "admin") => void;
+	onNavigate: (p: "register" | "subscription" | "profileSelect" | "admin") => void;
 }) {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
@@ -32,7 +32,7 @@ export default function LoginPage({
 		setErrors({});
 		setNotice("");
 		setRememberSession(remember);
-		const { data: signInData, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+		const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
 		if (error) {
 			setErrors({ form: error.message });
 			setSubmitting(false);
@@ -40,7 +40,7 @@ export default function LoginPage({
 		}
 
 		try {
-			onNavigate(await getSignedInDestination(signInData.user.id));
+			onNavigate(await getSignedInDestination());
 		} catch {
 			setErrors({ form: "Signed in, but your StreamFlix account could not be loaded. Please try again." });
 			setSubmitting(false);

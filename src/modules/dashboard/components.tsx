@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react"
+
 import type { Show } from "../movie/types"
 
 import styles from "./dashboard.module.css"
@@ -125,6 +126,7 @@ function AccountMenuIcon({ name }: { name: AccountMenuIconName }) {
         <path d="M5 20c.7-4 3-6 7-6s6.3 2 7 6" />
       </>
     ),
+
     account: (
       <>
         <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -132,12 +134,14 @@ function AccountMenuIcon({ name }: { name: AccountMenuIconName }) {
         <path d="M13 10h5M13 14h4" />
       </>
     ),
+
     settings: (
       <>
         <circle cx="12" cy="12" r="3" />
         <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
       </>
     ),
+
     help: (
       <>
         <circle cx="12" cy="12" r="9" />
@@ -145,6 +149,7 @@ function AccountMenuIcon({ name }: { name: AccountMenuIconName }) {
         <path d="M12 17h.01" />
       </>
     ),
+
     signout: (
       <>
         <path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5" />
@@ -218,11 +223,15 @@ function MuteIcon({ muted }: { muted: boolean }) {
 
 export function TrendingCard({
   show,
+
   onPlay,
+
   onInfo,
 }: {
   show: Show
+
   onPlay?: (show: Show) => void
+
   onInfo?: (show: Show) => void
 }) {
   const [hovered, setHovered] = useState(false)
@@ -304,6 +313,7 @@ export function TrendingCard({
               aria-label="Play"
               onClick={(e) => {
                 e.stopPropagation()
+
                 onPlay?.(show)
               }}
             >
@@ -334,14 +344,19 @@ export function TrendingCard({
 
 export function ContinueWatchingCard({
   show,
+
   onPlay,
+
   onInfo,
 }: {
   show: Show & {
     progress: number
+
     episodeLabel?: string
   }
+
   onPlay?: (show: Show) => void
+
   onInfo?: (show: Show) => void
 }) {
   const [hovered, setHovered] = useState(false)
@@ -407,6 +422,7 @@ export function ContinueWatchingCard({
               aria-label="Play"
               onClick={(e) => {
                 e.stopPropagation()
+
                 onPlay?.(show)
               }}
             >
@@ -495,24 +511,29 @@ export function Top10Card({
 
 export function CarouselRow({
   title,
+
   shows,
+
   top10,
+
   variant = "portrait",
+
   onPlay,
+
   onInfo,
 }: {
   title: string
 
-  shows: Array<
-    Show & {
-      progress?: number
-    }
-  >
+  shows: Array<Show & {
+    progress?: number
+  }>
 
   top10?: boolean
 
   variant?: "portrait" | "trending" | "continue"
+
   onPlay?: (show: Show) => void
+
   onInfo?: (show: Show) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -598,10 +619,15 @@ export function CarouselRow({
 
 const NAV_LINKS = [
   "Home",
+
   "TV Shows",
+
   "Movies",
+
   "New & Popular",
+
   "My List",
+
   "Admin",
 ]
 
@@ -609,6 +635,7 @@ export type DashboardView = "home" | "tvShows" | "movies" | "newAndPopular" | "m
 
 export interface AdminNavItem {
   id: string
+
   label: string
 }
 
@@ -628,22 +655,33 @@ const VIEW_BY_LINK: Record<string, DashboardView | null> = {
 
 const ADMIN_PROFILE_BY_ITEM: Record<string, {
   initial: string
+
   name: string
+
   role: string
 }> = {
   master: { initial: "M", name: "Master Admin", role: "Administrator" },
+
   content: { initial: "A", name: "Alex Rivera", role: "Content Manager" },
+
   comments: {
     initial: "C",
+
     name: "Comment Manager",
+
     role: "Community Manager",
   },
+
   feedback: {
     initial: "F",
+
     name: "Feedback Manager",
+
     role: "Feedback Manager",
   },
+
   users: { initial: "U", name: "User Manager", role: "User Manager" },
+
   system: { initial: "S", name: "System Manager", role: "System Manager" },
 }
 
@@ -653,6 +691,10 @@ export function Navbar({
   searchOpen,
 
   setSearchOpen,
+
+  searchQuery,
+
+  onSearchQueryChange,
 
   onNavigatePage,
 
@@ -677,6 +719,10 @@ export function Navbar({
   searchOpen: boolean
 
   setSearchOpen: (v: boolean) => void
+
+  searchQuery?: string
+
+  onSearchQueryChange?: (value: string) => void
 
   onNavigatePage?: (
     page: "account" | "profile" | "help" | "settings" | "admin",
@@ -705,25 +751,33 @@ export function Navbar({
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   const profileMenuRef = useRef<HTMLDivElement>(null)
+
   const notificationMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node
+
       if (!profileMenuRef.current?.contains(target)) setProfileOpen(false)
+
       if (!notificationMenuRef.current?.contains(target)) setNotifOpen(false)
     }
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setProfileOpen(false)
+
         setNotifOpen(false)
       }
     }
 
     document.addEventListener("pointerdown", handlePointerDown)
+
     document.addEventListener("keydown", handleKeyDown)
+
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown)
+
       document.removeEventListener("keydown", handleKeyDown)
     }
   }, [])
@@ -757,7 +811,9 @@ export function Navbar({
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 flex items-center gap-4 sm:gap-6 px-4 sm:px-10 xl:px-12 h-14 ${styles.header} ${adminItems ? styles.adminHeader : ""}`}
+      className={`fixed top-0 left-0 right-0 z-50 flex items-center gap-4 sm:gap-6 px-4 sm:px-10 xl:px-12 h-14 ${styles.header} ${
+        adminItems ? styles.adminHeader : ""
+      }`}
     >
       <button
         className={`${
@@ -774,7 +830,9 @@ export function Navbar({
       <div className="shrink-0 mr-2">{LOGO_SVG}</div>
 
       <nav
-        aria-label={adminItems ? "Administrator workspaces" : "StreamFlix sections"}
+        aria-label={
+          adminItems ? "Administrator workspaces" : "StreamFlix sections"
+        }
         className={`hidden ${
           adminItems ? "lg:flex gap-3" : "md:flex gap-5"
         } items-center min-w-0`}
@@ -847,6 +905,7 @@ export function Navbar({
                 className={`text-left px-4 py-2.5 text-sm ${styles.mobileNavLinkInactive}`}
                 onClick={() => {
                   setMobileNavOpen(false)
+
                   onBackFromAdmin?.()
                 }}
               >
@@ -863,6 +922,7 @@ export function Navbar({
                   }`}
                   onClick={() => {
                     setMobileNavOpen(false)
+
                     onNavigateAdmin?.(item.id)
                   }}
                 >
@@ -896,12 +956,41 @@ export function Navbar({
 
       <div className="flex items-center gap-3 sm:gap-4">
         {searchOpen ? (
-          <input
-            autoFocus
-            placeholder={adminItems ? "Search admin…" : "Search movies, shows, genres..."}
-            className={`w-32 sm:w-56 px-3 py-1.5 text-sm rounded-lg outline-none ${styles.searchInput}`}
-            onBlur={() => setSearchOpen(false)}
-          />
+          <div className="flex items-center gap-1">
+            <input
+              autoFocus
+              placeholder={
+                adminItems ? "Search admin…" : "Search movies and shows..."
+              }
+              className={`w-32 sm:w-56 px-3 py-1.5 text-sm rounded-lg outline-none ${styles.searchInput}`}
+              type="search"
+              aria-label={
+                adminItems
+                  ? "Search administration"
+                  : "Search movies and TV shows"
+              }
+              value={searchQuery}
+              maxLength={100}
+              onChange={(event) => onSearchQueryChange?.(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  onSearchQueryChange?.("")
+                  setSearchOpen(false)
+                }
+              }}
+            />
+            <button
+              type="button"
+              className={`h-8 w-8 rounded-full text-lg ${styles.iconBtn}`}
+              aria-label="Close search"
+              onClick={() => {
+                onSearchQueryChange?.("")
+                setSearchOpen(false)
+              }}
+            >
+              ×
+            </button>
+          </div>
         ) : (
           <button
             onClick={() => setSearchOpen(true)}
@@ -966,7 +1055,11 @@ export function Navbar({
                 </span>
               </span>
             )}
-            <span className={`hidden sm:inline-flex ${styles.profileChevron} ${profileOpen ? styles.profileChevronOpen : ""}`}>
+            <span
+              className={`hidden sm:inline-flex ${styles.profileChevron} ${
+                profileOpen ? styles.profileChevronOpen : ""
+              }`}
+            >
               <ChevronDown />
             </span>
           </button>
@@ -1036,6 +1129,7 @@ export function Navbar({
               <button
                 onClick={() => {
                   setProfileOpen(false)
+
                   onSignOut()
                 }}
                 className={`${styles.profileMenuItem} ${styles.profileMenuSignOut}`}
@@ -1219,9 +1313,11 @@ const FOOTER_LINKS = [
 
 export function ContinueWatchingRow({
   onPlay,
+
   onInfo,
 }: {
   onPlay?: (show: Show) => void
+
   onInfo?: (show: Show) => void
 }) {
   const { entries } = useContinueWatching()

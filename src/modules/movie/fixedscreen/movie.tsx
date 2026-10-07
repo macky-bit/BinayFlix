@@ -1,5 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "../../../lib/supabase";
+import {
+	COMMENT_MAX_LENGTH,
+	deleteContentComment,
+	loadEngagement,
+	postContentComment,
+	resolveContentId,
+	saveReaction,
+	updateContentComment,
+	optimisticReaction,
+	type ContentComment,
+} from "../engagement";
 import { fetchTVEpisodes, type TMDBEpisode } from "../tmdb";
+import {
+	createEmptyReactionCounts,
+	REACTION_DEFINITIONS,
+	type ReactionKey,
+} from "../../../shared/reactions";
 import styles from "./movie.module.css";
 
 interface WatchProps {
@@ -13,7 +30,6 @@ interface WatchProps {
 	onBack: () => void;
 }
 
-type ReactionKey = "upvote" | "funny" | "love" | "surprised" | "angry" | "sad";
 type ActivePanel = "music" | "refresher" | null;
 
 interface PlaceholderTrack {
@@ -31,14 +47,6 @@ interface PlaceholderRefresher {
 	keyDetails: string[];
 }
 
-const REACTIONS: Array<[ReactionKey, string, string]> = [
-	["upvote", "👍", "Upvote"],
-	["funny", "😂", "Funny"],
-	["love", "❤️", "Love"],
-	["surprised", "😮", "Surprised"],
-	["angry", "😡", "Angry"],
-	["sad", "😢", "Sad"],
-];
 const MOVIE_FALLBACK_SECONDS = 2 * 60 * 60;
 
 function loadProgress(): Record<string, number> {
@@ -132,15 +140,20 @@ export default function WatchScreen({
 	const [myReaction, setMyReaction] = useState<ReactionKey | null>(null);
 	const [reactionCounts, setReactionCounts] = useState<
 		Record<ReactionKey, number>
-	>({
-		upvote: 0,
-		funny: 0,
-		love: 0,
-		surprised: 0,
-		angry: 0,
-		sad: 0,
-	});
+	>(createEmptyReactionCounts);
+	const [internalContentId, setInternalContentId] = useState<number | null>(null);
+	const [engagementUserId, setEngagementUserId] = useState<string | null>(null);
+	const [engagementLoading, setEngagementLoading] = useState(true);
+	const [engagementError, setEngagementError] = useState<string | null>(null);
+	const [reactionPending, setReactionPending] = useState(false);
+	const [comments, setComments] = useState<ContentComment[]>([]);
+	const [commentDraft, setCommentDraft] = useState("");
+	const [commentPending, setCommentPending] = useState(false);
+	const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+	const [editingCommentText, setEditingCommentText] = useState("");
+	const [commentActionPending, setCommentActionPending] = useState<string | null>(null);
 	const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const engagementRequest = useRef(0);
 
 	useEffect(() => {
 		let active = true;
@@ -189,6 +202,48 @@ export default function WatchScreen({
 	const contentLabel = isSeries && selectedEpisode
 		? `${title} — Episode ${selectedEpisode.ep}: ${selectedEpisode.title}`
 		: title;
+
+	useEffect(() => {
+		const requestId = ++engagementRequest.current;
+		setInternalContentId(null);
+		setEngagementUserId(null);
+		setReactionCounts(createEmptyReactionCounts());
+		setMyReaction(null);
+		setComments([]);
+		setCommentDraft("");
+		setEditingCommentId(null);
+		setEditingCommentText("");
+		setCommentActionPending(null);
+		setReactionPending(false);
+		setCommentPending(false);
+		setEngagementError(null);
+		setEngagementLoading(true);
+
+		void resolveContentId(supabase, id, isSeries)
+			.then(async (resolvedId) => {
+				if (requestId !== engagementRequest.current) return;
+				setInternalContentId(resolvedId);
+				if (resolvedId === null) {
+					throw new Error("Community engagement is not available for this title yet.");
+				}
+				const snapshot = await loadEngagement(supabase, resolvedId);
+				if (requestId !== engagementRequest.current) return;
+				setEngagementUserId(snapshot.userId);
+				setReactionCounts(snapshot.counts);
+				setMyReaction(snapshot.myReaction);
+				setComments(snapshot.comments);
+				setEngagementError(snapshot.warning);
+			})
+			.catch((reason: unknown) => {
+				if (requestId !== engagementRequest.current) return;
+				setEngagementError(
+					reason instanceof Error ? reason.message : "Unable to load community activity.",
+				);
+			})
+			.finally(() => {
+				if (requestId === engagementRequest.current) setEngagementLoading(false);
+			});
+	}, [id, isSeries, selectedEpisode?.ep]);
 
 	// TODO: replace with real source for soundtrack and refresher data.
 	const placeholderFeatures = useMemo<{
@@ -267,14 +322,100 @@ export default function WatchScreen({
 		setSpoilersRevealed(false);
 	};
 
-	const react = (key: ReactionKey) => {
-		setReactionCounts((previous) => {
-			const next = { ...previous };
-			if (myReaction) next[myReaction] = Math.max(0, next[myReaction] - 1);
-			if (myReaction !== key) next[key] += 1;
-			return next;
-		});
-		setMyReaction((previous) => (previous === key ? null : key));
+	const react = async (key: ReactionKey) => {
+		if (reactionPending || internalContentId === null) return;
+		const requestId = engagementRequest.current;
+		const previousReaction = myReaction;
+		const previousCounts = reactionCounts;
+		const nextReaction = previousReaction === key ? null : key;
+		const optimistic = optimisticReaction(previousCounts, previousReaction, nextReaction);
+		setReactionCounts(optimistic.counts);
+		setMyReaction(optimistic.myReaction);
+		setReactionPending(true);
+		setEngagementError(null);
+		try {
+			await saveReaction(
+				supabase,
+				internalContentId,
+				engagementUserId,
+				previousReaction,
+				nextReaction,
+			);
+		} catch (reason) {
+			if (requestId !== engagementRequest.current) return;
+			setReactionCounts(previousCounts);
+			setMyReaction(previousReaction);
+			setEngagementError(
+				reason instanceof Error ? reason.message : "Unable to save your reaction.",
+			);
+		} finally {
+			if (requestId === engagementRequest.current) setReactionPending(false);
+		}
+	};
+
+	const submitComment = async () => {
+		if (commentPending || internalContentId === null) return;
+		const requestId = engagementRequest.current;
+		setCommentPending(true);
+		setEngagementError(null);
+		try {
+			const created = await postContentComment(
+				supabase,
+				internalContentId,
+				engagementUserId,
+				commentDraft,
+			);
+			if (requestId === engagementRequest.current) {
+				setComments((currentComments) => [created, ...currentComments]);
+				setCommentDraft("");
+			}
+		} catch (reason) {
+			if (requestId !== engagementRequest.current) return;
+			setEngagementError(
+				reason instanceof Error ? reason.message : "Unable to post your comment.",
+			);
+		} finally {
+			if (requestId === engagementRequest.current) setCommentPending(false);
+		}
+	};
+
+	const saveCommentEdit = async (commentId: string) => {
+		if (commentActionPending) return;
+		setCommentActionPending(commentId);
+		setEngagementError(null);
+		try {
+			const updated = await updateContentComment(
+				supabase,
+				commentId,
+				engagementUserId,
+				editingCommentText,
+			);
+			setComments((currentComments) => currentComments.map((comment) => comment.id === commentId ? updated : comment));
+			setEditingCommentId(null);
+			setEditingCommentText("");
+		} catch (reason) {
+			setEngagementError(reason instanceof Error ? reason.message : "Unable to update your comment.");
+		} finally {
+			setCommentActionPending(null);
+		}
+	};
+
+	const removeOwnComment = async (commentId: string) => {
+		if (commentActionPending || !window.confirm("Delete your comment?")) return;
+		setCommentActionPending(commentId);
+		setEngagementError(null);
+		try {
+			await deleteContentComment(supabase, commentId, engagementUserId);
+			setComments((currentComments) => currentComments.filter((comment) => comment.id !== commentId));
+			if (editingCommentId === commentId) {
+				setEditingCommentId(null);
+				setEditingCommentText("");
+			}
+		} catch (reason) {
+			setEngagementError(reason instanceof Error ? reason.message : "Unable to delete your comment.");
+		} finally {
+			setCommentActionPending(null);
+		}
 	};
 
 	return (
@@ -566,12 +707,14 @@ export default function WatchScreen({
 					<h2>
 						What did you think of this {isSeries ? "episode" : "movie"}?
 					</h2>
-					<p>{totalReactions} reactions</p>
+					<p>{engagementLoading ? "Loading reactions…" : `${totalReactions} reactions`}</p>
 					<div>
-						{REACTIONS.map(([key, emoji, label]) => (
+						{REACTION_DEFINITIONS.map(({ key, emoji, label }) => (
 							<button
 								type="button"
 								key={key}
+								disabled={engagementLoading || reactionPending || internalContentId === null}
+								aria-pressed={myReaction === key}
 								className={
 									myReaction === key ? styles.selectedReaction : ""
 								}
@@ -586,19 +729,56 @@ export default function WatchScreen({
 				</section>
 
 				<section className={styles.comments}>
-					<h2>0 Comments</h2>
+					<h2>{comments.length} {comments.length === 1 ? "Comment" : "Comments"}</h2>
 					<div className={styles.commentComposer}>
 						<textarea
 							rows={2}
 							placeholder="Write a comment…"
 							aria-label="Write a comment"
+							maxLength={COMMENT_MAX_LENGTH}
+							value={commentDraft}
+							disabled={commentPending || internalContentId === null}
+							onChange={(event) => setCommentDraft(event.target.value)}
 						/>
-						<button type="button">Post Comment</button>
+						<div className={styles.composerFooter}>
+							<small>{commentDraft.length}/{COMMENT_MAX_LENGTH}</small>
+							<button type="button" disabled={commentPending || !commentDraft.trim() || internalContentId === null} onClick={() => void submitComment()}>
+								{commentPending ? "Posting…" : "Post Comment"}
+							</button>
+						</div>
 					</div>
-					<div className={styles.emptyComments}>
-						<strong>No comments yet</strong>
-						<p>Be the first to share your thoughts.</p>
-					</div>
+					{engagementError && <p className={styles.engagementError} role="alert">{engagementError}</p>}
+					{engagementLoading ? (
+						<p className={styles.commentStatus}>Loading comments…</p>
+					) : comments.length === 0 ? (
+						<div className={styles.emptyComments}>
+							<strong>No comments yet</strong>
+							<p>Be the first to share your thoughts.</p>
+						</div>
+					) : (
+						<div className={styles.commentList}>
+							{comments.map((comment) => (
+								<article key={comment.id} className={styles.commentItem}>
+									<header>
+										<strong>{comment.userId === engagementUserId ? "You" : "Community member"}</strong>
+										<time dateTime={comment.commentedAt}>{new Date(comment.commentedAt).toLocaleDateString()}</time>
+									</header>
+									{editingCommentId === comment.id ? (
+										<div className={styles.commentEditor}>
+											<textarea rows={3} maxLength={COMMENT_MAX_LENGTH} value={editingCommentText} disabled={commentActionPending === comment.id} onChange={(event) => setEditingCommentText(event.target.value)} aria-label="Edit your comment" />
+											<div><small>{editingCommentText.length}/{COMMENT_MAX_LENGTH}</small><button type="button" disabled={!editingCommentText.trim() || commentActionPending === comment.id} onClick={() => void saveCommentEdit(comment.id)}>{commentActionPending === comment.id ? "Saving…" : "Save"}</button><button type="button" disabled={commentActionPending === comment.id} onClick={() => { setEditingCommentId(null); setEditingCommentText(""); }}>Cancel</button></div>
+										</div>
+									) : <p>{comment.text}</p>}
+									{comment.userId === engagementUserId && editingCommentId !== comment.id && (
+										<div className={styles.commentActions}>
+											<button type="button" disabled={commentActionPending === comment.id} onClick={() => { setEditingCommentId(comment.id); setEditingCommentText(comment.text); }}>Edit</button>
+											<button type="button" disabled={commentActionPending === comment.id} onClick={() => void removeOwnComment(comment.id)}>{commentActionPending === comment.id ? "Deleting…" : "Delete"}</button>
+										</div>
+									)}
+								</article>
+							))}
+						</div>
+					)}
 				</section>
 			</main>
 		</div>

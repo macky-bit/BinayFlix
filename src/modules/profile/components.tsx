@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import StreamFlixSelect from "../../components/StreamFlixSelect"
 import { supabase } from "../../lib/supabase"
 import styles from "./profile.module.css"
+import { MAX_PROFILE_NAME_LENGTH, normalizeProfileName } from "./profileName"
 
 type ProfileIdentity = {
   id: number
@@ -402,14 +403,49 @@ function Avatar({
 function EditProfileModal({
   profile,
   onClose,
+  onSaved,
 }: {
   profile: ProfileIdentity
   onClose: () => void
+  onSaved: (name: string) => void
 }) {
   const [name, setName] = useState(profile.name)
   const [lang, setLang] = useState("English")
 
   const [maturity, setMaturity] = useState("All Maturity Ratings")
+
+  const [saving, setSaving] = useState(false)
+
+  const [saveError, setSaveError] = useState("")
+
+  const handleSave = async () => {
+    setSaveError("")
+    let normalizedName: string
+    try {
+      normalizedName = normalizeProfileName(name)
+    } catch (reason) {
+      setSaveError(reason instanceof Error ? reason.message : "Enter a valid profile name.")
+      return
+    }
+
+    setSaving(true)
+    const { error } = await supabase.rpc("rename_my_member_profile", {
+      selected_profile_id: profile.id,
+      selected_profile_name: normalizedName,
+    })
+    setSaving(false)
+
+    if (error) {
+      setSaveError(
+        error.code === "23505"
+          ? "Another profile already uses this name."
+          : error.message || "We couldn't update the profile name.",
+      )
+      return
+    }
+
+    onSaved(normalizedName)
+  }
 
   return (
     <div
@@ -463,10 +499,18 @@ function EditProfileModal({
             </label>
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              maxLength={MAX_PROFILE_NAME_LENGTH}
+              disabled={saving}
+              onChange={(e) => {
+                setName(e.target.value)
+                setSaveError("")
+              }}
               className="w-full bg-transparent border border-[var(--color-stone)] text-[var(--color-cream)] px-3 py-2 rounded-sm text-sm focus:outline-none focus:border-[var(--color-wine)]"
               style={{ fontFamily: "'Barlow', sans-serif" }}
             />
+            <p className="mt-1 text-right text-xs text-[var(--color-taupe)]" aria-live="polite">
+              {name.length}/{MAX_PROFILE_NAME_LENGTH}
+            </p>
           </div>
 
           <div>
@@ -526,20 +570,28 @@ function EditProfileModal({
           </div>
         </div>
 
+        {saveError && (
+          <p role="alert" className="mt-4 text-sm text-[#ff8a8a]">
+            {saveError}
+          </p>
+        )}
+
         <div className="flex gap-3 mt-7">
           <button
             onClick={onClose}
+            disabled={saving}
             className="flex-1 py-2.5 border border-[var(--color-stone)] text-[var(--color-cream)] text-sm rounded-sm hover:border-[var(--color-taupe)] transition-colors"
             style={{ fontFamily: "'Barlow', sans-serif" }}
           >
             Cancel
           </button>
           <button
-            onClick={onClose}
+            onClick={() => void handleSave()}
+            disabled={saving || !name.trim() || name.trim() === profile.name}
             className="flex-1 py-2.5 bg-[var(--color-wine)] text-[var(--color-cream)] text-sm rounded-sm hover:bg-[var(--color-ink-soft)] transition-colors"
             style={{ fontFamily: "'Barlow', sans-serif" }}
           >
-            Save
+            {saving ? "Saving…" : "Save"}
           </button>
         </div>
       </div>
@@ -1328,6 +1380,12 @@ export function ProfileView({
         <EditProfileModal
           profile={profileIdentity}
           onClose={() => setEditOpen(false)}
+          onSaved={(name) => {
+            setProfileIdentity((current) =>
+              current ? { ...current, name } : current,
+            )
+            setEditOpen(false)
+          }}
         />
       )}
       {pinOpen && (

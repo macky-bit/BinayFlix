@@ -145,7 +145,7 @@ export default function FeedbackPage() {
         </div>
         <select className="select-field" style={{ width: 'auto', minWidth: 160 }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
           <option value="">All Types</option>
-          <option>Bug Report</option><option>Feature Request</option><option>Suggestion</option>
+          <option>Bug Report</option><option>Feature Request</option><option>Suggestion</option><option>Support Request</option>
         </select>
         <select className="select-field" style={{ width: 'auto', minWidth: 140 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All Statuses</option>

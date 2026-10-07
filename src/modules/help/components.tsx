@@ -1,4 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react"
+import { supabase } from "../../lib/supabase"
+import {
+  MAX_FEEDBACK_DESCRIPTION_LENGTH,
+  MAX_FEEDBACK_SUBJECT_LENGTH,
+  submitHelpFeedback,
+  validateFeedbackImage,
+} from "./feedback"
 
 import styles from "./help.module.css"
 
@@ -500,9 +507,15 @@ function SupportModal({ onClose }: { onClose: () => void }) {
 
   const [description, setDescription] = useState("")
 
+  const [attachment, setAttachment] = useState<File | null>(null)
+
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [submitted, setSubmitted] = useState(false)
+
+  const [submitting, setSubmitting] = useState(false)
+
+  const [submitError, setSubmitError] = useState("")
 
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -529,12 +542,20 @@ function SupportModal({ onClose }: { onClose: () => void }) {
 
     if (!subject.trim()) e.subject = "Please enter a subject."
 
+    if (subject.length > MAX_FEEDBACK_SUBJECT_LENGTH) {
+      e.subject = `Subject must be ${MAX_FEEDBACK_SUBJECT_LENGTH} characters or fewer.`
+    }
+
     if (!description.trim()) e.description = "Please describe the issue."
+
+    if (description.length > MAX_FEEDBACK_DESCRIPTION_LENGTH) {
+      e.description = `Description must be ${MAX_FEEDBACK_DESCRIPTION_LENGTH} characters or fewer.`
+    }
 
     return e
   }
 
-  const handleSubmit = (ev: React.FormEvent) => {
+  const handleSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault()
 
     const e = validate()
@@ -545,7 +566,16 @@ function SupportModal({ onClose }: { onClose: () => void }) {
       return
     }
 
-    setSubmitted(true)
+    setSubmitting(true)
+    setSubmitError("")
+    try {
+      await submitHelpFeedback(supabase, { topic, subject, description, attachment })
+      setSubmitted(true)
+    } catch (reason) {
+      setSubmitError(reason instanceof Error ? reason.message : "Unable to submit your support request.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   useEffect(() => {
@@ -836,6 +866,7 @@ function SupportModal({ onClose }: { onClose: () => void }) {
                   id="support-subject"
                   type="text"
                   value={subject}
+                  maxLength={MAX_FEEDBACK_SUBJECT_LENGTH}
                   onChange={(e) => {
                     setSubject(e.target.value)
 
@@ -869,6 +900,12 @@ function SupportModal({ onClose }: { onClose: () => void }) {
                     {errors.subject}
                   </p>
                 )}
+                <p
+                  aria-live="polite"
+                  style={{ color: C.taupe, fontSize: 12, margin: "6px 0 0", textAlign: "right" }}
+                >
+                  {subject.length}/{MAX_FEEDBACK_SUBJECT_LENGTH}
+                </p>
               </div>
               <div>
                 <label style={labelStyle} htmlFor="support-description">
@@ -877,6 +914,7 @@ function SupportModal({ onClose }: { onClose: () => void }) {
                 <textarea
                   id="support-description"
                   value={description}
+                  maxLength={MAX_FEEDBACK_DESCRIPTION_LENGTH}
                   onChange={(e) => {
                     setDescription(e.target.value)
 
@@ -913,6 +951,12 @@ function SupportModal({ onClose }: { onClose: () => void }) {
                     {errors.description}
                   </p>
                 )}
+                <p
+                  aria-live="polite"
+                  style={{ color: C.taupe, fontSize: 12, margin: "6px 0 0", textAlign: "right" }}
+                >
+                  {description.length}/{MAX_FEEDBACK_DESCRIPTION_LENGTH}
+                </p>
               </div>
               <div>
                 <label style={labelStyle} htmlFor="support-attachment">
@@ -921,6 +965,20 @@ function SupportModal({ onClose }: { onClose: () => void }) {
                 <input
                   id="support-attachment"
                   type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  disabled={submitting}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null
+                    try {
+                      validateFeedbackImage(file)
+                      setAttachment(file)
+                      setErrors((current) => ({ ...current, attachment: "" }))
+                    } catch (reason) {
+                      setAttachment(null)
+                      event.target.value = ""
+                      setErrors((current) => ({ ...current, attachment: reason instanceof Error ? reason.message : "Invalid attachment." }))
+                    }
+                  }}
                   style={{
                     ...fieldStyle,
 
@@ -931,10 +989,14 @@ function SupportModal({ onClose }: { onClose: () => void }) {
                     padding: "8px 14px",
                   }}
                 />
+                {attachment && <p style={{ color: C.taupe, fontSize: 12, margin: "6px 0 0" }}>{attachment.name} · {(attachment.size / 1024 / 1024).toFixed(2)} MB</p>}
+                {errors.attachment && <p style={{ color: "#FCA5A5", fontSize: 12, margin: "6px 0 0" }}>{errors.attachment}</p>}
               </div>
+              {submitError && <p role="alert" style={{ color: "#FCA5A5", fontSize: 13, margin: 0 }}>{submitError}</p>}
               <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
                 <button
                   type="submit"
+                  disabled={submitting}
                   style={{
                     flex: 1,
 
@@ -954,7 +1016,9 @@ function SupportModal({ onClose }: { onClose: () => void }) {
 
                     fontWeight: 600,
 
-                    cursor: "pointer",
+                    cursor: submitting ? "not-allowed" : "pointer",
+
+                    opacity: submitting ? 0.65 : 1,
 
                     transition: "background 0.15s",
                   }}
@@ -965,7 +1029,7 @@ function SupportModal({ onClose }: { onClose: () => void }) {
                     (e.currentTarget.style.background = C.wine)
                   }
                 >
-                  Submit Request
+                  {submitting ? "Submitting…" : "Submit Request"}
                 </button>
                 <button
                   type="button"

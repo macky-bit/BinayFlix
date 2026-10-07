@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import type { Show } from "./modules/movie/types"
 
@@ -43,12 +43,21 @@ export default function App() {
 
   const [activeProfileId, setActiveProfileId] = useState<number | null>(null)
 
+  const activeProfileIdRef = useRef<number | null>(null)
+
+  const activeAuthUserIdRef = useRef<string | null>(null)
+
   useEffect(() => {
     let mounted = true
 
     const routeSession = async (userId: string) => {
       try {
-        const destination = await getSignedInDestination(userId)
+        if (activeAuthUserIdRef.current !== userId) {
+          activeAuthUserIdRef.current = userId
+          activeProfileIdRef.current = null
+          if (mounted) setActiveProfileId(null)
+        }
+        const destination = await getSignedInDestination()
         if (mounted) setPage(destination)
       } catch {
         if (mounted) setPage("login")
@@ -68,9 +77,17 @@ export default function App() {
           if (event === "PASSWORD_RECOVERY") {
             setPage("resetPassword")
           } else if (event === "SIGNED_OUT") {
+            activeAuthUserIdRef.current = null
+            activeProfileIdRef.current = null
+            setActiveProfileId(null)
             setPage("login")
           } else if (event === "SIGNED_IN" && session) {
-            void routeSession(session.user.id)
+            if (
+              activeAuthUserIdRef.current !== session.user.id ||
+              activeProfileIdRef.current === null
+            ) {
+              void routeSession(session.user.id)
+            }
           }
         }, 0)
       },
@@ -95,6 +112,9 @@ export default function App() {
   }
 
   const handleSignOut = () => {
+    activeAuthUserIdRef.current = null
+    activeProfileIdRef.current = null
+    setActiveProfileId(null)
     void supabase.auth.signOut().finally(() => setPage("login"))
   }
 
@@ -138,6 +158,7 @@ export default function App() {
         <ProfileSelectPage
           maxProfiles={plan?.MaxUser ?? 1}
           onSelect={(profile: Profile) => {
+            activeProfileIdRef.current = profile.id
             setActiveProfileId(profile.id)
             setPage("dashboard")
           }}

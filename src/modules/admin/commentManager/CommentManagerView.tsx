@@ -5,9 +5,12 @@ import {
 } from "../data";
 import { AdminPageHeader, AdminStatCard, AdminStats, AdminWorkspaceTabs } from "../components/AdminUI";
 import AdminDetailsPanel from "../components/AdminDetailsPanel";
+import { REACTION_DEFINITIONS } from "../../../shared/reactions";
+import ContentCommentsWorkspace from "./ContentCommentsWorkspace";
+import ReactionsWorkspace from "./ReactionsWorkspace";
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type MainTab = "reviews" | "posts" | "comments";
+type MainTab = "reactions" | "content-comments";
 type PostStatus = "Active" | "Hidden" | "Deleted";
 
 interface Reaction {
@@ -55,18 +58,6 @@ function shortId(id: string) {
   return `${id.slice(0, 6)}…${id.slice(-4)}`;
 }
 
-const REACTION_TYPES = [
-  { emoji: "👍", label: "Upvote" },
-  { emoji: "😂", label: "Funny" },
-  { emoji: "❤️", label: "Love" },
-  { emoji: "😮", label: "Surprised" },
-  { emoji: "😡", label: "Angry" },
-  { emoji: "😢", label: "Sad" },
-];
-
-
-
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function StarRating({ rating, max = 5 }: { rating: number; max?: number }) {
@@ -107,7 +98,7 @@ function ReactionSummary({ reactions }: { reactions: Reaction[] }) {
   const hasAny = reactions.length > 0;
   return (
     <div className="flex flex-wrap gap-2">
-      {REACTION_TYPES.map(({ emoji, label }) => {
+      {REACTION_DEFINITIONS.map(({ emoji, label }) => {
         const count = counts[emoji] || 0;
         if (!hasAny && count === 0) return null;
         return (
@@ -991,7 +982,7 @@ function CommentDrawer({ comment, onClose, onDelete }: { comment: Comment; onClo
 // ── App Root ───────────────────────────────────────────────────────────────
 
 export default function CommentManagerView() {
-  const [mainTab, setMainTab] = useState<MainTab>("reviews");
+  const [mainTab, setMainTab] = useState<MainTab>("reactions");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const toast = useCallback((msg: string) => { setToastMsg(msg); }, []);
@@ -1002,23 +993,21 @@ export default function CommentManagerView() {
         <AdminPageHeader
           eyebrow="Community moderation"
           title="Community"
-          description="Moderate reviews, reactions, posts, and comments while preserving the context behind every report."
+          description="Moderate reactions and comments submitted from title watch pages."
         />
 
         <AdminWorkspaceTabs
           tabs={[
-            { id: "reviews", label: "Reviews & Reactions" },
-            { id: "posts", label: "Posts" },
-            { id: "comments", label: "Comments" },
+            { id: "reactions", label: "Reactions" },
+            { id: "content-comments", label: "Content Comments" },
           ]}
           active={mainTab}
           onChange={setMainTab}
           label="Community management sections"
         />
 
-        {mainTab === "reviews" && <ReviewsTab toast={toast} />}
-        {mainTab === "posts" && <PostsWorkspace toast={toast} />}
-        {mainTab === "comments" && <CommentsWorkspace toast={toast} />}
+        {mainTab === "reactions" && <ReactionsWorkspace toast={toast} />}
+        {mainTab === "content-comments" && <ContentCommentsWorkspace toast={toast} />}
       </main>
 
       {/* Toast */}

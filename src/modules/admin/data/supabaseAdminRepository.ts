@@ -45,6 +45,8 @@ const related = (value: unknown): DatabaseRecord | null =>
     ? ((value[0] as DatabaseRecord | undefined) ?? null)
     : ((value as DatabaseRecord | null) ?? null)
 
+const FEEDBACK_ATTACHMENT_BUCKET = "feedback-attachments"
+
 const adminRoleLabel = (value: unknown) => {
   const normalized = text(value).replace(/\s/g, "").toLowerCase()
   const labels: Record<string, string> = {
@@ -280,10 +282,37 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
   reactions: {
     table: "reaction",
     idColumn: "reaction_id",
-    select: "*, user(first_name, last_name), content(title)",
+    select: "*, user(first_name, last_name), content(title, thumbnail)",
     orderColumn: "created_at",
-    fromRow: (row) => { const user = related(row.user); const content = related(row.content); return { id: text(row.reaction_id), subscriberId: text(row.user_id), subscriberName: `${text(user?.first_name)} ${text(user?.last_name)}`.trim(), contentId: text(row.content_id), contentTitle: text(content?.title), emoji: text(row.emoji), label: text(row.emoji), type: text(row.emoji), date: date(row.created_at) } },
-    toRow: (record) => ({ user_id: record.subscriberId, content_id: number(record.contentId), emoji: record.emoji }),
+    fromRow: (row) => { const user = related(row.user); const content = related(row.content); return { id: text(row.reaction_id), subscriberId: text(row.user_id), subscriberName: `${text(user?.first_name)} ${text(user?.last_name)}`.trim(), contentId: text(row.content_id), contentTitle: text(content?.title), contentThumb: text(content?.thumbnail), emoji: text(row.emoji), label: text(row.emoji), type: text(row.emoji), date: date(row.created_at), status: text(row.status || "Active") } },
+    toRow: (record) => ({ user_id: record.subscriberId, content_id: record.contentId ? number(record.contentId) : undefined, emoji: record.emoji, status: record.status }),
+  },
+  "content-comments": {
+    table: "content_comment",
+    idColumn: "comment_id",
+    select: "*, user(first_name, last_name), content(title, thumbnail)",
+    orderColumn: "commented_at",
+    fromRow: (row) => {
+      const user = related(row.user)
+      return {
+        id: text(row.comment_id),
+        contentId: text(row.content_id),
+        contentTitle: text(related(row.content)?.title),
+        contentThumb: text(related(row.content)?.thumbnail),
+        subscriberId: text(row.user_id),
+        authorName: `${text(user?.first_name)} ${text(user?.last_name)}`.trim(),
+        text: text(row.comment_text),
+        dateCommented: date(row.commented_at),
+        date: text(row.commented_at),
+        status: text(row.status || "Active"),
+      }
+    },
+    toRow: (record) => ({
+      content_id: record.contentId ? number(record.contentId) : undefined,
+      user_id: record.subscriberId,
+      comment_text: record.text,
+      status: record.status,
+    }),
   },
   "forum-posts": {
     table: "community_post",
@@ -419,7 +448,11 @@ export class SupabaseAdminRepository<T extends AdminEntity>
 
     const { data, error, count } = await request
     if (error) throw error
-    const items = (data ?? []).map(this.config.fromRow) as T[]
+    const items = await Promise.all(
+      (data ?? []).map((row) =>
+        this.hydratePrivateAssets(this.config.fromRow(row) as T),
+      ),
+    )
     const total = count ?? items.length
     return {
       items,
@@ -437,7 +470,7 @@ export class SupabaseAdminRepository<T extends AdminEntity>
       .eq(this.config.idColumn, id)
       .single()
     if (error) throw error
-    return this.config.fromRow(data) as T
+    return this.hydratePrivateAssets(this.config.fromRow(data) as T)
   }
 
   async create(input: Omit<T, "id">): Promise<T> {
@@ -470,6 +503,23 @@ export class SupabaseAdminRepository<T extends AdminEntity>
       .delete()
       .eq(this.config.idColumn, id)
     if (error) throw error
+  }
+
+  private async hydratePrivateAssets(record: T): Promise<T> {
+    if (this.config.table !== "platform_feedback") return record
+
+    const screenshot = text((record as DatabaseRecord).screenshot)
+    if (!screenshot || /^https?:\/\//i.test(screenshot)) return record
+
+    const { data, error } = await this.client.storage
+      .from(FEEDBACK_ATTACHMENT_BUCKET)
+      .createSignedUrl(screenshot, 60 * 60)
+
+    if (error || !data?.signedUrl) {
+      return { ...record, screenshot: undefined } as T
+    }
+
+    return { ...record, screenshot: data.signedUrl } as T
   }
 
   private async syncContentGenres(

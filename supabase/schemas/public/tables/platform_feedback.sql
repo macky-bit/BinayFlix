@@ -29,7 +29,7 @@ CREATE POLICY "allow_select_feedback" ON "public"."platform_feedback"
 
 CREATE POLICY "user_can_insert_own_feedback" ON "public"."platform_feedback"
   FOR INSERT
-  TO PUBLIC
-  WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+  TO "authenticated"
+  WITH CHECK ((user_id IN (SELECT u.user_id FROM public."user" u WHERE u.auth_user_id = (SELECT auth.uid()))));
 
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE "public"."platform_feedback" TO "anon", "authenticated", "postgres", "service_role";

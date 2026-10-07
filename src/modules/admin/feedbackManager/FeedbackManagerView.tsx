@@ -7,7 +7,7 @@ import AdminDetailsPanel, {
 } from "../components/AdminDetailsPanel";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type FeedbackType = "Bug Report" | "Feature Request" | "Suggestion";
+type FeedbackType = "Bug Report" | "Feature Request" | "Suggestion" | "Support Request";
 type FeedbackStatus = "Open" | "In Progress" | "Closed";
 
 interface FeedbackItem {
@@ -551,7 +551,7 @@ export default function FeedbackManagerView() {
               style={{ borderRadius: 8, padding: "9px 32px 9px 12px", fontSize: 14 }}
               aria-label="Filter by feedback type"
             >
-              {["All Feedback Types", "Bug Report", "Feature Request", "Suggestion"].map((o) => (
+              {["All Feedback Types", "Bug Report", "Feature Request", "Suggestion", "Support Request"].map((o) => (
                 <option key={o}>{o}</option>
               ))}
             </select>

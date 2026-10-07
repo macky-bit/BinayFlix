@@ -1,10 +1,9 @@
 import { supabase } from "./supabase"
+import { getMemberDestination } from "./authRouting"
 
-export type SignedInDestination = "admin" | "subscription" | "dashboard"
+export type SignedInDestination = "admin" | "subscription" | "profileSelect"
 
-export async function getSignedInDestination(
-  authUserId: string,
-): Promise<SignedInDestination> {
+export async function getSignedInDestination(): Promise<SignedInDestination> {
   const { data: access } = await supabase.rpc("get_my_admin_access")
   if (
     access &&
@@ -20,21 +19,11 @@ export async function getSignedInDestination(
   const storedSubscription = Array.isArray(subscriptionState)
     ? subscriptionState[0]
     : subscriptionState
-  if (
-    !subscriptionError &&
-    storedSubscription &&
-    typeof storedSubscription === "object" &&
-    (storedSubscription as { subscription_id?: unknown }).subscription_id != null
-  ) {
-    return "dashboard"
-  }
+  if (subscriptionError) throw subscriptionError
 
-  const { data: account, error } = await supabase
-    .from("user")
-    .select("subscription_id")
-    .eq("auth_user_id", authUserId)
-    .maybeSingle()
-
-  if (error) throw error
-  return account?.subscription_id ? "dashboard" : "subscription"
+  return getMemberDestination(
+    storedSubscription && typeof storedSubscription === "object"
+      ? (storedSubscription as { is_active?: unknown }).is_active
+      : false,
+  )
 }

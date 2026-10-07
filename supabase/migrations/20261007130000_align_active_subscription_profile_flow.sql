@@ -1,23 +1,106 @@
-CREATE OR REPLACE FUNCTION public.create_my_member_profile (
-  selected_profile_name text,
-  selected_avatar_path  text,
-  selected_is_kids      boolean DEFAULT false,
-  selected_pin          text    DEFAULT NULL::text
+create or replace function public.get_my_subscription_state()
+returns table (
+  is_active boolean,
+  subscription_id bigint,
+  plan_name varchar,
+  monthly_price numeric,
+  max_user integer,
+  payment_date timestamptz,
+  end_date timestamptz
 )
-  RETURNS TABLE (
-    member_profile_id bigint,
-    profile_name      character varying,
-    avatar_image      text,
-    is_kids           boolean,
-    display_order     smallint,
-    is_active         boolean,
-    created_at        timestamp with time zone,
-    updated_at        timestamp with time zone
-  )
-  LANGUAGE plpgsql
-  SECURITY DEFINER
-  SET search_path TO ''
-  AS $function$
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    active_subscription.user_subscription_id is not null,
+    active_subscription.subscription_id,
+    plan.plan_name,
+    plan.monthly_price,
+    plan.max_user,
+    active_subscription.started_at,
+    active_subscription.ends_at
+  from public."user" as account
+  left join lateral (
+    select membership.*
+    from public.user_subscription as membership
+    where membership.user_id = account.user_id
+      and lower(membership.status) = 'active'
+      and (membership.ends_at is null or membership.ends_at > now())
+    order by membership.started_at desc, membership.user_subscription_id desc
+    limit 1
+  ) as active_subscription on true
+  left join public.subscription as plan
+    on plan.subscription_id = active_subscription.subscription_id
+  where account.auth_user_id = (select auth.uid())
+  limit 1;
+$$;
+
+revoke execute on function public.get_my_subscription_state() from public, anon;
+grant execute on function public.get_my_subscription_state() to authenticated;
+
+create or replace function public.get_my_member_profile_context()
+returns table (
+  plan_name varchar,
+  max_profiles integer,
+  allows_kids boolean,
+  active_profile_count integer,
+  can_add_profile boolean
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    plan.plan_name,
+    plan.max_user,
+    lower(plan.plan_name) in ('basic', 'premium'),
+    count(profile.member_profile_id)::integer,
+    count(profile.member_profile_id) < plan.max_user
+  from public."user" as account
+  join lateral (
+    select membership.subscription_id
+    from public.user_subscription as membership
+    where membership.user_id = account.user_id
+      and lower(membership.status) = 'active'
+      and (membership.ends_at is null or membership.ends_at > now())
+    order by membership.started_at desc, membership.user_subscription_id desc
+    limit 1
+  ) as active_subscription on true
+  join public.subscription as plan
+    on plan.subscription_id = active_subscription.subscription_id
+  left join public.member_profile as profile
+    on profile.user_id = account.user_id
+   and profile.is_active
+  where account.auth_user_id = (select auth.uid())
+  group by plan.plan_name, plan.max_user;
+$$;
+
+revoke execute on function public.get_my_member_profile_context() from public, anon;
+grant execute on function public.get_my_member_profile_context() to authenticated;
+
+create or replace function public.create_my_member_profile(
+  selected_profile_name text,
+  selected_avatar_path text,
+  selected_is_kids boolean default false,
+  selected_pin text default null
+)
+returns table (
+  member_profile_id bigint,
+  profile_name varchar,
+  avatar_image text,
+  is_kids boolean,
+  display_order smallint,
+  is_active boolean,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
 declare
   current_auth_user_id uuid := auth.uid();
   account_row public."user"%rowtype;
@@ -130,8 +213,9 @@ begin
     member_profile.created_at,
     member_profile.updated_at;
 end;
-$function$;
+$$;
 
-GRANT EXECUTE ON FUNCTION "public"."create_my_member_profile"(text, text, boolean, text) TO "authenticated", "postgres", "service_role";
-
-REVOKE ALL ON FUNCTION "public"."create_my_member_profile"(text, text, boolean, text) FROM PUBLIC;
+revoke execute on function public.create_my_member_profile(text, text, boolean, text)
+  from public, anon;
+grant execute on function public.create_my_member_profile(text, text, boolean, text)
+  to authenticated;

@@ -18,13 +18,21 @@ CREATE OR REPLACE FUNCTION public.get_my_member_profile_context()
     count(profile.member_profile_id)::integer,
     count(profile.member_profile_id) < plan.max_user
   from public."user" as account
+  join lateral (
+    select membership.subscription_id
+    from public.user_subscription as membership
+    where membership.user_id = account.user_id
+      and lower(membership.status) = 'active'
+      and (membership.ends_at is null or membership.ends_at > now())
+    order by membership.started_at desc, membership.user_subscription_id desc
+    limit 1
+  ) as active_subscription on true
   join public.subscription as plan
-    on plan.subscription_id = account.subscription_id
+    on plan.subscription_id = active_subscription.subscription_id
   left join public.member_profile as profile
     on profile.user_id = account.user_id
    and profile.is_active
   where account.auth_user_id = (select auth.uid())
-    and account.end_date > now()
   group by plan.plan_name, plan.max_user;
 $function$;
 
