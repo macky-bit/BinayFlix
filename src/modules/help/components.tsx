@@ -1372,7 +1372,7 @@ function ArticlePage({
 
 // ─── Main App ────────────────────────────────────────────────────
 
-export function HelpView() {
+export function HelpView({ onBack }: { onBack?: () => void }) {
   const [query, setQuery] = useState("")
 
   const [focused, setFocused] = useState(false)
@@ -1912,6 +1912,9 @@ export function HelpView() {
               Contact Us
             </button>
             <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back to StreamFlix home"
               style={{
                 background: "transparent",
 
@@ -1979,7 +1982,7 @@ export function HelpView() {
             justifyContent: "space-between",
           }}
         >
-          <span
+          <button type="button" onClick={onBack} aria-label="Go to StreamFlix home"
             style={{
               fontFamily: "'Barlow Condensed', sans-serif",
 
@@ -1990,10 +1993,13 @@ export function HelpView() {
               color: C.wine,
 
               letterSpacing: "0.04em",
+              border: 0,
+              background: "transparent",
+              cursor: "pointer",
             }}
           >
             STREAMFLIX
-          </span>
+          </button>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px" }}>
             {[
               "Terms of Use",

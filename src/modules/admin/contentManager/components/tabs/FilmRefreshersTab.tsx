@@ -145,7 +145,7 @@ export default function FilmRefreshersTab({ refreshers, content, onAdd, onEdit, 
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: '#9CA3AF' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search film refreshers..." aria-label="Search film refreshers" className="w-full pl-9 pr-3 py-2 text-sm rounded-lg outline-none" style={{ backgroundColor: '#150D2A', border: '1px solid #374151', color: '#fff' }} />
+          <input type="search" maxLength={100} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search film refreshers..." aria-label="Search film refreshers" className="w-full pl-9 pr-3 py-2 text-sm rounded-lg outline-none" style={{ backgroundColor: '#150D2A', border: '1px solid #374151', color: '#fff' }} />
         </div>
         <select value={contentFilter} onChange={(e) => setContentFilter(e.target.value)} className="text-sm rounded-lg px-3 py-2 outline-none" style={{ backgroundColor: '#150D2A', border: '1px solid #374151', color: '#fff', minWidth: 160 }} aria-label="Filter by content">
           <option value="">All Content</option>
@@ -171,12 +171,13 @@ export default function FilmRefreshersTab({ refreshers, content, onAdd, onEdit, 
                 <th style={thStyle}>Summary</th>
                 <th style={thStyle}>Video</th>
                 <th style={thStyle}>Last Updated</th>
+                <th style={thStyle}>Availability</th>
                 <th style={thStyle}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="py-14 text-center text-sm" style={{ color: '#9CA3AF' }}>
+                <tr><td colSpan={8} className="py-14 text-center text-sm" style={{ color: '#9CA3AF' }}>
                   {refreshers.length === 0 ? 'No Film Refreshers have been added yet.' : 'No records match your search or selected filters.'}
                 </td></tr>
               )}
@@ -199,6 +200,7 @@ export default function FilmRefreshersTab({ refreshers, content, onAdd, onEdit, 
                     ) : <span style={{ color: '#374151' }}>—</span>}
                   </td>
                   <td className="px-3 py-3 text-xs" style={{ color: '#9CA3AF' }}>{r.lastUpdated}</td>
+                  <td className="px-3 py-3"><span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium" style={{ backgroundColor: r.availability === 'available' ? 'rgba(16,185,129,.1)' : 'rgba(107,114,128,.15)', borderColor: r.availability === 'available' ? 'rgba(16,185,129,.35)' : 'rgba(107,114,128,.4)', color: r.availability === 'available' ? '#6EE7B7' : '#D1D5DB' }}><span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: r.availability === 'available' ? '#10B981' : '#6B7280' }} aria-hidden="true" />{r.availability === 'available' ? 'Available' : 'Unavailable'}</span></td>
                   <td className="px-3 py-3">
                     <div className="flex gap-1">
                       <CrudBtn label="View" onClick={() => setViewId(r.id)} />

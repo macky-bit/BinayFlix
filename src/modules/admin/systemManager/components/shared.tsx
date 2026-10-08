@@ -342,6 +342,7 @@ export function SearchInput({
       </svg>
       <input
         type="search"
+        maxLength={100}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

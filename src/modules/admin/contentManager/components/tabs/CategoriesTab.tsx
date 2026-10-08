@@ -123,6 +123,7 @@ export default function CategoriesTab({ categories, onAdd, onEdit, onDelete, add
           </svg>
           <input
             type="search"
+            maxLength={100}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search categories..."

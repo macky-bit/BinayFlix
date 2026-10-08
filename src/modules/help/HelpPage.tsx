@@ -26,7 +26,7 @@ export default function HelpPage({ onBack }: Props) {
           Back to StreamFlix
         </button>
       </div>
-      <HelpView />
+      <HelpView onBack={onBack} />
     </div>
   )
 }

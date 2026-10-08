@@ -521,6 +521,7 @@ export default function FeedbackManagerView() {
             <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--color-taupe)", fontSize: 15, pointerEvents: "none" }}>⌕</span>
             <input
               type="search"
+              maxLength={100}
               placeholder="Search by subject or user..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}

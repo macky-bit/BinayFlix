@@ -70,22 +70,26 @@ export function AdminStatCard({
   value,
   hint,
   tone = "purple",
+  active = false,
+  onClick,
 }: {
   label: string
   value: ReactNode
   hint?: string
   tone?: "purple" | "gold" | "green" | "red" | "blue"
+  active?: boolean
+  onClick?: () => void
 }) {
-  return (
-    <section className={`admin-stat-card admin-stat-${tone}`}>
+  const className = `admin-stat-card admin-stat-${tone}${onClick ? " is-interactive" : ""}${active ? " is-active" : ""}`
+  const content = <>
       <div className="admin-stat-marker" aria-hidden="true" />
       <div>
         <p>{label}</p>
         <strong>{value}</strong>
         {hint && <span>{hint}</span>}
       </div>
-    </section>
-  )
+    </>
+  return onClick ? <button type="button" className={className} onClick={onClick} aria-pressed={active} aria-label={`${label}: ${String(value)}`}>{content}</button> : <section className={className}>{content}</section>
 }
 
 export function AdminStats({ children }: { children: ReactNode }) {

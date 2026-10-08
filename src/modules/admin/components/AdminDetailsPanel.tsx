@@ -8,47 +8,66 @@ import {
 
 type AdminDetailsPanelProps = {
   title: string
+
   onClose: () => void
+
   children: ReactNode
+
   footer: ReactNode
+
   ariaLabel?: string
+
   closeOnBackdrop?: boolean
+
   closeOnEscape?: boolean
 }
 
 export default function AdminDetailsPanel({
   title,
+
   onClose,
+
   children,
+
   footer,
+
   ariaLabel = title,
+
   closeOnBackdrop = true,
+
   closeOnEscape = true,
 }: AdminDetailsPanelProps) {
   const titleId = useId()
+
   const [drawerBounds, setDrawerBounds] = useState<{
     top: number
+
     height: number
   } | null>(null)
 
   useLayoutEffect(() => {
     const updateDrawerBounds = () => {
-      const navbar = document.querySelector<HTMLElement>(
-        ".manager-module > header",
-      )
+      const navbar =
+        document.querySelector<HTMLElement>(
+          ".manager-module .admin-utility-header",
+        ) ?? document.querySelector<HTMLElement>(".manager-module > header")
       if (!navbar) return
 
       const navbarRect = navbar.getBoundingClientRect()
+
       const layoutHeight = navbar.offsetHeight
-      const pageScale =
-        layoutHeight > 0 ? navbarRect.height / layoutHeight : 1
+
+      const pageScale = layoutHeight > 0 ? navbarRect.height / layoutHeight : 1
+
       const normalizedScale =
         Number.isFinite(pageScale) && pageScale > 0 ? pageScale : 1
 
       setDrawerBounds({
         top: navbarRect.bottom / normalizedScale,
+
         height: Math.max(
           0,
+
           Math.floor(
             (window.innerHeight - navbarRect.bottom) / normalizedScale,
           ),
@@ -57,24 +76,32 @@ export default function AdminDetailsPanel({
     }
 
     updateDrawerBounds()
+
     window.addEventListener("resize", updateDrawerBounds)
+
     window.visualViewport?.addEventListener("resize", updateDrawerBounds)
+
     return () => {
       window.removeEventListener("resize", updateDrawerBounds)
+
       window.visualViewport?.removeEventListener("resize", updateDrawerBounds)
     }
   }, [])
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
+
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && closeOnEscape) onClose()
     }
 
     document.body.style.overflow = "hidden"
+
     window.addEventListener("keydown", handleKey)
+
     return () => {
       document.body.style.overflow = previousOverflow
+
       window.removeEventListener("keydown", handleKey)
     }
   }, [closeOnEscape, onClose])
@@ -138,9 +165,11 @@ export default function AdminDetailsPanel({
 
 export function AdminDetailsSection({
   title,
+
   children,
 }: {
   title: string
+
   children: ReactNode
 }) {
   return (
@@ -153,25 +182,38 @@ export function AdminDetailsSection({
 
 export function AdminDetailField({
   label,
+
   value,
+
   children,
+
   mono = false,
 }: {
   label: string
+
   value?: ReactNode
+
   children?: ReactNode
+
   mono?: boolean
 }) {
   const content = children ?? value
+
   const missing = content === "" || content === null || content === undefined
 
   return (
     <div className="admin-detail-field">
       <div className="admin-detail-label">{label}</div>
       <div
-        className={`admin-detail-value ${mono ? "font-mono break-all" : "break-words"}`}
+        className={`admin-detail-value ${
+          mono ? "font-mono break-all" : "break-words"
+        }`}
       >
-        {missing ? <span className="admin-detail-missing">Not provided</span> : content}
+        {missing ? (
+          <span className="admin-detail-missing">Not provided</span>
+        ) : (
+          content
+        )}
       </div>
     </div>
   )

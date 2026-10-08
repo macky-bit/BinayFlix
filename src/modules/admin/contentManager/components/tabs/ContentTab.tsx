@@ -653,6 +653,7 @@ export default function ContentTab({ content, categories, genres, onAdd, onEdit,
           </svg>
           <input
             type="search"
+            maxLength={100}
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search content by title..."

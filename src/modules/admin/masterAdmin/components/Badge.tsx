@@ -23,14 +23,15 @@ export function RoleBadge({ role }: { role: ManagerRole }) {
 
 export function StatusBadge({ status }: { status: AccountStatus }) {
   const isActive = status === 'Active'
+  const label = isActive ? 'Active' : 'Deactivated'
   return (
-    <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+    <span className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium" style={{ backgroundColor: isActive ? 'rgba(16,185,129,.1)' : 'rgba(245,158,11,.1)', borderColor: isActive ? 'rgba(16,185,129,.35)' : 'rgba(245,158,11,.35)' }}>
       <span
         className="w-2 h-2 rounded-full flex-shrink-0"
-        style={{ backgroundColor: isActive ? '#10B981' : '#EF4444' }}
+        style={{ backgroundColor: isActive ? '#10B981' : '#F59E0B' }}
         aria-hidden
       />
-      <span style={{ color: isActive ? '#10B981' : '#EF4444' }}>{status}</span>
+      <span style={{ color: isActive ? '#6EE7B7' : '#FCD34D' }}>{label}</span>
     </span>
   )
 }

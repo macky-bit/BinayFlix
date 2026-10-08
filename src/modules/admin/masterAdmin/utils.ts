@@ -8,11 +8,13 @@ export function getInitials(name: string): string {
 }
 
 export function formatDate(dateStr: string | null): string {
-  if (!dateStr) return 'Never'
+  if (!dateStr) return 'Never logged in'
   const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return 'Never logged in'
   const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-  return `${date}, ${time}`
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })
+  const zone = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(d).find(part => part.type === 'timeZoneName')?.value
+  return `${date}, ${time}${zone ? ` ${zone}` : ''}`
 }
 
 export function formatShortDate(dateStr: string): string {

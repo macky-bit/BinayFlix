@@ -69,12 +69,13 @@ export default function ContentManagerView() {
       />
 
       <AdminStats>
-        <AdminStatCard label="Catalog titles" value={content.length} hint="Loaded content records" tone="purple" />
-        <AdminStatCard label="Categories" value={categories.length} hint="Catalog groupings" tone="gold" />
-        <AdminStatCard label="Genres" value={genres.length} hint="Discovery classifications" tone="blue" />
+        <AdminStatCard label="Catalog titles" value={content.length} hint="Loaded content records" tone="purple" active={activeTab === "content"} onClick={() => setActiveTab("content")} />
+        <AdminStatCard label="Categories" value={categories.length} hint="Catalog groupings" tone="gold" active={activeTab === "categories"} onClick={() => setActiveTab("categories")} />
+        <AdminStatCard label="Genres" value={genres.length} hint="Discovery classifications" tone="blue" active={activeTab === "genres"} onClick={() => setActiveTab("genres")} />
         <AdminStatCard label="Media extras" value={soundtracks.length + refreshers.length} hint="Soundtracks and refreshers" tone="green" />
       </AdminStats>
 
+      <div className="admin-content-layout">
       <AdminWorkspaceTabs
         tabs={TABS}
         active={activeTab}
@@ -196,6 +197,7 @@ export default function ContentManagerView() {
         )}
       </div>
 
+      </div>
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* Inject animation keyframe */}

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, type RefObject } from "react"
 
 import type { Show } from "../movie/types"
 
@@ -537,6 +537,30 @@ export function CarouselRow({
   onInfo?: (show: Show) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+  const [paused, setPaused] = useState(false)
+  const updateScrollState = () => {
+    const element = ref.current
+    if (!element) return
+    setCanScrollLeft(element.scrollLeft > 2)
+    setCanScrollRight(element.scrollLeft + element.clientWidth < element.scrollWidth - 2)
+  }
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    updateScrollState()
+    const observer = new ResizeObserver(updateScrollState)
+    observer.observe(element)
+    Array.from(element.children).forEach((child) => observer.observe(child))
+    element.addEventListener("scroll", updateScrollState, { passive: true })
+    return () => { observer.disconnect(); element.removeEventListener("scroll", updateScrollState) }
+  }, [shows])
+  useEffect(() => {
+    if (title.toLowerCase() !== "new movies" || paused || !canScrollRight || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const timer = window.setInterval(() => ref.current?.scrollBy({ left: 600, behavior: "smooth" }), 10_000)
+    return () => window.clearInterval(timer)
+  }, [title, paused, canScrollRight])
 
   if (shows.length === 0) return null
 
@@ -557,21 +581,16 @@ export function CarouselRow({
           <CirclePlayIcon size={20} />
           <h2 className={`text-base font-bold ${styles.rowTitle}`}>{title}</h2>
         </div>
-        <button
-          className={`text-xs font-medium flex items-center gap-1 ${styles.seeAllBtn}`}
-        >
-          See All <span className="text-[13px] leading-none">›</span>
-        </button>
       </div>
 
-      <div className="relative group">
-        <button
+      <div className="relative group" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={() => setPaused(false)} onTouchStart={() => setPaused(true)}>
+        {canScrollLeft && <button
           onClick={() => scroll("left")}
           className={`hidden sm:flex absolute left-0 top-0 bottom-0 z-10 w-12 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${styles.scrollFadeLeft}`}
           aria-label="Scroll left"
         >
           <span className={styles.scrollArrow}>‹</span>
-        </button>
+        </button>}
 
         <div
           ref={ref}
@@ -603,13 +622,13 @@ export function CarouselRow({
           )}
         </div>
 
-        <button
+        {canScrollRight && <button
           onClick={() => scroll("right")}
           className={`hidden sm:flex absolute right-0 top-0 bottom-0 z-10 w-12 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${styles.scrollFadeRight}`}
           aria-label="Scroll right"
         >
           <span className={styles.scrollArrow}>›</span>
-        </button>
+        </button>}
       </div>
     </section>
   )
@@ -712,6 +731,12 @@ export function Navbar({
 
   onBackFromAdmin,
 
+  onToggleAdminMenu,
+
+  adminPageLabel,
+
+  adminMenuButtonRef,
+
   showAdminLink = false,
 }: {
   onSignOut: () => void
@@ -741,6 +766,12 @@ export function Navbar({
   onNavigateAdmin?: (id: string) => void
 
   onBackFromAdmin?: () => void
+
+  onToggleAdminMenu?: () => void
+
+  adminPageLabel?: string
+
+  adminMenuButtonRef?: RefObject<HTMLButtonElement | null>
 
   showAdminLink?: boolean
 }) {
@@ -813,21 +844,20 @@ export function Navbar({
     <header
       className={`fixed top-0 left-0 right-0 z-50 flex items-center gap-4 sm:gap-6 px-4 sm:px-10 xl:px-12 h-14 ${styles.header} ${
         adminItems ? styles.adminHeader : ""
-      }`}
+      } ${adminItems ? "admin-utility-header" : ""}`}
     >
       <button
-        className={`${
-          adminItems ? "lg:hidden" : "md:hidden"
-        } flex flex-col justify-center gap-1 w-6 h-6`}
-        onClick={() => setMobileNavOpen((v) => !v)}
-        aria-label="Menu"
+        ref={adminItems ? adminMenuButtonRef : undefined}
+        className={`${adminItems ? "admin-sidebar-menu-button" : "md:hidden"} flex flex-col justify-center gap-1 w-6 h-6`}
+        onClick={() => adminItems ? onToggleAdminMenu?.() : setMobileNavOpen((v) => !v)}
+        aria-label={adminItems ? "Open admin navigation" : "Menu"}
       >
         <span className={`block h-0.5 w-full ${styles.hamburgerBar}`} />
         <span className={`block h-0.5 w-full ${styles.hamburgerBar}`} />
         <span className={`block h-0.5 w-full ${styles.hamburgerBar}`} />
       </button>
 
-      <div className="shrink-0 mr-2">{LOGO_SVG}</div>
+      {!adminItems && <button type="button" className="shrink-0 mr-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-400" onClick={() => onNavigateView?.("home")} aria-label="Go to StreamFlix home">{LOGO_SVG}</button>}
 
       <nav
         aria-label={
@@ -838,43 +868,7 @@ export function Navbar({
         } items-center min-w-0`}
       >
         {adminItems ? (
-          <>
-            <button
-              type="button"
-              className={styles.adminBackLink}
-              onClick={onBackFromAdmin}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              Back
-            </button>
-            <span className={styles.adminNavDivider} aria-hidden="true" />
-            {adminItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`text-sm transition-colors whitespace-nowrap ${styles.navLink} ${
-                  activeAdminItem === item.id
-                    ? styles.navLinkActive
-                    : styles.navLinkInactive
-                }`}
-                onClick={() => onNavigateAdmin?.(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </>
+          <span className="admin-utility-header__context">{adminPageLabel ?? "Administration"}</span>
         ) : (
           visibleNavLinks.map((link) => (
             <button
@@ -892,7 +886,7 @@ export function Navbar({
         )}
       </nav>
 
-      {mobileNavOpen && (
+      {!adminItems && mobileNavOpen && (
         <nav
           className={`${
             adminItems ? "lg:hidden" : "md:hidden"

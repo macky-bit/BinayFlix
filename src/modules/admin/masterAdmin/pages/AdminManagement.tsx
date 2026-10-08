@@ -49,8 +49,8 @@ interface GrantCandidate {
 
 function LoadingSpinner() {
   return (
-    <div className="flex items-center justify-center py-16">
-      <div className="w-8 h-8 rounded-full border-2 border-transparent animate-spin" style={{ borderTopColor: 'var(--wine)' }} />
+    <div className="admin-table-skeleton" role="status" aria-label="Loading administrators" aria-busy="true">
+      {Array.from({ length: 6 }, (_, index) => <div className="admin-table-skeleton__row" key={index}><span /><span /><span /><span /><span /><span /></div>)}
     </div>
   )
 }
@@ -326,8 +326,6 @@ function EditManagerModal({ manager, managers, onSave, onClose, onResetPassword 
     name: manager.name,
     email: manager.email,
     username: manager.username,
-    role: manager.role,
-    status: manager.status,
   })
   const [errors, setErrors] = useState<FormErrors>({})
   const [loading, setLoading] = useState(false)
@@ -349,7 +347,7 @@ function EditManagerModal({ manager, managers, onSave, onClose, onResetPassword 
     if (Object.keys(errs).length) { setErrors(errs); return }
     setLoading(true)
     setTimeout(() => {
-      onSave({ ...manager, name: form.name.trim(), email: form.email.trim(), username: form.username.trim(), role: form.role, status: form.status })
+      onSave({ ...manager, name: form.name.trim(), email: form.email.trim(), username: form.username.trim() })
       setLoading(false)
     }, 600)
   }
@@ -401,19 +399,6 @@ function EditManagerModal({ manager, managers, onSave, onClose, onResetPassword 
               onChange={e => { setForm(f => ({ ...f, username: e.target.value })); setErrors(er => ({ ...er, username: '' })) }}
               placeholder="Enter username" />
           )}
-          <div>
-            <label htmlFor="edit-role" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--cream)' }}>Role *</label>
-            <select id="edit-role" className="select-field" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as ManagerRole }))}>
-              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="edit-status" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--cream)' }}>Account Status *</label>
-            <select id="edit-status" className="select-field" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as AccountStatus }))}>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--cream)' }}>Last Login</label>
             <div className="input-field opacity-50 cursor-not-allowed">{formatDate(manager.lastLogin)}</div>
@@ -627,7 +612,7 @@ function ResetPasswordModal({ onReset, onClose }: {
 }
 
 // Details Panel
-function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivate, onDeactivate, onRemove, onSaveInline }: {
+function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivate, onDeactivate, onRemove }: {
   manager: Manager
   onClose: () => void
   onEdit: () => void
@@ -635,44 +620,23 @@ function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivat
   onActivate: () => void
   onDeactivate: () => void
   onRemove: () => void
-  onSaveInline: (updates: Partial<Manager>) => void
 }) {
-  const [panelRole, setPanelRole] = useState<ManagerRole>(manager.role)
-  const [panelStatus, setPanelStatus] = useState<AccountStatus>(manager.status)
-  const [pendingConfirm, setPendingConfirm] = useState<'role' | 'status' | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    setPanelRole(manager.role)
-    setPanelStatus(manager.status)
-  }, [manager.id, manager.role, manager.status])
-
-  function handleSave() {
-    const roleChanged = panelRole !== manager.role
-    const statusChanged = panelStatus !== manager.status
-    if (roleChanged) { setPendingConfirm('role'); return }
-    if (statusChanged) { setPendingConfirm('status'); return }
+  const isDeactivated = manager.status === 'Inactive'
+  const [copiedId, setCopiedId] = useState(false)
+  const copyId = async () => {
+    await navigator.clipboard.writeText(manager.id)
+    setCopiedId(true)
+    window.setTimeout(() => setCopiedId(false), 1600)
   }
-
-  function confirmSave() {
-    setLoading(true)
-    setTimeout(() => {
-      onSaveInline({ role: panelRole, status: panelStatus })
-      setPendingConfirm(null)
-      setLoading(false)
-    }, 600)
-  }
-
-  const hasChanges = panelRole !== manager.role || panelStatus !== manager.status
   const footer = (
     <div className="space-y-2">
       <div className="admin-details-actions">
         <button onClick={onClose} className="admin-details-button admin-details-button--secondary">Close</button>
-        <button onClick={hasChanges ? handleSave : onEdit} className="admin-details-button admin-details-button--primary">
-          {hasChanges ? 'Save Changes' : 'Edit Manager'}
-        </button>
+        {!isDeactivated && <button onClick={onEdit} className="admin-details-button admin-details-button--primary">
+          Edit Profile
+        </button>}
       </div>
-      {!hasChanges && (
+      {!isDeactivated && (
         <button onClick={onAssignRole} className="admin-details-button admin-details-button--purple w-full">Assign Role</button>
       )}
       <div className="admin-details-actions">
@@ -686,41 +650,25 @@ function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivat
         ) : (
           <button onClick={onActivate} className="admin-details-button admin-details-button--success">Activate Account</button>
         )}
-        <button onClick={onRemove} className="admin-details-button admin-details-button--danger-strong">Remove as Admin</button>
+        {!isDeactivated && <button onClick={onRemove} className="admin-details-button admin-details-button--danger-strong">Remove Admin Access</button>}
       </div>
     </div>
   )
 
   return (
     <>
-      {pendingConfirm && (
-        <ConfirmDialog
-          heading={pendingConfirm === 'role' ? 'Confirm role change?' : panelStatus === 'Active' ? 'Activate Manager account?' : 'Deactivate Manager account?'}
-          message={pendingConfirm === 'role'
-            ? "Changing this Manager's role will update their access to STREAMFLIX management features."
-            : panelStatus === 'Active'
-            ? 'This Manager will regain access to the features assigned to their role.'
-            : 'This Manager will no longer be able to access STREAMFLIX management features until the account is activated again.'
-          }
-          confirmLabel={pendingConfirm === 'role' ? 'Confirm Role Change' : panelStatus === 'Active' ? 'Activate Account' : 'Deactivate Account'}
-          onConfirm={confirmSave}
-          onCancel={() => setPendingConfirm(null)}
-          danger={pendingConfirm === 'status' && panelStatus === 'Inactive'}
-          loading={loading}
-        />
-      )}
       <AdminDetailsPanel
         title="Manager Details"
         onClose={onClose}
-        closeOnBackdrop={!hasChanges}
-        closeOnEscape={!hasChanges}
+        closeOnBackdrop
+        closeOnEscape
         footer={footer}
       >
           {/* Profile */}
           <div className="pb-5" style={{ borderBottom: '1px solid var(--stone)' }}>
             <div>
               <p className="text-white font-semibold text-lg">{manager.name}</p>
-              <p className="text-xs mt-1 font-mono" style={{ color: 'var(--taupe)' }}>User ID: {manager.id}</p>
+              <div className="mt-1 flex items-center gap-2"><p className="min-w-0 break-all text-xs font-mono" style={{ color: 'var(--taupe)' }}>User ID: {manager.id}</p><button type="button" onClick={() => void copyId()} className="shrink-0 rounded border border-violet-400/30 px-2 py-1 text-[11px] text-violet-200" aria-label={`Copy user ID for ${manager.name}`}>{copiedId ? 'Copied' : 'Copy'}</button></div>
             </div>
           </div>
 
@@ -729,38 +677,10 @@ function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivat
             <AdminDetailField label="Username" value={manager.username} />
             <AdminDetailField label="Role"><RoleBadge role={manager.role} /></AdminDetailField>
             <AdminDetailField label="Account Status"><StatusBadge status={manager.status} /></AdminDetailField>
-            <AdminDetailField label="Last Login" value={formatDate(manager.lastLogin)} />
+            <AdminDetailField label="Last Login"><time dateTime={manager.lastLogin ?? undefined} title={manager.lastLogin ? new Date(manager.lastLogin).toISOString() : 'This administrator has never logged in'}>{formatDate(manager.lastLogin)}</time></AdminDetailField>
           </AdminDetailsSection>
 
-          {/* Role & Access section */}
-          <AdminDetailsSection title="Role & Access">
-            <div>
-              <label htmlFor="panel-role" className="block text-xs mb-1.5" style={{ color: 'var(--taupe)' }}>Role</label>
-              <select id="panel-role" className="select-field text-sm"
-                value={panelRole}
-                onChange={e => setPanelRole(e.target.value as ManagerRole)}>
-                {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
-            {panelRole && (
-              <p className="text-xs" style={{ color: 'var(--taupe)' }}>{ROLE_ACCESS[panelRole]}</p>
-            )}
-            <div className="flex items-center justify-between">
-              <label htmlFor="panel-status-toggle" className="text-xs" style={{ color: 'var(--taupe)' }}>Account Status</label>
-              <div className="flex items-center gap-2">
-                <label className="toggle-switch" title={panelStatus === 'Active' ? 'Active' : 'Inactive'}>
-                  <input
-                    id="panel-status-toggle"
-                    type="checkbox"
-                    checked={panelStatus === 'Active'}
-                    onChange={e => setPanelStatus(e.target.checked ? 'Active' : 'Inactive')}
-                  />
-                  <span className="toggle-slider" />
-                </label>
-                <span className="text-xs text-white">{panelStatus}</span>
-              </div>
-            </div>
-          </AdminDetailsSection>
+          {isDeactivated && <div className="rounded-xl border border-amber-400/25 bg-amber-400/5 p-4 text-sm text-amber-100"><strong className="block">Administrator access is deactivated</strong><span className="mt-1 block text-xs text-amber-100/70">Editing and role assignment are unavailable until this account is reactivated.</span></div>}
       </AdminDetailsPanel>
     </>
   )
@@ -773,7 +693,6 @@ export default function AdminManagement() {
   )
   const managers = managerState.items
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -785,8 +704,24 @@ export default function AdminManagement() {
   const [confirmTargetId, setConfirmTargetId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' } | null>(null)
   const [actionPending, setActionPending] = useState(false)
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null)
   const [pendingResetPw, setPendingResetPw] = useState(false)
   const addBtnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const closeMenu = (event: PointerEvent) => {
+      if (!(event.target as Element).closest('.admin-row-menu')) setActionMenuId(null)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActionMenuId(null)
+    }
+    document.addEventListener('pointerdown', closeMenu)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [])
 
   const selectedManager = useMemo(() => managers.find(m => m.id === selectedId) ?? null, [managers, selectedId])
 
@@ -830,20 +765,6 @@ export default function AdminManagement() {
 
   function resetFilters() {
     setSearch(''); setRoleFilter(''); setStatusFilter(''); setSortBy('name-az'); setPage(1)
-  }
-
-  function toggleRow(id: string) {
-    setSelectedRows(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  function toggleAllRows() {
-    if (selectedRows.size === paginated.length) setSelectedRows(new Set())
-    else setSelectedRows(new Set(paginated.map(m => m.id)))
   }
 
   function handleAddManager(m: Manager) {
@@ -896,26 +817,6 @@ export default function AdminManagement() {
     showToast('Manager role updated successfully.')
   }
 
-  async function handleSaveInline(updates: Partial<Manager>) {
-    if (!selectedId) return
-    const prev = managers.find(m => m.id === selectedId)
-    if (!prev) return
-    const wasRole = updates.role && updates.role !== prev.role
-    const wasStatus = updates.status && updates.status !== prev.status
-    if (wasRole) {
-      const { error } = await supabase.rpc('set_admin_access_role', { target_admin_id: selectedId, assigned_role: updates.role })
-      if (error) { showToast(error.message, 'error'); return }
-    }
-    if (wasStatus) {
-      const { error } = await supabase.rpc('set_admin_access_status', { target_admin_id: selectedId, new_status: updates.status })
-      if (error) { showToast(error.message, 'error'); return }
-    }
-    await managerState.reload()
-    if (wasRole) showToast('Manager role updated successfully.')
-    else if (wasStatus) showToast(`Manager account ${updates.status === 'Active' ? 'activated' : 'deactivated'} successfully.`)
-    else showToast('Manager account updated successfully.')
-  }
-
   async function handleStatusChange(id: string, status: AccountStatus) {
     setActionPending(true)
     try {
@@ -965,10 +866,10 @@ export default function AdminManagement() {
         <ConfirmDialog
           heading={confirmType === 'activate' ? 'Activate Manager account?' : confirmType === 'deactivate' ? 'Deactivate Manager account?' : 'Remove this administrator role?'}
           message={confirmType === 'activate'
-            ? 'This Manager will regain access to the features assigned to their role.'
+            ? `${confirmTarget.name} will regain access to the features assigned to their role.`
             : confirmType === 'deactivate'
-              ? 'This Manager will temporarily lose access to STREAMFLIX management features until activated again.'
-              : 'This permanently removes all administrator privileges. Their regular StreamFlix user account and login will not be deleted.'}
+              ? `${confirmTarget.name} will temporarily lose access to STREAMFLIX management features until activated again.`
+              : `This permanently removes ${confirmTarget.name}'s administrator privileges. Their regular StreamFlix user account and login will not be deleted.`}
           confirmLabel={confirmType === 'activate' ? 'Activate Account' : confirmType === 'deactivate' ? 'Deactivate Account' : 'Remove as Admin'}
           onConfirm={() => confirmType === 'remove' ? handleRemoveAdmin(confirmTarget.id) : handleStatusChange(confirmTarget.id, confirmType === 'activate' ? 'Active' : 'Inactive')}
           onCancel={() => { setConfirmType(null); setConfirmTargetId(null) }}
@@ -1004,16 +905,16 @@ export default function AdminManagement() {
         actions={
           <button ref={addBtnRef} onClick={() => setModal('add')} className="btn-primary flex items-center gap-2 px-5 py-2.5">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-            Make User Admin
+            Add Administrator
           </button>
         }
       />
 
       <AdminStats>
-        <AdminStatCard label="Administrators" value={managers.length} hint="All assigned accounts" tone="purple" />
-        <AdminStatCard label="Active access" value={managers.filter((manager) => manager.status === 'Active').length} hint="Can enter assigned workspaces" tone="green" />
-        <AdminStatCard label="Inactive access" value={managers.filter((manager) => manager.status === 'Inactive').length} hint="Temporarily restricted" tone="gold" />
-        <AdminStatCard label="Assigned roles" value={new Set(managers.map((manager) => manager.role)).size} hint="Roles represented" tone="blue" />
+        <AdminStatCard label="Administrators" value={managers.length} hint="All assigned accounts" tone="purple" active={!statusFilter && !roleFilter} onClick={() => { setSearch(''); setStatusFilter(''); setRoleFilter(''); setPage(1) }} />
+        <AdminStatCard label="Active access" value={managers.filter((manager) => manager.status === 'Active').length} hint="Can enter assigned workspaces" tone="green" active={statusFilter === 'Active'} onClick={() => { setStatusFilter('Active'); setPage(1) }} />
+        <AdminStatCard label="Deactivated" value={managers.filter((manager) => manager.status === 'Inactive').length} hint="Temporarily restricted" tone="gold" active={statusFilter === 'Inactive'} onClick={() => { setStatusFilter('Inactive'); setPage(1) }} />
+        <AdminStatCard label="Assigned roles" value={new Set(managers.map((manager) => manager.role)).size} hint="Roles represented" tone="blue" active={Boolean(roleFilter)} onClick={() => document.getElementById('admin-role-filter')?.focus()} />
       </AdminStats>
 
       {/* Filters */}
@@ -1025,24 +926,25 @@ export default function AdminManagement() {
           <input
             className="input-field"
             style={{ paddingLeft: '2.25rem' }}
-            placeholder="Search managers…"
+            placeholder="Search administrators…"
             value={search}
+            maxLength={100}
             onChange={e => { setSearch(e.target.value); setPage(1) }}
-            aria-label="Search managers"
+            aria-label="Search administrators"
           />
         </div>
-        <select className="select-field" style={{ width: 'auto', minWidth: 160 }} value={roleFilter}
+        <select id="admin-role-filter" aria-label="Filter administrators by role" className="select-field" style={{ width: 'auto', minWidth: 160 }} value={roleFilter}
           onChange={e => { setRoleFilter(e.target.value); setPage(1) }}>
           <option value="">All Roles</option>
           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
-        <select className="select-field" style={{ width: 'auto', minWidth: 180 }} value={statusFilter}
+        <select aria-label="Filter administrators by status" className="select-field" style={{ width: 'auto', minWidth: 180 }} value={statusFilter}
           onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
           <option value="">All Account Statuses</option>
           <option value="Active">Active</option>
-          <option value="Inactive">Inactive</option>
+          <option value="Inactive">Deactivated</option>
         </select>
-        <button
+        {(search || roleFilter || statusFilter || sortBy !== 'name-az') && <button
           onClick={resetFilters}
           className="btn-ghost flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium flex-shrink-0"
         >
@@ -1050,55 +952,45 @@ export default function AdminManagement() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
           Reset Filters
-        </button>
+        </button>}
         <div className="flex items-center gap-2">
           <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--taupe)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
           </svg>
           <select className="select-field" style={{ width: 'auto', minWidth: 148 }} value={sortBy}
+            aria-label="Sort administrators"
             onChange={e => { setSortBy(e.target.value); setPage(1) }}>
             {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
+        <span className="ml-auto whitespace-nowrap text-xs" style={{ color: 'var(--taupe)' }}>{filtered.length} {filtered.length === 1 ? 'administrator' : 'administrators'}</span>
       </div>
 
       {/* Main content: table + panel */}
       <div className="admin-split-layout flex gap-4 items-start">
         {/* Table */}
-        <div className="flex-1 min-w-0 card overflow-hidden">
+        <div className="flex-1 min-w-0 card">
           <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--stone)' }}>
-            <h2 className="text-base font-semibold text-white">Managers ({filtered.length})</h2>
+            <h2 className="text-base font-semibold text-white">Administrators ({filtered.length})</h2>
           </div>
           <div className="admin-manager-table-frame">
             {managerState.loading
               ? <LoadingSpinner />
               : filtered.length === 0
-                ? <EmptyState message="No Manager accounts match your search or selected filters." onReset={resetFilters} />
+                ? <EmptyState message="No administrator accounts match your search or selected filters." onReset={resetFilters} />
                 : (
                   <table className="admin-manager-table text-sm" role="grid">
                     <colgroup>
-                      <col style={{ width: '4%' }} />
-                      <col style={{ width: '7%' }} />
-                      <col style={{ width: '10%' }} />
-                      <col style={{ width: '12%' }} />
-                      <col style={{ width: '9%' }} />
+                      <col style={{ width: '19%' }} />
+                      <col style={{ width: '20%' }} />
                       <col style={{ width: '14%' }} />
-                      <col style={{ width: '8%' }} />
-                      <col style={{ width: '10%' }} />
-                      <col style={{ width: '26%' }} />
+                      <col style={{ width: '12%' }} />
+                      <col style={{ width: '17%' }} />
+                      <col style={{ width: '18%' }} />
                     </colgroup>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--stone)' }}>
-                        <th className="px-2 py-3 text-left">
-                          <input
-                            type="checkbox"
-                            className="w-4 h-4 rounded accent-purple-500"
-                            checked={selectedRows.size > 0 && selectedRows.size === paginated.length}
-                            onChange={toggleAllRows}
-                            aria-label="Select all managers on page"
-                          />
-                        </th>
-                        {['User ID', 'Manager', 'Email', 'Username', 'Role', 'Status', 'Last Login', 'Actions'].map(col => (
+                        {['Administrator', 'Email', 'Role', 'Status', 'Last Login', 'Actions'].map(col => (
                           <th key={col} className="px-2 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--taupe)' }}>
                             {col}
                           </th>
@@ -1112,7 +1004,7 @@ export default function AdminManagement() {
                           <tr
                             key={m.id}
                             onClick={() => setSelectedId(isSelected ? null : m.id)}
-                            className={`cursor-pointer transition-colors ${isSelected ? 'table-row-selected' : ''}`}
+                            className={`cursor-pointer transition-colors ${isSelected ? 'table-row-selected' : ''} ${m.status === 'Inactive' ? 'admin-manager-row--deactivated' : ''}`}
                             style={{
                               borderBottom: '1px solid rgba(55,65,81,0.5)',
                               borderLeft: isSelected ? '3px solid var(--wine)' : '3px solid transparent',
@@ -1124,73 +1016,38 @@ export default function AdminManagement() {
                             aria-selected={isSelected}
                             role="row"
                           >
-                            <td className="px-2 py-3" onClick={e => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                className="w-4 h-4 rounded accent-purple-500"
-                                checked={selectedRows.has(m.id)}
-                                onChange={() => toggleRow(m.id)}
-                                aria-label={`Select ${m.name}`}
-                              />
-                            </td>
                             <td className="px-2 py-3">
-                              <span className="text-xs font-mono" style={{ color: 'var(--taupe)' }}>{m.id}</span>
-                            </td>
-                            <td className="px-2 py-3">
-                              <div className="min-w-0">
+                              <div className="flex min-w-0 items-center gap-2.5">
+                                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ background: m.avatarColor || 'var(--wine)' }} aria-hidden="true">{m.name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()}</span>
+                                <div className="min-w-0">
                                 <span className="text-white font-semibold truncate text-xs block">{m.name}</span>
                                 <span className="text-[11px] truncate block mt-0.5" style={{ color: '#7f778d' }}>@{m.username}</span>
+                                </div>
                               </div>
                             </td>
                             <td className="px-2 py-3">
-                              <span className="text-xs truncate block" style={{ color: 'var(--taupe)' }}>{m.email}</span>
-                            </td>
-                            <td className="px-2 py-3">
-                              <span className="text-xs truncate block" style={{ color: 'var(--taupe)' }}>{m.username}</span>
+                              <span className="text-xs truncate block" style={{ color: 'var(--taupe)' }} title={m.email}>{m.email}</span>
                             </td>
                             <td className="px-2 py-3"><div className="overflow-hidden"><RoleBadge role={m.role} /></div></td>
                             <td className="px-2 py-3"><div className="overflow-hidden"><StatusBadge status={m.status} /></div></td>
                             <td className="px-2 py-3">
-                              <span className="text-xs block truncate" style={{ color: 'var(--taupe)' }}>{formatDate(m.lastLogin)}</span>
+                              <time className="text-xs block" style={{ color: 'var(--taupe)' }} dateTime={m.lastLogin ?? undefined} title={m.lastLogin ? new Date(m.lastLogin).toISOString() : 'This administrator has never logged in'}>{formatDate(m.lastLogin)}</time>
                             </td>
                             <td className="px-2 py-3" onClick={e => e.stopPropagation()}>
-                              <div className="admin-manager-table__actions">
-                                <button
-                                  onClick={() => { setSelectedId(m.id) }}
-                                  className="admin-manager-table__compact-action btn-wine py-1 rounded text-xs font-medium flex-shrink-0"
-                                  aria-label={`View ${m.name}`}
-                                >View</button>
-                                <button
-                                  onClick={() => { setSelectedId(m.id); setModal('edit') }}
-                                  className="admin-manager-table__compact-action btn-wine py-1 rounded text-xs font-medium flex-shrink-0"
-                                  aria-label={`Edit ${m.name}`}
-                                >Edit</button>
-                                <button
-                                  onClick={() => { setSelectedId(m.id); setModal('assignRole') }}
-                                  className="admin-manager-table__compact-action btn-wine py-1 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap"
-                                  aria-label={`Assign role to ${m.name}`}
-                                >Role</button>
-                                <button
-                                  onClick={() => {
-                                    setSelectedId(m.id)
-                                    setConfirmTargetId(m.id)
-                                    setConfirmType(m.status === 'Active' ? 'deactivate' : 'activate')
-                                  }}
-                                  className={`manager-status-action ${m.status === 'Active' ? 'manager-status-action--deactivate' : 'manager-status-action--activate'}`}
-                                  disabled={actionPending}
-                                  aria-label={`${m.status === 'Active' ? 'Deactivate' : 'Activate'} ${m.name}`}
-                                >
-                                  {m.status === 'Active' ? (
-                                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18.36 18.36A9 9 0 0 0 5.64 5.64m12.72 12.72A9 9 0 0 1 5.64 5.64m12.72 12.72L5.64 5.64" />
-                                    </svg>
-                                  ) : (
-                                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="m8.5 12 2.25 2.25L15.5 9.5m5.5 2.5a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                                    </svg>
-                                  )}
-                                  <span>{m.status === 'Active' ? 'Deactivate' : 'Activate'}</span>
-                                </button>
+                              <div className="admin-manager-table__actions admin-row-menu">
+                                {m.status === 'Inactive' ? (
+                                  <button type="button" onClick={() => { setSelectedId(m.id); setConfirmTargetId(m.id); setConfirmType('activate') }} className="manager-status-action manager-status-action--activate" disabled={actionPending}>Reactivate</button>
+                                ) : (
+                                  <><button type="button" onClick={() => setSelectedId(m.id)} className="admin-manager-table__compact-action btn-wine py-1 rounded text-xs font-medium flex-shrink-0" aria-label={`View details for ${m.name}`}>View details</button><div className="relative">
+                                    <button type="button" className="admin-row-menu__trigger" onClick={() => setActionMenuId(actionMenuId === m.id ? null : m.id)} aria-label={`More actions for ${m.name}`} aria-expanded={actionMenuId === m.id}>•••</button>
+                                    {actionMenuId === m.id && <div className="admin-row-menu__popover" role="menu">
+                                      <button type="button" role="menuitem" onClick={() => { setSelectedId(m.id); setModal('edit'); setActionMenuId(null) }}>Edit profile</button>
+                                      <button type="button" role="menuitem" onClick={() => { setSelectedId(m.id); setModal('assignRole'); setActionMenuId(null) }}>Change role</button>
+                                      <button type="button" role="menuitem" onClick={() => { setSelectedId(m.id); setConfirmTargetId(m.id); setConfirmType('deactivate'); setActionMenuId(null) }}>Deactivate</button>
+                                      <button type="button" role="menuitem" className="is-danger" onClick={() => { setSelectedId(m.id); setConfirmTargetId(m.id); setConfirmType('remove'); setActionMenuId(null) }}>Remove admin access</button>
+                                    </div>}
+                                  </div></>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -1259,7 +1116,6 @@ export default function AdminManagement() {
             onActivate={() => { setConfirmType('activate'); setConfirmTargetId(selectedManager.id) }}
             onDeactivate={() => { setConfirmType('deactivate'); setConfirmTargetId(selectedManager.id) }}
             onRemove={() => { setConfirmType('remove'); setConfirmTargetId(selectedManager.id) }}
-            onSaveInline={handleSaveInline}
           />
         )}
       </div>

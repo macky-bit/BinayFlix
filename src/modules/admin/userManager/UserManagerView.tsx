@@ -172,6 +172,7 @@ function SearchInput({ value, onChange, placeholder }: { value: string; onChange
       <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9CA3AF" }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
       <input
         type="text"
+        maxLength={100}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
