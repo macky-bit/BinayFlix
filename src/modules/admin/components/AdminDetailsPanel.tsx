@@ -2,6 +2,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
@@ -39,6 +40,14 @@ export default function AdminDetailsPanel({
 }: AdminDetailsPanelProps) {
   const titleId = useId()
 
+  const panelRef = useRef<HTMLElement>(null)
+
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+
+  const focusedDrawerRef = useRef(false)
+
   const [drawerBounds, setDrawerBounds] = useState<{
     top: number
 
@@ -46,6 +55,11 @@ export default function AdminDetailsPanel({
   } | null>(null)
 
   useLayoutEffect(() => {
+    returnFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+
     const updateDrawerBounds = () => {
       const navbar =
         document.querySelector<HTMLElement>(
@@ -85,14 +99,54 @@ export default function AdminDetailsPanel({
       window.removeEventListener("resize", updateDrawerBounds)
 
       window.visualViewport?.removeEventListener("resize", updateDrawerBounds)
+
+      returnFocusRef.current?.focus()
     }
   }, [])
+
+  useEffect(() => {
+    if (!drawerBounds || focusedDrawerRef.current) return
+
+    focusedDrawerRef.current = true
+
+    closeButtonRef.current?.focus()
+  }, [drawerBounds])
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
 
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && closeOnEscape) onClose()
+      if (event.key === "Escape" && closeOnEscape) {
+        event.preventDefault()
+
+        onClose()
+
+        return
+      }
+
+      if (event.key !== "Tab" || !panelRef.current) return
+
+      const focusable = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      )
+
+      if (focusable.length === 0) return
+
+      const first = focusable[0]
+
+      const last = focusable[focusable.length - 1]
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+
+        first.focus()
+      }
     }
 
     document.body.style.overflow = "hidden"
@@ -117,6 +171,7 @@ export default function AdminDetailsPanel({
       }}
     >
       <aside
+        ref={panelRef}
         className="admin-details-shell flex h-full w-full max-w-lg flex-col overflow-hidden shadow-2xl"
         role="dialog"
         aria-modal="true"
@@ -129,6 +184,7 @@ export default function AdminDetailsPanel({
             {title}
           </h2>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             className="admin-details-close grid h-8 w-8 shrink-0 place-items-center rounded-lg"

@@ -681,7 +681,11 @@ const ADMIN_PROFILE_BY_ITEM: Record<string, {
 }> = {
   master: { initial: "M", name: "Master Admin", role: "Administrator" },
 
-  content: { initial: "A", name: "Alex Rivera", role: "Content Manager" },
+  content: {
+    initial: "C",
+    name: "Content Manager",
+    role: "Content Administrator",
+  },
 
   comments: {
     initial: "C",
@@ -737,6 +741,10 @@ export function Navbar({
 
   adminMenuButtonRef,
 
+  adminMenuOpen = false,
+
+  adminMenuLabel,
+
   showAdminLink = false,
 }: {
   onSignOut: () => void
@@ -772,6 +780,10 @@ export function Navbar({
   adminPageLabel?: string
 
   adminMenuButtonRef?: RefObject<HTMLButtonElement | null>
+
+  adminMenuOpen?: boolean
+
+  adminMenuLabel?: string
 
   showAdminLink?: boolean
 }) {
@@ -847,15 +859,28 @@ export function Navbar({
       } ${adminItems ? "admin-utility-header" : ""}`}
     >
       <button
+        type="button"
         ref={adminItems ? adminMenuButtonRef : undefined}
-        className={`${adminItems ? "admin-sidebar-menu-button" : "md:hidden"} flex flex-col justify-center gap-1 w-6 h-6`}
-        onClick={() => adminItems ? onToggleAdminMenu?.() : setMobileNavOpen((v) => !v)}
-        aria-label={adminItems ? "Open admin navigation" : "Menu"}
+        className={`${
+          adminItems ? "admin-sidebar-menu-button" : "md:hidden"
+        } flex flex-col justify-center gap-1 w-6 h-6`}
+        onClick={() =>
+          adminItems ? onToggleAdminMenu?.() : setMobileNavOpen((v) => !v)
+        }
+        aria-label={
+          adminItems ? (adminMenuLabel ?? "Toggle navigation menu") : "Menu"
+        }
+        aria-expanded={adminItems ? adminMenuOpen : mobileNavOpen}
+        aria-controls={adminItems ? "admin-sidebar-navigation" : undefined}
       >
         <span className={`block h-0.5 w-full ${styles.hamburgerBar}`} />
         <span className={`block h-0.5 w-full ${styles.hamburgerBar}`} />
         <span className={`block h-0.5 w-full ${styles.hamburgerBar}`} />
       </button>
+
+      {adminItems && <button type="button" className="admin-utility-header__brand" onClick={() => onNavigateView?.("home")} aria-label="Go to StreamFlix home">{LOGO_SVG}</button>}
+
+      {adminItems && <span className="admin-utility-header__divider" aria-hidden="true" />}
 
       {!adminItems && <button type="button" className="shrink-0 mr-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-400" onClick={() => onNavigateView?.("home")} aria-label="Go to StreamFlix home">{LOGO_SVG}</button>}
 
@@ -863,8 +888,8 @@ export function Navbar({
         aria-label={
           adminItems ? "Administrator workspaces" : "StreamFlix sections"
         }
-        className={`hidden ${
-          adminItems ? "lg:flex gap-3" : "md:flex gap-5"
+        className={`${adminItems ? "flex" : "hidden md:flex"} ${
+          adminItems ? "gap-3" : "gap-5"
         } items-center min-w-0`}
       >
         {adminItems ? (

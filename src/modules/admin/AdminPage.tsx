@@ -8,7 +8,7 @@ import {
 } from "react"
 
 import { supabase } from "../../lib/supabase"
-import { LOGO_SVG, Navbar } from "../dashboard/components"
+import { Navbar } from "../dashboard/components"
 import { AdminDataProvider } from "./data"
 import { ADMIN_WORKSPACES, type AdminRoute } from "./routes"
 import "./admin.css"
@@ -21,7 +21,16 @@ interface Props {
   ) => void
 }
 
-type SidebarIconName = "dashboard" | "administrators" | "content" | "community" | "feedback" | "users" | "system"
+interface AdminAccessResponse {
+  role?: unknown
+  status?: unknown
+}
+
+type AvailableWorkspace = typeof ADMIN_WORKSPACES[number]
+
+const MOBILE_SIDEBAR_QUERY = "(max-width: 1100px)"
+
+type SidebarIconName = "administrators" | "content" | "community" | "feedback" | "users" | "system"
 
 const SIDEBAR_ICON_BY_ROUTE: Record<AdminRoute, SidebarIconName> = {
   master: "administrators",
@@ -34,14 +43,6 @@ const SIDEBAR_ICON_BY_ROUTE: Record<AdminRoute, SidebarIconName> = {
 
 function SidebarIcon({ name }: { name: SidebarIconName }) {
   const paths: Record<SidebarIconName, ReactNode> = {
-    dashboard: (
-      <>
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-        <rect x="14" y="14" width="7" height="7" rx="1" />
-      </>
-    ),
     administrators: (
       <>
         <circle cx="9" cy="8" r="3" />
@@ -97,11 +98,25 @@ export default function AdminPage({ onBack, onSignOut, onNavigate }: Props) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [mobileSidebarMode, setMobileSidebarMode] = useState(
+    () => window.matchMedia(MOBILE_SIDEBAR_QUERY).matches,
+  )
   const [adminRole, setAdminRole] = useState<string | null>(null)
   const [accessState, setAccessState] =
     useState<"checking" | "allowed" | "inactive" | "denied">("checking")
   const sidebarRef = useRef<HTMLElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(MOBILE_SIDEBAR_QUERY)
+    const updateSidebarMode = () => {
+      setMobileSidebarMode(mediaQuery.matches)
+      if (!mediaQuery.matches) setMobileSidebarOpen(false)
+    }
+    updateSidebarMode()
+    mediaQuery.addEventListener("change", updateSidebarMode)
+    return () => mediaQuery.removeEventListener("change", updateSidebarMode)
+  }, [])
 
   const availableWorkspaces = useMemo(() => {
     const normalizedRole = adminRole?.replace(/\s/g, "").toLowerCase()
@@ -135,7 +150,7 @@ export default function AdminPage({ onBack, onSignOut, onNavigate }: Props) {
         setAccessState("denied")
         return
       }
-      const adminAccess = access as { role?: unknown status?: unknown }
+      const adminAccess = access as AdminAccessResponse
       if (String(adminAccess.status).toLowerCase() !== "active") {
         setAccessState("inactive")
         return
@@ -264,17 +279,11 @@ export default function AdminPage({ onBack, onSignOut, onNavigate }: Props) {
     availableWorkspaces.find((candidate) => candidate.id === route) ??
     availableWorkspaces[0]
   const Workspace = workspace.component
-  const managementWorkspaces = availableWorkspaces.filter(
-    (item) => item.id !== "system",
-  )
-  const operationsWorkspaces = availableWorkspaces.filter(
-    (item) => item.id === "system",
-  )
   const navigateSidebar = (nextRoute: AdminRoute) => {
     setRoute(nextRoute)
     setMobileSidebarOpen(false)
   }
-  const renderWorkspaceButton = (item: typeof availableWorkspaces[number]) => (
+  const renderWorkspaceButton = (item: AvailableWorkspace) => (
     <button
       key={item.id}
       type="button"
@@ -282,6 +291,7 @@ export default function AdminPage({ onBack, onSignOut, onNavigate }: Props) {
       aria-current={route === item.id ? "page" : undefined}
       aria-label={sidebarCollapsed ? item.label : undefined}
       title={sidebarCollapsed ? item.label : undefined}
+      data-sidebar-first={item.id === availableWorkspaces[0]?.id || undefined}
       onClick={() => navigateSidebar(item.id)}
     >
       <SidebarIcon name={SIDEBAR_ICON_BY_ROUTE[item.id]} />
@@ -297,86 +307,24 @@ export default function AdminPage({ onBack, onSignOut, onNavigate }: Props) {
         data-mobile-sidebar={mobileSidebarOpen ? "open" : "closed"}
       >
         <aside
+          id="admin-sidebar-navigation"
           ref={sidebarRef}
           className="admin-sidebar"
           aria-label="Administrator navigation"
           aria-modal={mobileSidebarOpen || undefined}
         >
-          <div className="admin-sidebar__brand-row">
-            <button
-              type="button"
-              className="admin-sidebar__brand"
-              onClick={onBack}
-              aria-label="Go to StreamFlix home"
-              data-sidebar-first
-            >
-              {LOGO_SVG}
-            </button>
-            <button
-              type="button"
-              className="admin-sidebar__mobile-close"
-              onClick={() => setMobileSidebarOpen(false)}
-              aria-label="Close admin navigation"
-            >
-              Ã—
-            </button>
-          </div>
           <nav className="admin-sidebar__nav">
-            <p className="admin-sidebar__group-label">Overview</p>
-            <button
-              type="button"
-              className="admin-sidebar__item"
-              onClick={onBack}
-              aria-label={sidebarCollapsed ? "Dashboard" : undefined}
-              title={sidebarCollapsed ? "Dashboard" : undefined}
-            >
-              <SidebarIcon name="dashboard" />
-              <span>Dashboard</span>
-            </button>
-            {managementWorkspaces.length > 0 && (
-              <>
-                <p className="admin-sidebar__group-label">Management</p>
-                {managementWorkspaces.map(renderWorkspaceButton)}
-              </>
-            )}
-            {operationsWorkspaces.length > 0 && (
-              <>
-                <p className="admin-sidebar__group-label">Operations</p>
-                {operationsWorkspaces.map(renderWorkspaceButton)}
-              </>
-            )}
+            {availableWorkspaces.map(renderWorkspaceButton)}
           </nav>
-          <button
-            type="button"
-            className="admin-sidebar__collapse"
-            onClick={() => setSidebarCollapsed((value) => !value)}
-            aria-label={
-              sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
-            }
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d={sidebarCollapsed ? "m9 18 6-6-6-6" : "m15 18-6-6 6-6"} />
-            </svg>
-            <span>{sidebarCollapsed ? "Expand" : "Collapse"}</span>
-          </button>
         </aside>
-        {mobileSidebarOpen && (
-          <button
-            type="button"
-            className="admin-sidebar-backdrop"
-            onClick={() => setMobileSidebarOpen(false)}
-            aria-label="Close admin navigation"
-          />
-        )}
+        <button
+          type="button"
+          className="admin-sidebar-backdrop"
+          onClick={() => setMobileSidebarOpen(false)}
+          aria-label="Close admin navigation"
+          aria-hidden={!mobileSidebarOpen}
+          tabIndex={mobileSidebarOpen ? 0 : -1}
+        />
         <div
           className="admin-shell__main"
           inert={mobileSidebarOpen ? true : undefined}
@@ -391,8 +339,28 @@ export default function AdminPage({ onBack, onSignOut, onNavigate }: Props) {
             onNavigateView={onBack}
             adminItems={availableWorkspaces}
             activeAdminItem={route}
-            adminPageLabel={workspace.label}
-            onToggleAdminMenu={() => setMobileSidebarOpen(true)}
+            adminPageLabel={
+              route === "content" ? "Library / Content" : workspace.label
+            }
+            onToggleAdminMenu={() => {
+              if (mobileSidebarMode) {
+                setMobileSidebarOpen((value) => !value)
+                return
+              }
+              setSidebarCollapsed((value) => !value)
+            }}
+            adminMenuOpen={
+              mobileSidebarMode ? mobileSidebarOpen : !sidebarCollapsed
+            }
+            adminMenuLabel={
+              mobileSidebarMode
+                ? mobileSidebarOpen
+                  ? "Close navigation menu"
+                  : "Open navigation menu"
+                : sidebarCollapsed
+                  ? "Expand sidebar"
+                  : "Collapse sidebar"
+            }
             adminMenuButtonRef={menuButtonRef}
           />
           <div className="admin-workspace-content">
