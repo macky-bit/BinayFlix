@@ -84,11 +84,9 @@ function CategoryForm({
         <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ border: '1px solid #374151', color: '#9CA3AF', backgroundColor: 'transparent' }}>Cancel</button>
         <button
           type="submit"
-          className="px-5 py-2 rounded-lg text-sm font-semibold"
-          style={{ background: 'linear-gradient(135deg, #F5A800, #FF6B00)', color: '#1a0a00', border: 'none' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, #FFB800, #FF8C00)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, #F5A800, #FF6B00)'; }}
+          className="btn-primary flex items-center gap-2 px-5 py-2.5"
         >
+          {submitLabel.startsWith('Add ') && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>}
           {submitLabel}
         </button>
       </div>
@@ -134,13 +132,11 @@ export default function CategoriesTab({ categories, onAdd, onEdit, onDelete, add
         </div>
         <button onClick={() => setSearch('')} className="px-3 py-2 rounded-lg text-sm" style={{ border: '1px solid #374151', color: '#9CA3AF', backgroundColor: 'transparent' }}>Reset Search</button>
         <button
+          type="button"
           onClick={() => setShowAdd(true)}
-          className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"
-          style={{ background: 'linear-gradient(135deg, #F5A800, #FF6B00)', color: '#1a0a00', border: 'none', width: '172px', justifyContent: 'center' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, #FFB800, #FF8C00)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, #F5A800, #FF6B00)'; }}
+          className="btn-primary flex items-center gap-2 px-5 py-2.5"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
           Add Category
         </button>
       </div>

@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react"
+import { useCallback, useState } from "react"
 import type { Tab, Toast } from "./types"
 
 import ContentTab from "./components/tabs/ContentTab"
@@ -16,71 +16,6 @@ import ToastContainer from "./components/shared/Toast"
 import { useContentManagerData } from "./useContentManagerData"
 
 import { AdminPageHeader } from "../components/AdminUI"
-
-const TABS: {
-  id: Tab
-
-  label: string
-}[] = [
-  { id: "content", label: "Content" },
-
-  { id: "categories", label: "Categories" },
-
-  { id: "genres", label: "Genres" },
-
-  { id: "soundtracks", label: "Soundtracks" },
-
-  { id: "film-refreshers", label: "Film Refreshers" },
-]
-
-function ContentSectionIcon({ tab }: { tab: Tab }) {
-  const paths: Record<Tab, ReactNode> = {
-    content: (
-      <>
-        <rect x="4" y="3" width="16" height="18" rx="2" />
-        <path d="m9 8 6 4-6 4Z" />
-      </>
-    ),
-    categories: (
-      <>
-        <path d="M3 7h7l2 2h9v10H3Z" />
-        <path d="M3 7V5h7l2 2" />
-      </>
-    ),
-    genres: (
-      <>
-        <path d="M4 6h16M4 12h16M4 18h10" />
-        <circle cx="18" cy="18" r="2" />
-      </>
-    ),
-    soundtracks: (
-      <>
-        <path d="M9 18V5l10-2v13" />
-        <circle cx="6" cy="18" r="3" />
-        <circle cx="16" cy="16" r="3" />
-      </>
-    ),
-    "film-refreshers": (
-      <>
-        <path d="M4 7h11a5 5 0 1 1-4.6 7" />
-        <path d="m4 7 3-3M4 7l3 3" />
-      </>
-    ),
-  }
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {paths[tab]}
-    </svg>
-  )
-}
 
 export default function ContentManagerView() {
   const [activeTab, setActiveTab] = useState<Tab>("content")
@@ -162,10 +97,12 @@ export default function ContentManagerView() {
         actions={
           <button
             type="button"
-            className="content-library__add-button"
+            className="btn-primary flex items-center gap-2 px-5 py-2.5"
             onClick={openAddTitle}
           >
-            <span aria-hidden="true">+</span>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+            </svg>
             Add title
           </button>
         }
@@ -177,6 +114,7 @@ export default function ContentManagerView() {
           className="content-overview__catalog"
           onClick={() => setActiveTab("content")}
           aria-pressed={activeTab === "content"}
+          aria-label={`Catalog overview: ${content.length} titles. Open Content`}
         >
           <span className="content-overview__eyebrow">Catalog overview</span>
           <strong>{content.length} titles</strong>
@@ -203,6 +141,8 @@ export default function ContentManagerView() {
             type="button"
             className="content-overview__metric is-gold"
             onClick={() => setActiveTab("categories")}
+            aria-pressed={activeTab === "categories"}
+            aria-label={`Categories: ${categories.length}. Open Categories`}
           >
             <span>Categories</span>
             <strong>{categories.length}</strong>
@@ -212,40 +152,39 @@ export default function ContentManagerView() {
             type="button"
             className="content-overview__metric is-blue"
             onClick={() => setActiveTab("genres")}
+            aria-pressed={activeTab === "genres"}
+            aria-label={`Genres: ${genres.length}. Open Genres`}
           >
             <span>Genres</span>
             <strong>{genres.length}</strong>
             <small>Discovery classifications</small>
           </button>
-          <section className="content-overview__metric is-green">
-            <span>Media extras</span>
-            <strong>{soundtracks.length + refreshers.length}</strong>
-            <small>Soundtracks and refreshers</small>
-          </section>
+          <button
+            type="button"
+            className="content-overview__metric is-green"
+            onClick={() => setActiveTab("soundtracks")}
+            aria-pressed={activeTab === "soundtracks"}
+            aria-label={`Soundtracks: ${soundtracks.length}. Open Soundtracks`}
+          >
+            <span>Soundtracks</span>
+            <strong>{soundtracks.length}</strong>
+            <small>Managed soundtrack records</small>
+          </button>
+          <button
+            type="button"
+            className="content-overview__metric is-rose"
+            onClick={() => setActiveTab("film-refreshers")}
+            aria-pressed={activeTab === "film-refreshers"}
+            aria-label={`Film Refreshers: ${refreshers.length}. Open Film Refreshers`}
+          >
+            <span>Film Refreshers</span>
+            <strong>{refreshers.length}</strong>
+            <small>Managed refresher records</small>
+          </button>
         </div>
       </div>
 
-      <div className="admin-content-layout">
-        <nav
-          className="content-section-rail"
-          aria-label="Content management sections"
-        >
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={activeTab === tab.id ? "is-active" : ""}
-              onClick={() => setActiveTab(tab.id)}
-              aria-current={activeTab === tab.id ? "page" : undefined}
-              aria-label={tab.label}
-              title={tab.label}
-            >
-              <ContentSectionIcon tab={tab.id} />
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
-
+      <div>
         {/* Tab content */}
         <div className="admin-tab-panel">
           {activeTab === "content" && (

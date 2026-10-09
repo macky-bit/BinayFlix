@@ -229,8 +229,8 @@ export default function BackupsTab() {
         <Select value={filterStatus} onChange={(value) => { setFilterStatus(value); setPage(1) }} options={statusOptions} className="w-full sm:w-40" />
         <button onClick={resetFilters} className="btn-ghost px-4 py-2 text-sm">Reset Filters</button>
         <div className="sm:ml-auto">
-          <button onClick={() => setShowRunForm(true)} disabled={running} className="btn-primary px-4 py-2 text-sm flex items-center gap-2">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <button type="button" onClick={() => setShowRunForm(true)} disabled={running} aria-busy={running} className="btn-primary flex items-center gap-2 px-5 py-2.5">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />

@@ -21,6 +21,8 @@ type AdminDetailsPanelProps = {
   closeOnBackdrop?: boolean
 
   closeOnEscape?: boolean
+
+  maxWidth?: string
 }
 
 export default function AdminDetailsPanel({
@@ -37,6 +39,8 @@ export default function AdminDetailsPanel({
   closeOnBackdrop = true,
 
   closeOnEscape = true,
+
+  maxWidth,
 }: AdminDetailsPanelProps) {
   const titleId = useId()
 
@@ -165,7 +169,11 @@ export default function AdminDetailsPanel({
   return (
     <div
       className="admin-details-backdrop fixed inset-x-0 z-40 flex justify-end overflow-hidden"
-      style={{ top: drawerBounds.top, height: drawerBounds.height }}
+      style={{
+        top: drawerBounds.top,
+        height: drawerBounds.height,
+        zIndex: 250,
+      }}
       onClick={(event) => {
         if (closeOnBackdrop && event.target === event.currentTarget) onClose()
       }}
@@ -173,14 +181,18 @@ export default function AdminDetailsPanel({
       <aside
         ref={panelRef}
         className="admin-details-shell flex h-full w-full max-w-lg flex-col overflow-hidden shadow-2xl"
+        style={maxWidth ? { maxWidth } : undefined}
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
         aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="admin-details-header flex shrink-0 items-center justify-between px-6 py-4">
-          <h2 id={titleId} className="text-lg font-semibold text-white">
+        <header className="admin-details-header flex min-w-0 shrink-0 items-center justify-between gap-4 px-6 py-4">
+          <h2
+            id={titleId}
+            className="min-w-0 break-words text-lg font-semibold text-white"
+          >
             {title}
           </h2>
           <button
