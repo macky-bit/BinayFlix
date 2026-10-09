@@ -12,6 +12,7 @@ import {
 	type ContentComment,
 } from "../engagement";
 import { fetchTVEpisodes, type TMDBEpisode } from "../tmdb";
+import { loadSoundtracks, type SoundtrackTrack } from "../soundtrack";
 import {
 	createEmptyReactionCounts,
 	REACTION_DEFINITIONS,
@@ -36,14 +37,6 @@ interface WatchProps {
 }
 
 type ActivePanel = "music" | "refresher" | "comments" | "episodes" | null;
-
-interface PlaceholderTrack {
-	id: string;
-	title: string;
-	artist: string;
-	album: string;
-	timestamp: string;
-}
 
 interface PlaceholderRefresher {
 	summary: string;
@@ -116,6 +109,28 @@ function MusicIcon() {
 			<path d="M9 18V5l10-2v13" />
 			<circle cx="6" cy="18" r="3" />
 			<circle cx="16" cy="16" r="3" />
+		</svg>
+	);
+}
+
+function TrackPlayIcon({ playing }: { playing: boolean }) {
+	return playing ? (
+		<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+			<rect x="6" y="5" width="4" height="14" rx="1" />
+			<rect x="14" y="5" width="4" height="14" rx="1" />
+		</svg>
+	) : (
+		<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+			<polygon points="7,4 20,12 7,20" />
+		</svg>
+	);
+}
+
+function LyricsIcon() {
+	return (
+		<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+			<rect x="5" y="3" width="14" height="18" rx="2" />
+			<path d="M8 8h8M8 12h8M8 16h5" />
 		</svg>
 	);
 }
@@ -210,10 +225,18 @@ export default function WatchScreen({
 	const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
 	const [editingCommentText, setEditingCommentText] = useState("");
 	const [commentActionPending, setCommentActionPending] = useState<string | null>(null);
+	const [soundtracks, setSoundtracks] = useState<SoundtrackTrack[]>([]);
+	const [soundtracksLoading, setSoundtracksLoading] = useState(true);
+	const [soundtracksError, setSoundtracksError] = useState<string | null>(null);
+	const [activeTrackId, setActiveTrackId] = useState<string | null>(null);
+	const [lyricsTrackId, setLyricsTrackId] = useState<string | null>(null);
+	const [audioPlaying, setAudioPlaying] = useState(false);
+	const [audioError, setAudioError] = useState<string | null>(null);
 	const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const engagementRequest = useRef(0);
 	const pageRef = useRef<HTMLDivElement>(null);
 	const panelCloseRef = useRef<HTMLButtonElement>(null);
+	const soundtrackAudioRef = useRef<HTMLAudioElement>(null);
 
 	useEffect(() => {
 		let active = true;
@@ -305,22 +328,62 @@ export default function WatchScreen({
 			});
 	}, [id, isSeries, selectedEpisode?.ep]);
 
-	// TODO: replace with real source for soundtrack and refresher data.
+	useEffect(() => {
+		let active = true;
+		const audio = soundtrackAudioRef.current;
+		audio?.pause();
+		if (audio) {
+			audio.removeAttribute("src");
+			audio.load();
+		}
+		setAudioPlaying(false);
+		setActiveTrackId(null);
+		setLyricsTrackId(null);
+		setAudioError(null);
+		setSoundtracksError(null);
+
+		if (internalContentId === null) {
+			setSoundtracks([]);
+			setSoundtracksLoading(false);
+			return () => {
+				active = false;
+			};
+		}
+
+		setSoundtracksLoading(true);
+		void loadSoundtracks(supabase, internalContentId)
+			.then((items) => {
+				if (active) setSoundtracks(items);
+			})
+			.catch((reason: unknown) => {
+				if (!active) return;
+				setSoundtracks([]);
+				setSoundtracksError(
+					reason instanceof Error
+						? reason.message
+						: "Unable to load this soundtrack.",
+				);
+			})
+			.finally(() => {
+				if (active) setSoundtracksLoading(false);
+			});
+
+		return () => {
+			active = false;
+		};
+	}, [internalContentId]);
+
+	// TODO: replace the refresher placeholder with a verified recap source.
 	const placeholderFeatures = useMemo<{
-		tracks: PlaceholderTrack[];
 		refresher: PlaceholderRefresher;
 	}>(() => ({
-		tracks: [
-			{ id: `${contentId}-track-1`, title: "Main Theme", artist: "Soundtrack source pending", album: contentLabel, timestamp: "Scene timestamp pending" },
-			{ id: `${contentId}-track-2`, title: "Featured Track", artist: "Soundtrack source pending", album: contentLabel, timestamp: "Scene timestamp pending" },
-		],
 		refresher: {
 			summary: `A detailed refresher for ${contentLabel} will appear here when a verified recap source is connected.`,
 			events: ["Key events are waiting for a verified refresher source."],
 			characters: ["Important character details are waiting for a verified refresher source."],
 			keyDetails: ["Story details are waiting for a verified refresher source."],
 		},
-	}), [contentId, contentLabel]);
+	}), [contentLabel]);
 
 	useEffect(() => {
 		if (!playing) return;
@@ -342,6 +405,12 @@ export default function WatchScreen({
 	useEffect(() => {
 		if (playing && current >= duration) setPlaying(false);
 	}, [current, duration, playing]);
+
+	useEffect(() => {
+		if (activePanel === "music") return;
+		soundtrackAudioRef.current?.pause();
+		setAudioPlaying(false);
+	}, [activePanel]);
 
 	useEffect(() => {
 		const handleFullscreenChange = () => {
@@ -407,6 +476,37 @@ export default function WatchScreen({
 		setActivePanel((currentPanel) => currentPanel === panel ? null : panel);
 		setShowControls(true);
 		setSpoilersRevealed(false);
+	};
+
+	const toggleSoundtrack = async (track: SoundtrackTrack) => {
+		const audio = soundtrackAudioRef.current;
+		setAudioError(null);
+		if (!audio || !track.audioUrl) {
+			setAudioError("This track does not have a playable audio file yet.");
+			return;
+		}
+
+		if (activeTrackId === track.id && !audio.paused) {
+			audio.pause();
+			setAudioPlaying(false);
+			return;
+		}
+
+		if (activeTrackId !== track.id) {
+			audio.src = track.audioUrl;
+			audio.load();
+			setActiveTrackId(track.id);
+		}
+
+		try {
+			await audio.play();
+			setAudioPlaying(true);
+		} catch {
+			setAudioPlaying(false);
+			setAudioError(
+				"This audio could not be played. Add a direct MP3, AAC, OGG, WAV, or WebM audio URL in Content Manager.",
+			);
+		}
 	};
 
 	const toggleFullscreen = async () => {
@@ -527,9 +627,22 @@ export default function WatchScreen({
 			setCommentActionPending(null);
 		}
 	};
+	const lyricsTrack = soundtracks.find((track) => track.id === lyricsTrackId) ?? null;
 
 	return (
 		<div className={styles.page} ref={pageRef}>
+			<audio
+				ref={soundtrackAudioRef}
+				className={styles.soundtrackAudio}
+				preload="none"
+				onPlay={() => setAudioPlaying(true)}
+				onPause={() => setAudioPlaying(false)}
+				onEnded={() => setAudioPlaying(false)}
+				onError={() => {
+					setAudioPlaying(false);
+					setAudioError("This track's audio file is unavailable or unsupported.");
+				}}
+			/>
 			<nav className={styles.nav}>
 				<div className={styles.navInner}>
 					<button
@@ -732,20 +845,63 @@ export default function WatchScreen({
 				</div>
 
 				{activePanel === "music" && (
-					<section className={styles.featurePanel}>
+					<section className={`${styles.featurePanel} ${styles.soundtrackPanel}`} aria-label={`Soundtrack for ${contentLabel}`} onClick={(event) => event.stopPropagation()}>
 						<div className={styles.featureHeader}>
 							<div><MusicIcon /><h2>Soundtrack — {contentLabel}</h2></div>
 							<button ref={panelCloseRef} type="button" onClick={() => setActivePanel(null)} aria-label="Close soundtrack">×</button>
 						</div>
-						<div className={styles.trackList}>
-							{placeholderFeatures.tracks.map((track) => (
-								<div className={styles.trackRow} key={track.id}>
-									<span className={styles.musicTile}><MusicIcon /></span>
-									<div><strong>{track.title}</strong><small>{track.artist}</small><small>{track.album}</small></div>
-									<em>{track.timestamp}</em>
+						{soundtracksLoading || (internalContentId === null && engagementLoading) ? (
+							<p className={styles.soundtrackStatus} role="status">Loading soundtrack…</p>
+						) : soundtracksError ? (
+							<p className={styles.soundtrackStatus} role="alert">The soundtrack could not be loaded. Try reopening this panel.</p>
+						) : soundtracks.length === 0 ? (
+							<div className={styles.soundtrackEmpty}>
+								<MusicIcon />
+								<strong>No soundtrack available</strong>
+								<p>Audio tracks and lyrics for this title have not been added yet.</p>
+							</div>
+						) : (
+							<div className={styles.trackList}>
+								{soundtracks.map((track) => {
+									const isPlaying = activeTrackId === track.id && audioPlaying;
+									const lyricsOpen = lyricsTrackId === track.id;
+									return (
+										<article className={styles.trackRow} key={track.id} data-playing={isPlaying ? "true" : "false"}>
+											<span className={styles.musicTile}><MusicIcon /></span>
+											<div className={styles.trackMeta}>
+												<strong>{track.title}</strong>
+												<small>{track.artist}</small>
+												{track.timestamp && <small>Featured at {track.timestamp}</small>}
+											</div>
+											<button type="button" className={styles.lyricsButton} aria-expanded={lyricsOpen} onClick={() => setLyricsTrackId(lyricsOpen ? null : track.id)}>
+												<LyricsIcon /> Lyrics
+											</button>
+											<button type="button" className={styles.trackPlayButton} disabled={!track.audioUrl} aria-label={isPlaying ? `Pause ${track.title}` : `Play ${track.title}`} onClick={() => void toggleSoundtrack(track)}>
+												<TrackPlayIcon playing={isPlaying} />
+											</button>
+										</article>
+									);
+								})}
+							</div>
+						)}
+						{audioError && <p className={styles.audioError} role="alert">{audioError}</p>}
+						{lyricsTrack && (
+							<section className={styles.lyricsPanel} aria-labelledby="soundtrack-lyrics-title">
+								<div className={styles.lyricsHeading}>
+									<LyricsIcon />
+									<div>
+										<h3 id="soundtrack-lyrics-title">Lyrics</h3>
+										<p>{lyricsTrack.title} — {lyricsTrack.artist}</p>
+									</div>
 								</div>
-							))}
-						</div>
+								<div className={styles.lyricsRule} />
+								{lyricsTrack.lyrics ? (
+									<p className={styles.lyricsText}>{lyricsTrack.lyrics}</p>
+								) : (
+									<p className={styles.lyricsUnavailable}>Lyrics are not available for this track.</p>
+								)}
+							</section>
+						)}
 					</section>
 				)}
 

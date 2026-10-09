@@ -309,7 +309,7 @@ test("content comments preserve and safely expose their author profile", () => {
   assert.match(sql, /lower\(comment\.status\) = 'active'/i)
 })
 
-test("opening video runs after profile confirmation instead of login", () => {
+test("opening video runs after a profile card is clicked instead of login", () => {
   const appSource = readFileSync(
     new URL("../src/App.tsx", import.meta.url),
 
@@ -320,12 +320,24 @@ test("opening video runs after profile confirmation instead of login", () => {
 
     "utf8",
   )
+  const profileSelectSource = readFileSync(
+    new URL(
+      "../src/modules/profileSelect/ProfileSelectPage.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  )
 
   assert.match(appSource, /setActiveProfile\(profile\)[\s\S]*beginOpening\(\)/)
 
   assert.match(appSource, /page === "opening"[\s\S]*<OpeningVideo/)
 
   assert.doesNotMatch(loginSource, /requestOpeningVideo|onAuthenticated/)
+  assert.match(profileSelectSource, /onClick=\{\(\) => onSelect\(profile\)\}/)
+  assert.doesNotMatch(
+    profileSelectSource,
+    /Choose a profile|continueBtn|setSelected/,
+  )
 })
 
 test("opening video uses its own public media bucket", () => {
@@ -498,5 +510,26 @@ test("Checkout sessions use server-owned recurring prices and authenticated user
   assert.match(source, /STRIPE_PRICE_PREMIUM/i)
   assert.match(source, /mode: "subscription"/i)
   assert.doesNotMatch(source, /selected_subscription_id/)
+})
+
+test("movie soundtrack uses database audio and lyrics instead of placeholders", () => {
+  const playerSource = readFileSync(
+    new URL("../src/modules/movie/fixedscreen/movie.tsx", import.meta.url),
+    "utf8",
+  )
+  const soundtrackSource = readFileSync(
+    new URL("../src/modules/movie/soundtrack.ts", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(playerSource, /<audio[\s\S]*soundtrackAudioRef/)
+  assert.match(playerSource, /toggleSoundtrack\(track\)/)
+  assert.match(playerSource, /lyricsTrack\.lyrics/)
+  assert.doesNotMatch(
+    playerSource,
+    /Main Theme|Featured Track|Soundtrack source pending/,
+  )
+  assert.match(soundtrackSource, /\.from\("soundtrack"\)/)
+  assert.match(soundtrackSource, /stream_link/)
 })
 

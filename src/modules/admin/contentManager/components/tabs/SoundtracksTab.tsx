@@ -27,7 +27,18 @@ function validateS(f: SForm): SErrors {
   if (!f.songTitle.trim()) e.songTitle = 'Song title is required.';
   if (!f.artist.trim()) e.artist = 'Artist is required.';
   if (f.timestamp && !/^\d{2}:\d{2}:\d{2}$/.test(f.timestamp)) e.timestamp = 'Use format HH:MM:SS.';
-  if (f.streamingLink && !/^https?:\/\//.test(f.streamingLink)) e.streamingLink = 'Enter a valid URL starting with http(s)://.';
+  if (f.streamingLink && !/^https?:\/\//.test(f.streamingLink)) {
+    e.streamingLink = 'Enter a valid URL starting with http(s)://.';
+  } else if (f.streamingLink) {
+    try {
+      const hostname = new URL(f.streamingLink).hostname.toLowerCase();
+      if (hostname === 'youtu.be' || hostname.endsWith('youtube.com')) {
+        e.streamingLink = 'Use a direct audio file URL. YouTube page URLs cannot play as audio-only.';
+      }
+    } catch {
+      e.streamingLink = 'Enter a valid direct audio URL.';
+    }
+  }
   return e;
 }
 
@@ -75,8 +86,9 @@ function SoundtrackForm({
           {errors.timestamp && <p className="mt-1 text-xs" style={{ color: '#EF4444' }}>{errors.timestamp}</p>}
         </div>
         <div>
-          <label htmlFor="stk-link" className="block text-xs font-medium mb-1" style={{ color: '#9CA3AF' }}>Streaming Link</label>
-          <input id="stk-link" type="url" value={form.streamingLink} onChange={(e) => set('streamingLink', e.target.value)} placeholder="https://open.spotify.com/..." className={inputClass} style={{ ...inputStyle, borderColor: errors.streamingLink ? '#EF4444' : '#374151' }} />
+          <label htmlFor="stk-link" className="block text-xs font-medium mb-1" style={{ color: '#9CA3AF' }}>Direct Audio URL</label>
+          <input id="stk-link" type="url" value={form.streamingLink} onChange={(e) => set('streamingLink', e.target.value)} placeholder="https://…/soundtrack.mp3" aria-describedby="stk-link-help" className={inputClass} style={{ ...inputStyle, borderColor: errors.streamingLink ? '#EF4444' : '#374151' }} />
+          <p id="stk-link-help" className="mt-1 text-xs" style={{ color: '#6B7280' }}>Use a direct MP3, AAC, OGG, WAV, or WebM audio file URL—not a YouTube page URL.</p>
           {errors.streamingLink && <p className="mt-1 text-xs" style={{ color: '#EF4444' }}>{errors.streamingLink}</p>}
         </div>
       </div>

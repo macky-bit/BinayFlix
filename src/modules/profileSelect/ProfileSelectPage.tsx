@@ -55,27 +55,11 @@ async function signedAvatarUrls(paths: string[]) {
 	);
 }
 
-function CheckIcon() {
-	return (
-		<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-			<polyline points="20 6 9 17 4 12" />
-		</svg>
-	);
-}
-
 function PencilIcon() {
 	return (
 		<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 			<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
 			<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-		</svg>
-	);
-}
-
-function PlayIcon() {
-	return (
-		<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-			<polygon points="5,3 19,12 5,21" />
 		</svg>
 	);
 }
@@ -119,19 +103,17 @@ function StreamflixLogo() {
 
 function ProfileCard({
 	profile,
-	selected,
 	onSelect,
 }: {
 	profile: Profile;
-	selected: boolean;
 	onSelect: (p: Profile) => void;
 }) {
 	return (
 		<button
-			className={`${styles.card} ${selected ? styles.cardSelected : ""}`}
+			type="button"
+			className={styles.card}
 			onClick={() => onSelect(profile)}
-			aria-label={`Select ${profile.name}`}
-			aria-pressed={selected}
+			aria-label={`Continue as ${profile.name}`}
 		>
 			<div className={styles.avatarWrap}>
 				<div className={styles.avatarFallback} aria-hidden>
@@ -146,9 +128,6 @@ function ProfileCard({
 							event.currentTarget.style.display = "none";
 						}}
 					/>
-				)}
-				{selected && (
-					<div className={styles.checkBadge}><CheckIcon /></div>
 				)}
 			</div>
 			<span className={styles.profileName}>{profile.name}</span>
@@ -265,7 +244,6 @@ interface Props {
 
 export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) {
 	const [profiles, setProfiles] = useState<Profile[]>([]);
-	const [selected, setSelected] = useState<Profile | null>(null);
 	const [profileLimit, setProfileLimit] = useState(Math.max(1, maxProfiles));
 	const [canAddProfile, setCanAddProfile] = useState(false);
 	const [avatars, setAvatars] = useState<AvatarOption[]>([]);
@@ -316,9 +294,6 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 			});
 
 			setProfiles(loadedProfiles);
-			setSelected((current) =>
-				loadedProfiles.find((profile) => profile.id === current?.id) ?? null,
-			);
 			setProfileLimit(context?.max_profiles ?? Math.max(1, maxProfiles));
 			setCanAddProfile(
 				context?.can_add_profile ?? loadedProfiles.length < Math.max(1, maxProfiles),
@@ -388,8 +363,7 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 							<ProfileCard
 								key={profile.id}
 								profile={profile}
-								selected={selected?.id === profile.id}
-								onSelect={setSelected}
+								onSelect={onSelect}
 							/>
 						))}
 						{!loading && canAdd && <AddProfileCard onClick={() => { setCreateError(""); setShowAddProfile(true); }} />}
@@ -399,15 +373,6 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 				{!loading && !loadError && !profiles.length && !canAdd && (
 					<p className={styles.inlineError}>No active profiles are available for this subscription.</p>
 				)}
-
-				<button
-					className={styles.continueBtn}
-					onClick={() => selected && onSelect(selected)}
-					disabled={!selected || loading}
-				>
-					<PlayIcon />
-					{selected ? `Continue as ${selected.name}` : "Choose a profile"}
-				</button>
 
 				<p className={styles.secureNote}>
 					<LockIcon />

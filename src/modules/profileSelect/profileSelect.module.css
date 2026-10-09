@@ -136,11 +136,6 @@
 	overflow: hidden;
 }
 
-.cardSelected .avatarWrap {
-	border-color: #7C3AED;
-	box-shadow: 0 0 0 4px rgba(124,58,237,0.28), 0 6px 28px rgba(124,58,237,0.22);
-}
-
 .avatarImg {
 	position: relative;
 	width: 100%;
@@ -148,20 +143,6 @@
 	border-radius: 50%;
 	object-fit: cover;
 	display: block;
-}
-
-.checkBadge {
-	position: absolute;
-	bottom: 3px;
-	right: 3px;
-	width: 26px;
-	height: 26px;
-	border-radius: 50%;
-	background: #7C3AED;
-	border: 2.5px solid var(--color-ink);
-	display: flex;
-	align-items: center;
-	justify-content: center;
 }
 
 /* ─── Profile meta ───────────────────────────────────────────────────────── */
@@ -189,10 +170,6 @@
 
 .card:hover .editIcon {
 	color: #F5A800;
-}
-
-.cardSelected .editIcon {
-	color: #7C3AED;
 }
 
 /* ─── Add Profile card ───────────────────────────────────────────────────── */
@@ -231,44 +208,6 @@
 }
 
 /* ─── Continue button ────────────────────────────────────────────────────── */
-.continueBtn {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 10px;
-	padding: 14px 52px;
-	background: var(--btn-gradient);
-	color: #08080F;
-	border: none;
-	border-radius: 9999px;
-	font-size: 0.95rem;
-	font-weight: 700;
-	font-family: var(--font-display);
-	letter-spacing: 0.03em;
-	cursor: pointer;
-	min-width: 320px;
-	box-shadow: 0 4px 24px rgba(255,107,0,0.38);
-	transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
-	margin-bottom: 20px;
-}
-
-.continueBtn:hover {
-	background: var(--btn-gradient-hover);
-	transform: translateY(-2px);
-	box-shadow: 0 6px 32px rgba(255,107,0,0.52);
-}
-
-.continueBtn:active {
-	transform: translateY(0);
-}
-
-.continueBtn:disabled {
-	cursor: not-allowed;
-	opacity: 0.5;
-	transform: none;
-	box-shadow: none;
-}
-
 .statePanel {
 	display: flex;
 	flex-direction: column;
@@ -455,10 +394,4 @@
 		height: 86px;
 	}
 
-	.continueBtn {
-		min-width: 0;
-		width: 100%;
-		max-width: 300px;
-		padding: 13px 28px;
-	}
 }
