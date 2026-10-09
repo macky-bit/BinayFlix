@@ -17,6 +17,7 @@ CREATE TABLE "public"."user" (
   "account_status"   character varying(30)    NOT NULL DEFAULT 'Active',
   "joined_at"        timestamp with time zone NOT NULL DEFAULT now(),
   "auth_user_id"     uuid,
+  "stripe_customer_id" text,
   CONSTRAINT "app_user_email_key" UNIQUE (email),
   CONSTRAINT "app_user_pkey" PRIMARY KEY (user_id),
   CONSTRAINT "app_user_username_key" UNIQUE (username),
@@ -31,6 +32,9 @@ CREATE UNIQUE INDEX app_user_auth_user_id_key ON public."user" USING btree (auth
   WHERE (auth_user_id IS NOT NULL);
 
 CREATE UNIQUE INDEX app_user_email_normalized_key ON public."user" USING btree (lower((email)::text));
+
+CREATE UNIQUE INDEX user_stripe_customer_id_key ON public."user" USING btree (stripe_customer_id)
+  WHERE (stripe_customer_id IS NOT NULL);
 
 CREATE INDEX idx_user_auth_user_id ON public."user" USING btree (auth_user_id);
 

@@ -886,7 +886,7 @@ export function Navbar({
         )}
       </nav>
 
-      {!adminItems && mobileNavOpen && (
+      {mobileNavOpen && (
         <nav
           className={`${
             adminItems ? "lg:hidden" : "md:hidden"

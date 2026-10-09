@@ -135,7 +135,7 @@ export default function AdminPage({ onBack, onSignOut, onNavigate }: Props) {
         setAccessState("denied")
         return
       }
-      const adminAccess = access as { role?: unknown status?: unknown }
+      const adminAccess = access as { role?: unknown; status?: unknown }
       if (String(adminAccess.status).toLowerCase() !== "active") {
         setAccessState("inactive")
         return

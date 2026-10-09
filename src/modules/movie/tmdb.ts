@@ -134,30 +134,43 @@ export async function tmdb<T>(
 
 export async function searchShows(
   query: string,
+
   signal?: AbortSignal,
 ): Promise<Show[]> {
   const request = tmdbRequest("/search/multi", {
     query,
+
     include_adult: "false",
   })
+
   if (!request) throw new Error("TMDB credentials are unavailable")
 
   const response = await fetch(request.url, { ...request.init, signal })
+
   if (!response.ok) throw new Error(`TMDB ${response.status}`)
 
   const payload = (await response.json()) as {
     results?: Array<Record<string, any>>
   }
+
   const seen = new Set<string>()
+
   return (payload.results ?? [])
+
     .filter((item) => item.media_type === "movie" || item.media_type === "tv")
+
     .map((item) => toShow(item, false, item.media_type as "movie" | "tv"))
+
     .filter((show) => {
       const key = `${show.mediaType}-${show.id}`
+
       if (!show.title || !show.image || seen.has(key)) return false
+
       seen.add(key)
+
       return true
     })
+
     .slice(0, 30)
 }
 
@@ -234,7 +247,7 @@ export interface TMDBEpisode {
 
 export async function fetchTVEpisodes(id: number): Promise<TMDBEpisode[]> {
   const details = await tmdbOne<{
-    seasons?: { season_number: number episode_count: number }[]
+    seasons?: { season_number: number; episode_count: number }[]
   }>(`/tv/${id}`)
 
   const season = details?.seasons?.find(
@@ -288,7 +301,7 @@ export function toShow(
   const genreIds = item.genre_ids as number[] | undefined ?? []
 
   const detailGenres =
-    item.genres as { id: number name: string }[] | undefined ?? []
+    item.genres as { id: number; name: string }[] | undefined ?? []
 
   const genres = (
     detailGenres.length > 0

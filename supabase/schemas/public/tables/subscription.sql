@@ -4,6 +4,7 @@ CREATE TABLE "public"."subscription" (
   "monthly_price"    numeric(10,2)          NOT NULL,
   "max_user"         integer                NOT NULL,
   "plan_description" text,
+  "stripe_price_id"  text,
   CONSTRAINT "subscription_max_user_check" CHECK ((max_user > 0)),
   CONSTRAINT "subscription_monthly_price_check" CHECK ((monthly_price >= (0)::numeric)),
   CONSTRAINT "subscription_pkey" PRIMARY KEY (subscription_id)
@@ -11,6 +12,9 @@ CREATE TABLE "public"."subscription" (
 
 ALTER TABLE "public"."subscription"
   ENABLE ROW LEVEL SECURITY;
+
+CREATE UNIQUE INDEX subscription_stripe_price_id_key ON public.subscription USING btree (stripe_price_id)
+  WHERE (stripe_price_id IS NOT NULL);
 
 CREATE POLICY "anyone_can_view_subscription_plans" ON "public"."subscription"
   FOR SELECT
