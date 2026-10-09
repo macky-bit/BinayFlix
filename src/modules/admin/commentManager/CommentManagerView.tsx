@@ -990,7 +990,7 @@ export default function CommentManagerView() {
       <main>
         <AdminPageHeader
           eyebrow="Community moderation"
-          title="Community"
+          title="Community Management"
           description="Moderate reactions and comments submitted from title watch pages."
         />
 

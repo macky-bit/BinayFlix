@@ -406,20 +406,41 @@ function FeedbackDetailsPanel({
         title="Feedback Details"
         onClose={handleClose}
         footer={
-          <div className="admin-details-actions">
-            <button
-              onClick={handleClose}
-              className="admin-details-button admin-details-button--secondary"
-            >
-              Close
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!hasUnsaved || saving}
-              className="admin-details-button admin-details-button--primary"
-            >
-              {saving && <Spinner size={14} />} Save Status
-            </button>
+          <div className="feedback-details-footer-controls">
+            <label className="feedback-details-status-field">
+              <span className="admin-detail-label">Status</span>
+              <select
+                className="content-command-bar__select feedback-details-status-select"
+                value={selectedStatus}
+                onChange={(e) =>
+                  setSelectedStatus(e.target.value as FeedbackStatus)
+                }
+                aria-label="Update feedback status"
+              >
+                {(["Open", "In Progress", "Closed"] as FeedbackStatus[]).map(
+                  (status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+            <div className="admin-details-actions">
+              <button
+                onClick={handleClose}
+                className="admin-details-button admin-details-button--secondary"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={!hasUnsaved || saving}
+                className="admin-details-button admin-details-button--primary"
+              >
+                {saving && <Spinner size={14} />} Save Status
+              </button>
+            </div>
           </div>
         }
       >
@@ -592,49 +613,6 @@ function FeedbackDetailsPanel({
           <AdminDetailField label="Submission Date" value={item.date} />
         </AdminDetailsSection>
 
-        <AdminDetailsSection title="Status">
-          <AdminDetailField label="Status">
-            <div style={{ position: "relative" }}>
-              <select
-                className="select-dark focus-ring"
-                value={selectedStatus}
-                onChange={(e) =>
-                  setSelectedStatus(e.target.value as FeedbackStatus)
-                }
-                style={{
-                  borderRadius: 8,
-                  padding: "8px 32px 8px 12px",
-                  fontSize: 13,
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-                aria-label="Update feedback status"
-              >
-                {(["Open", "In Progress", "Closed"] as FeedbackStatus[]).map(
-                  (s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ),
-                )}
-              </select>
-              <span
-                style={{
-                  position: "absolute",
-                  right: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  pointerEvents: "none",
-                  color: "var(--color-taupe)",
-                  fontSize: 11,
-                }}
-              >
-                ▼
-              </span>
-            </div>
-          </AdminDetailField>
-        </AdminDetailsSection>
       </AdminDetailsPanel>
     </>
   )
@@ -931,16 +909,11 @@ export default function FeedbackManagerView() {
           {/* Type filter */}
           <div style={{ position: "relative" }}>
             <select
-              className="select-dark focus-ring"
+              className="content-command-bar__select feedback-filter-select feedback-filter-select--type"
               value={typeFilter}
               onChange={(e) => {
                 setTypeFilter(e.target.value)
                 setPage(1)
-              }}
-              style={{
-                borderRadius: 8,
-                padding: "9px 32px 9px 12px",
-                fontSize: 14,
               }}
               aria-label="Filter by feedback type"
             >
@@ -954,32 +927,14 @@ export default function FeedbackManagerView() {
                 <option key={o}>{o}</option>
               ))}
             </select>
-            <span
-              style={{
-                position: "absolute",
-                right: 10,
-                top: "50%",
-                transform: "translateY(-50%)",
-                pointerEvents: "none",
-                color: "var(--color-taupe)",
-                fontSize: 11,
-              }}
-            >
-              ▼
-            </span>
           </div>
 
           {/* Date filter */}
           <div style={{ position: "relative" }}>
             <select
-              className="select-dark focus-ring"
+              className="content-command-bar__select feedback-filter-select feedback-filter-select--date"
               value={dateFilter}
               onChange={(e) => handleDateFilterChange(e.target.value)}
-              style={{
-                borderRadius: 8,
-                padding: "9px 32px 9px 12px",
-                fontSize: 14,
-              }}
               aria-label="Filter by date"
             >
               {[
@@ -992,19 +947,6 @@ export default function FeedbackManagerView() {
                 <option key={o}>{o}</option>
               ))}
             </select>
-            <span
-              style={{
-                position: "absolute",
-                right: 10,
-                top: "50%",
-                transform: "translateY(-50%)",
-                pointerEvents: "none",
-                color: "var(--color-taupe)",
-                fontSize: 11,
-              }}
-            >
-              ▼
-            </span>
           </div>
 
           {/* Reset */}
@@ -1042,16 +984,11 @@ export default function FeedbackManagerView() {
             </span>
             <div style={{ position: "relative" }}>
               <select
-                className="select-dark focus-ring"
+                className="content-command-bar__select"
                 value={sort}
                 onChange={(e) => {
                   setSort(e.target.value)
                   setPage(1)
-                }}
-                style={{
-                  borderRadius: 8,
-                  padding: "9px 32px 9px 12px",
-                  fontSize: 14,
                 }}
                 aria-label="Sort feedback"
               >
@@ -1064,19 +1001,6 @@ export default function FeedbackManagerView() {
                   <option key={o}>{o}</option>
                 ))}
               </select>
-              <span
-                style={{
-                  position: "absolute",
-                  right: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  pointerEvents: "none",
-                  color: "var(--color-taupe)",
-                  fontSize: 11,
-                }}
-              >
-                ▼
-              </span>
             </div>
           </div>
         </div>
@@ -1179,9 +1103,14 @@ export default function FeedbackManagerView() {
           {/* ── Table column ──────────────────────────────────────────────── */}
           <div>
             <div
-              className="panel-surface"
+              className="card feedback-manager-table-card"
               style={{ borderRadius: 12, overflow: "hidden" }}
             >
+              <div className="px-5 py-4" style={{ borderBottom: "1px solid var(--stone)" }}>
+                <h2 className="text-base font-semibold text-white">
+                  Feedback ({filtered.length})
+                </h2>
+              </div>
               {loading ? (
                 <div
                   style={{
@@ -1233,12 +1162,21 @@ export default function FeedbackManagerView() {
                   )}
                 </div>
               ) : (
-                <div style={{ overflowX: "auto" }}>
+                <div className="admin-manager-table-frame feedback-manager-table-frame">
                   <table
-                    style={{ width: "100%", borderCollapse: "collapse" }}
+                    className="admin-manager-table feedback-manager-table"
                     role="grid"
                     aria-label="Feedback table"
                   >
+                    <colgroup>
+                      <col style={{ width: "13%" }} />
+                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "24%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "7%" }} />
+                    </colgroup>
                     <thead>
                       <tr
                         style={{
@@ -1457,22 +1395,22 @@ export default function FeedbackManagerView() {
                   </table>
                 </div>
               )}
+              {!loading && filtered.length > 0 && (
+                <AdminTablePagination
+                  page={page}
+                  total={filtered.length}
+                  perPage={rowsPerPage}
+                  onPage={setPage}
+                  onPerPage={(amount) => {
+                    setRowsPerPage(amount)
+                    setPage(1)
+                  }}
+                  label="feedback items"
+                />
+              )}
             </div>
 
             {/* ── Pagination ──────────────────────────────────────────────── */}
-            {!loading && filtered.length > 0 && (
-              <AdminTablePagination
-                page={page}
-                total={filtered.length}
-                perPage={rowsPerPage}
-                onPage={setPage}
-                onPerPage={(amount) => {
-                  setRowsPerPage(amount)
-                  setPage(1)
-                }}
-                label="feedback items"
-              />
-            )}
             {!loading && filtered.length > 0 && (
               <div
                 hidden

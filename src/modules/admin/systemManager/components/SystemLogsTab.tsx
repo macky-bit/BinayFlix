@@ -13,6 +13,8 @@ import {
   EmptyRow,
   Drawer,
   DetailRow,
+  AdminDetailGrid,
+  AdminDetailsSection,
   SectionTitle,
 } from "./shared";
 
@@ -123,14 +125,6 @@ export default function SystemLogsTab() {
       </AdminStats>
 
       <section className="table-surface system-logs-panel">
-        <div className="content-table-frame__heading system-logs-panel__heading">
-          <div>
-            <h2>System event records</h2>
-            <p>Audit platform activity, sources, severity, and processing status.</p>
-          </div>
-          <span>{filtered.length.toLocaleString()}</span>
-        </div>
-
         <div className="admin-filter-row system-logs-toolbar" role="search" aria-label="Search and filter system logs">
           <SearchInput
             value={search}
@@ -142,7 +136,7 @@ export default function SystemLogsTab() {
           <Select value={filterSev} onChange={(v) => { setFilterSev(v); setPage(1); }} options={SEVERITY_OPTIONS} className="system-logs-toolbar__select" />
           <Select value={filterStatus} onChange={(v) => { setFilterStatus(v); setPage(1); }} options={STATUS_OPTIONS} className="system-logs-toolbar__select" />
           <Select value={sort} onChange={(v) => { setSort(v); setPage(1); }} options={SORT_OPTIONS} className="system-logs-toolbar__sort" />
-          <button type="button" onClick={resetFilters} className="btn-ghost system-logs-toolbar__reset">Reset filters</button>
+          <button type="button" onClick={resetFilters} className="btn-violet focus-ring admin-reset-filters system-logs-toolbar__reset">Reset Filters</button>
         </div>
 
         <div className="system-table-scroll">
@@ -218,13 +212,13 @@ export default function SystemLogsTab() {
         title="Log Details"
         footer={
           <>
-            <button onClick={() => setViewLog(null)} className="btn-ghost px-4 py-2 text-sm flex-1 sm:flex-none">Close</button>
+            <button onClick={() => setViewLog(null)} className="admin-details-button admin-details-button--secondary">Close</button>
             <button
               onClick={() => {
                 if (viewLog) setMarkedReviewed((s) => new Set([...s, viewLog.id]));
                 setViewLog(null);
               }}
-              className="btn-outline px-4 py-2 text-sm flex-1 sm:flex-none"
+              className="admin-details-button admin-details-button--primary"
             >
               Mark as Reviewed
             </button>
@@ -232,22 +226,25 @@ export default function SystemLogsTab() {
         }
       >
         {viewLog && (
-          <div className="space-y-4">
-            <DetailRow label="Log ID" value={<span className="font-mono">{viewLog.id}</span>} />
-            <DetailRow label="Date & Time" value={viewLog.dateTime} />
-            <DetailRow label="Event Type" value={viewLog.eventType} />
-            <DetailRow label="User / Source" value={viewLog.userSource} />
-            <DetailRow label="Description" value={viewLog.description} />
-            <DetailRow label="IP Address" value={<span className="font-mono">{viewLog.ip}</span>} />
-            <DetailRow label="Severity" value={<StatusBadge label={viewLog.severity} variant={statusVariantFor(viewLog.severity)} />} />
-            <DetailRow label="Status" value={
-              markedReviewed.has(viewLog.id)
-                ? <StatusBadge label="Reviewed" variant="positive" />
-                : <StatusBadge label={viewLog.status} variant={statusVariantFor(viewLog.status)} />
-            } />
-            <div>
-              <span className="text-xs text-[#9CA3AF] uppercase tracking-wider">Technical Details</span>
-              <pre className="mt-1.5 text-xs bg-[var(--color-ink)] p-3 rounded border border-stone-700 text-[#9CA3AF] whitespace-pre-wrap font-mono leading-relaxed">
+          <>
+            <AdminDetailsSection title="Event Information">
+              <AdminDetailGrid>
+                <DetailRow label="Log ID" value={<span className="font-mono">{viewLog.id}</span>} />
+                <DetailRow label="Date & Time" value={viewLog.dateTime} />
+                <DetailRow label="Event Type" value={viewLog.eventType} />
+                <DetailRow label="User / Source" value={viewLog.userSource} />
+                <DetailRow label="IP Address" value={<span className="font-mono">{viewLog.ip}</span>} />
+                <DetailRow label="Severity" value={<StatusBadge label={viewLog.severity} variant={statusVariantFor(viewLog.severity)} />} />
+                <DetailRow label="Status" value={
+                  markedReviewed.has(viewLog.id)
+                    ? <StatusBadge label="Reviewed" variant="positive" />
+                    : <StatusBadge label={viewLog.status} variant={statusVariantFor(viewLog.status)} />
+                } />
+              </AdminDetailGrid>
+              <DetailRow label="Description" value={viewLog.description} />
+            </AdminDetailsSection>
+            <AdminDetailsSection title="Technical Details">
+              <pre className="admin-details-code-block">
                 {`event_id: ${viewLog.id}
 timestamp: ${viewLog.dateTime}
 source: ${viewLog.userSource}
@@ -257,8 +254,8 @@ status: ${viewLog.status}
 ip_address: ${viewLog.ip}
 `}
               </pre>
-            </div>
-          </div>
+            </AdminDetailsSection>
+          </>
         )}
       </Drawer>
     </div>

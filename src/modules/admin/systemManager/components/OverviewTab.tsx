@@ -4,6 +4,8 @@ import { useAdminCollection, useAdminRepository } from "../../data"
 import { AdminRowAction, AdminStatCard, AdminStats } from "../../components/AdminUI"
 import {
   DetailRow,
+  AdminDetailGrid,
+  AdminDetailsSection,
   Drawer,
   EmptyRow,
   Pagination,
@@ -247,12 +249,16 @@ export default function OverviewTab({
           title="System log"
           onClose={() => setSelectedLog(null)}
         >
-          <DetailRow label="ID" value={selectedLog.id} />
-          <DetailRow label="Date" value={selectedLog.dateTime} />
-          <DetailRow label="Event" value={selectedLog.eventType} />
-          <DetailRow label="Severity" value={selectedLog.severity} />
-          <DetailRow label="Status" value={selectedLog.status} />
-          <DetailRow label="Description" value={selectedLog.description} />
+          <AdminDetailsSection title="Event Information">
+            <AdminDetailGrid>
+              <DetailRow label="Event ID" value={<span className="font-mono">{selectedLog.id}</span>} />
+              <DetailRow label="Date & Time" value={selectedLog.dateTime} />
+              <DetailRow label="Event Type" value={selectedLog.eventType} />
+              <DetailRow label="Severity" value={<StatusBadge label={selectedLog.severity} variant={statusVariantFor(selectedLog.severity)} />} />
+              <DetailRow label="Status" value={<StatusBadge label={selectedLog.status} variant={statusVariantFor(selectedLog.status)} />} />
+            </AdminDetailGrid>
+            <DetailRow label="Description" value={selectedLog.description} />
+          </AdminDetailsSection>
         </Drawer>
       )}
     </div>

@@ -1983,8 +1983,8 @@ export default function AdminManagement() {
       </AdminStats>
 
       {/* Filters */}
-      <div className="admin-filter-row flex flex-wrap items-center gap-3 mb-6">
-        <div className="relative flex-1 min-w-48">
+      <div className="admin-filter-row admin-management-filter-row flex flex-wrap items-center gap-3 mb-6">
+        <div className="admin-management-filter-search relative flex-1 min-w-48">
           <svg
             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
             style={{ color: "var(--taupe)" }}
@@ -2015,8 +2015,7 @@ export default function AdminManagement() {
         <select
           id="admin-role-filter"
           aria-label="Filter administrators by role"
-          className="select-field"
-          style={{ width: "auto", minWidth: 160 }}
+          className="select-field admin-management-role-filter"
           value={roleFilter}
           onChange={(e) => {
             setRoleFilter(e.target.value)
@@ -2032,8 +2031,7 @@ export default function AdminManagement() {
         </select>
         <select
           aria-label="Filter administrators by status"
-          className="select-field"
-          style={{ width: "auto", minWidth: 180 }}
+          className="select-field admin-management-status-filter"
           value={statusFilter}
           onChange={(e) => {
             setStatusFilter(e.target.value)
@@ -2044,28 +2042,18 @@ export default function AdminManagement() {
           <option value="Active">Active</option>
           <option value="Inactive">Deactivated</option>
         </select>
-        {(search || roleFilter || statusFilter || sortBy !== "name-az") && (
-          <button
-            onClick={resetFilters}
-            className="btn-ghost flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium flex-shrink-0"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            Reset Filters
-          </button>
-        )}
-        <div className="flex items-center gap-2">
+        <button
+          onClick={resetFilters}
+          disabled={!(search || roleFilter || statusFilter || sortBy !== "name-az")}
+          aria-hidden={!(search || roleFilter || statusFilter || sortBy !== "name-az")}
+          tabIndex={search || roleFilter || statusFilter || sortBy !== "name-az" ? 0 : -1}
+          className={`btn-violet focus-ring admin-reset-filters admin-reset-filters--reserved flex-shrink-0${
+            search || roleFilter || statusFilter || sortBy !== "name-az" ? " is-visible" : ""
+          }`}
+        >
+          Reset Filters
+        </button>
+        <div className="admin-management-filter-sort flex items-center gap-2">
           <svg
             className="w-4 h-4 flex-shrink-0"
             style={{ color: "var(--taupe)" }}
@@ -2082,7 +2070,7 @@ export default function AdminManagement() {
           </svg>
           <select
             className="select-field"
-            style={{ width: "auto", minWidth: 148 }}
+            style={{ width: 148, minWidth: 148 }}
             value={sortBy}
             aria-label="Sort administrators"
             onChange={(e) => {
@@ -2098,7 +2086,7 @@ export default function AdminManagement() {
           </select>
         </div>
         <span
-          className="ml-auto whitespace-nowrap text-xs"
+          className="admin-management-filter-count ml-auto w-32 flex-shrink-0 whitespace-nowrap text-right text-xs"
           style={{ color: "var(--taupe)" }}
         >
           {filtered.length}{" "}

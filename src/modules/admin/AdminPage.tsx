@@ -340,7 +340,17 @@ export default function AdminPage({ onBack, onSignOut, onNavigate }: Props) {
             adminItems={availableWorkspaces}
             activeAdminItem={route}
             adminPageLabel={
-              route === "content" ? "Library / Content" : workspace.label
+              route === "content"
+                ? "Content Management"
+                : route === "comments"
+                  ? "Community Management"
+                  : route === "users"
+                    ? "User Management"
+                  : route === "feedback"
+                    ? "Feedback Management"
+                    : route === "system"
+                      ? "System Management"
+                    : workspace.label
             }
             onToggleAdminMenu={() => {
               if (mobileSidebarMode) {

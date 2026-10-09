@@ -882,13 +882,7 @@ function FilterSelect({
       aria-label={labels[id] ?? "Filter content"}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="text-sm rounded-lg px-3 py-2 outline-none transition-colors"
-      style={{
-        backgroundColor: "#150D2A",
-        border: "1px solid #374151",
-        color: "#fff",
-        minWidth: 140,
-      }}
+      className="content-command-bar__select"
     >
       {children}
     </select>
@@ -1327,8 +1321,9 @@ export default function ContentTab({
             type="button"
             onClick={clearFilterSelections}
             disabled={activeFilterCount === 0}
+            className="btn-violet focus-ring admin-reset-filters"
           >
-            Clear all
+            Reset Filters
           </button>
         </div>
       )}
@@ -1427,12 +1422,7 @@ export default function ContentTab({
                         ) : (
                           <button
                             onClick={resetFilters}
-                            className="px-3 py-1.5 rounded-lg text-sm"
-                            style={{
-                              border: "1px solid #374151",
-                              color: "#9CA3AF",
-                              backgroundColor: "transparent",
-                            }}
+                            className="btn-violet focus-ring admin-reset-filters"
                           >
                             Reset Filters
                           </button>

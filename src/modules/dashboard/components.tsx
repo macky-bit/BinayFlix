@@ -969,7 +969,7 @@ export function Navbar({
       <div className="flex-1" />
 
       <div className="flex items-center gap-3 sm:gap-4">
-        {searchOpen ? (
+        {!adminItems && (searchOpen ? (
           <div className="flex items-center gap-1">
             <input
               autoFocus
@@ -1013,7 +1013,7 @@ export function Navbar({
           >
             <SearchIcon />
           </button>
-        )}
+        ))}
 
         <div className="relative" ref={notificationMenuRef}>
           <button

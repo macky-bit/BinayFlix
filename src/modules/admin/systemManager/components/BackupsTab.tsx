@@ -5,6 +5,8 @@ import { useAdminCollection, useAdminRepository } from "../../data"
 import { AdminRowAction, AdminStatCard, AdminStats } from "../../components/AdminUI"
 import {
   DetailRow,
+  AdminDetailGrid,
+  AdminDetailsSection,
   Drawer,
   EmptyRow,
   Modal,
@@ -240,7 +242,7 @@ export default function BackupsTab() {
         <SearchInput value={search} onChange={(value) => { setSearch(value); setPage(1) }} placeholder="Search backups or tables..." className="w-full sm:w-64" />
         <Select value={filterType} onChange={(value) => { setFilterType(value); setPage(1) }} options={typeOptions} className="w-full sm:w-52" />
         <Select value={filterStatus} onChange={(value) => { setFilterStatus(value); setPage(1) }} options={statusOptions} className="w-full sm:w-40" />
-        <button onClick={resetFilters} className="btn-ghost px-4 py-2 text-sm">Reset Filters</button>
+        <button onClick={resetFilters} className="btn-violet focus-ring admin-reset-filters">Reset Filters</button>
         <div className="sm:ml-auto">
           <button type="button" onClick={() => setShowRunForm(true)} disabled={running} aria-busy={running} className="btn-primary flex items-center gap-2 px-5 py-2.5">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
@@ -302,35 +304,42 @@ export default function BackupsTab() {
         title="Backup Details"
         footer={viewBackup && (
           <>
-            <button onClick={() => setViewBackup(null)} className="btn-ghost px-4 py-2 text-sm">Close</button>
+            <button onClick={() => setViewBackup(null)} className="admin-details-button admin-details-button--secondary">Close</button>
             {viewBackup.status === "Successful" && viewBackup.storagePath && (
-              <button onClick={() => void downloadBackup(viewBackup)} className="btn-outline px-4 py-2 text-sm">Download CSVs</button>
+              <button onClick={() => void downloadBackup(viewBackup)} className="admin-details-button admin-details-button--primary">Download CSVs</button>
             )}
           </>
         )}
       >
         {viewBackup && (
-          <div className="space-y-4">
-            <DetailRow label="Backup ID" value={<span className="font-mono">{viewBackup.id}</span>} />
-            <DetailRow label="Dataset" value={viewBackup.type} />
-            <DetailRow label="Description" value={viewBackup.description || "—"} />
-            <DetailRow label="Started" value={viewBackup.started} />
-            <DetailRow label="Completed" value={viewBackup.completed || "—"} />
-            <DetailRow label="Duration" value={durationLabel(viewBackup.started, viewBackup.completed, viewBackup.status)} />
-            <DetailRow label="File Size" value={viewBackup.size} />
-            <DetailRow label="CSV Files" value={String(viewBackup.fileCount)} />
-            <DetailRow label="Created By" value={viewBackup.createdBy} />
-            <DetailRow label="Status" value={<StatusBadge label={viewBackup.status} variant={statusVariantFor(viewBackup.status)} />} />
-            <div>
-              <span className="text-xs text-[#9CA3AF] uppercase tracking-wider">Exported Tables</span>
-              <div className="mt-1.5 flex flex-wrap gap-2">
+          <>
+            <AdminDetailsSection title="Backup Information">
+              <AdminDetailGrid>
+                <DetailRow label="Backup ID" value={<span className="font-mono">{viewBackup.id}</span>} />
+                <DetailRow label="Dataset" value={viewBackup.type} />
+                <DetailRow label="Started" value={viewBackup.started} />
+                <DetailRow label="Completed" value={viewBackup.completed} />
+                <DetailRow label="Duration" value={durationLabel(viewBackup.started, viewBackup.completed, viewBackup.status)} />
+                <DetailRow label="File Size" value={viewBackup.size} />
+                <DetailRow label="CSV Files" value={String(viewBackup.fileCount)} />
+                <DetailRow label="Status" value={<StatusBadge label={viewBackup.status} variant={statusVariantFor(viewBackup.status)} />} />
+              </AdminDetailGrid>
+              <DetailRow label="Created By" value={<span className="font-mono break-all">{viewBackup.createdBy}</span>} />
+              <DetailRow label="Description" value={viewBackup.description} />
+            </AdminDetailsSection>
+            <AdminDetailsSection title="Exported Tables">
+              <div className="flex flex-wrap gap-2">
                 {viewBackup.tableNames.length === 0 ? <span className="text-sm text-[#9CA3AF]">No table metadata recorded.</span> : viewBackup.tableNames.map((table) => (
-                  <span key={table} className="text-xs bg-[var(--color-ink)] border border-stone-700 rounded px-2 py-0.5 text-[#9CA3AF]">{table}</span>
+                  <span key={table} className="admin-details-tag">{table}</span>
                 ))}
               </div>
-            </div>
-            {viewBackup.errorMessage && <DetailRow label="Error" value={<span className="text-red-400">{viewBackup.errorMessage}</span>} />}
-          </div>
+            </AdminDetailsSection>
+            {viewBackup.errorMessage && (
+              <AdminDetailsSection title="Backup Error">
+                <DetailRow label="Error" value={<span className="text-red-400">{viewBackup.errorMessage}</span>} />
+              </AdminDetailsSection>
+            )}
+          </>
         )}
       </Drawer>
 

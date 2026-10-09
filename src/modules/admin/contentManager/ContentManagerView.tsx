@@ -92,7 +92,7 @@ export default function ContentManagerView() {
     <div className="admin-page-shell content-library-workspace">
       <AdminPageHeader
         eyebrow="Library operations"
-        title="Content Library"
+        title="Content Management"
         description="Manage titles, metadata, availability, and media assets."
         actions={
           <button

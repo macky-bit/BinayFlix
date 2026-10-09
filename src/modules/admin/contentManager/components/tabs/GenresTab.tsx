@@ -77,14 +77,14 @@ export default function GenresTab({ genres, onAdd, onEdit, onDelete, addToast }:
 
   return (
     <div>
-      <div className="flex flex-wrap gap-3 mb-5">
+      <div className="content-admin-tab-toolbar flex flex-wrap gap-3 mb-5">
         <div className="flex-1 min-w-48 relative">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: '#9CA3AF' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input type="search" maxLength={100} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search genres..." aria-label="Search genres" className="w-full pl-9 pr-3 py-2 text-sm rounded-lg outline-none" style={{ backgroundColor: '#150D2A', border: '1px solid #374151', color: '#fff' }} />
         </div>
-        <button onClick={() => setSearch('')} className="px-3 py-2 rounded-lg text-sm" style={{ border: '1px solid #374151', color: '#9CA3AF', backgroundColor: 'transparent' }}>Reset Search</button>
+        <button onClick={() => setSearch('')} className="btn-violet focus-ring admin-reset-filters">Reset Search</button>
         <button type="button" onClick={() => setShowAdd(true)} className="btn-primary flex items-center gap-2 px-5 py-2.5">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
           Add Genre

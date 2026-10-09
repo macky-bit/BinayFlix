@@ -2,11 +2,13 @@ import { useMemo, useState } from "react"
 import { REACTION_DEFINITIONS } from "../../../shared/reactions"
 import AdminDetailsPanel from "../components/AdminDetailsPanel"
 import {
+  AdminRowAction,
   AdminStatCard,
   AdminStats,
   AdminTablePagination,
 } from "../components/AdminUI"
 import { useAdminCollection, useAdminRepository } from "../data"
+import CommunityDeleteDialog from "./CommunityDeleteDialog"
 
 interface ReactionRecord {
   id: string
@@ -38,6 +40,7 @@ export default function ReactionsWorkspace({
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("All statuses")
   const [selected, setSelected] = useState<ReactionGroup | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<ReactionRecord | null>(null)
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(10)
 
@@ -73,7 +76,6 @@ export default function ReactionsWorkspace({
   }, [reactionsState.items, search, statusFilter])
 
   const remove = async (reaction: ReactionRecord) => {
-    if (!window.confirm("Permanently delete this reaction?")) return
     try {
       await reactionsState.remove(reaction.id)
       setSelected((current) =>
@@ -91,6 +93,8 @@ export default function ReactionsWorkspace({
       toast(
         error instanceof Error ? error.message : "Unable to delete reaction.",
       )
+    } finally {
+      setPendingDelete(null)
     }
   }
 
@@ -178,12 +182,7 @@ export default function ReactionsWorkspace({
             setPage(1)
           }}
           aria-label="Filter reactions by status"
-          className="rounded-lg px-3 py-2 text-sm outline-none"
-          style={{
-            background: "#1A1030",
-            border: "1px solid #374151",
-            color: "#fff",
-          }}
+          className="content-command-bar__select"
         >
           <option>All statuses</option>
           <option>Active</option>
@@ -302,32 +301,29 @@ export default function ReactionsWorkspace({
                     }
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      type="button"
+                    <AdminRowAction
+                      action="view"
+                      name={`reactors for ${group.contentTitle}`}
                       onClick={() => setSelected(group)}
-                      className="min-h-9 rounded px-3 py-1.5 text-xs"
-                      style={{ border: "1px solid #7C3AED", color: "#C4B5FD" }}
-                    >
-                      View reactors
-                    </button>
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <AdminTablePagination
+          page={safePage}
+          total={groups.length}
+          perPage={perPage}
+          onPage={setPage}
+          onPerPage={(amount) => {
+            setPerPage(amount)
+            setPage(1)
+          }}
+          label="reaction groups"
+        />
       </div>
-      <AdminTablePagination
-        page={safePage}
-        total={groups.length}
-        perPage={perPage}
-        onPage={setPage}
-        onPerPage={(amount) => {
-          setPerPage(amount)
-          setPage(1)
-        }}
-        label="reaction groups"
-      />
 
       {selected && (
         <AdminDetailsPanel
@@ -430,7 +426,7 @@ export default function ReactionsWorkspace({
                       </button>
                       <button
                         disabled={reactionsState.mutating}
-                        onClick={() => void remove(reaction)}
+                        onClick={() => setPendingDelete(reaction)}
                         className="min-h-9 rounded px-3 py-1 text-xs disabled:opacity-40"
                         style={{
                           border: "1px solid rgba(153,27,27,0.5)",
@@ -447,6 +443,20 @@ export default function ReactionsWorkspace({
           </div>
         </AdminDetailsPanel>
       )}
+      <CommunityDeleteDialog
+        open={Boolean(pendingDelete)}
+        itemLabel="reaction"
+        detail={
+          pendingDelete
+            ? `The ${pendingDelete.emoji} reaction from ${pendingDelete.subscriberName || "this member"} will be permanently removed.`
+            : ""
+        }
+        busy={reactionsState.mutating}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) void remove(pendingDelete)
+        }}
+      />
     </div>
   )
 }

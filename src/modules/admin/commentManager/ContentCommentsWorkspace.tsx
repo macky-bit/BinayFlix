@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react"
 import AdminDetailsPanel from "../components/AdminDetailsPanel"
 import {
+  AdminRowAction,
   AdminStatCard,
   AdminStats,
   AdminTablePagination,
 } from "../components/AdminUI"
 import { useAdminCollection, useAdminRepository } from "../data"
+import CommunityDeleteDialog from "./CommunityDeleteDialog"
 
 interface ContentCommentRecord {
   id: string
@@ -38,6 +40,7 @@ export default function ContentCommentsWorkspace({
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("All statuses")
   const [selected, setSelected] = useState<CommentGroup | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<ContentCommentRecord | null>(null)
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(10)
 
@@ -101,13 +104,14 @@ export default function ContentCommentsWorkspace({
   }
 
   const remove = async (comment: ContentCommentRecord) => {
-    if (!window.confirm("Permanently delete this content comment?")) return
     try {
       await commentsState.remove(comment.id)
       syncSelected(comment.id)
       toast("Content comment deleted.")
     } catch (error) {
       toast(error instanceof Error ? error.message : "Delete failed.")
+    } finally {
+      setPendingDelete(null)
     }
   }
 
@@ -183,12 +187,7 @@ export default function ContentCommentsWorkspace({
             setPage(1)
           }}
           aria-label="Filter comments by status"
-          className="rounded-lg px-3 py-2 text-sm outline-none"
-          style={{
-            background: "#1A1030",
-            border: "1px solid #374151",
-            color: "#fff",
-          }}
+          className="content-command-bar__select"
         >
           <option>All statuses</option>
           <option>Active</option>
@@ -292,17 +291,11 @@ export default function ContentCommentsWorkspace({
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
+                      <AdminRowAction
+                        action="view"
+                        name={`comments for ${group.contentTitle}`}
                         onClick={() => setSelected(group)}
-                        className="min-h-9 rounded px-3 py-1.5 text-xs"
-                        style={{
-                          border: "1px solid #7C3AED",
-                          color: "#C4B5FD",
-                        }}
-                      >
-                        View comments
-                      </button>
+                      />
                     </td>
                   </tr>
                 )
@@ -421,7 +414,7 @@ export default function ContentCommentsWorkspace({
                   </button>
                   <button
                     disabled={commentsState.mutating}
-                    onClick={() => void remove(comment)}
+                    onClick={() => setPendingDelete(comment)}
                     className="min-h-9 rounded px-3 py-1 text-xs disabled:opacity-40"
                     style={{
                       border: "1px solid rgba(153,27,27,0.5)",
@@ -436,6 +429,20 @@ export default function ContentCommentsWorkspace({
           </div>
         </AdminDetailsPanel>
       )}
+      <CommunityDeleteDialog
+        open={Boolean(pendingDelete)}
+        itemLabel="comment"
+        detail={
+          pendingDelete
+            ? `The comment from ${pendingDelete.authorName || "this member"} on ${pendingDelete.contentTitle || "this title"} will be permanently removed.`
+            : ""
+        }
+        busy={commentsState.mutating}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) void remove(pendingDelete)
+        }}
+      />
     </div>
   )
 }

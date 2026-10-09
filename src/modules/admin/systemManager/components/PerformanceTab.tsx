@@ -1,5 +1,6 @@
 import { useAdminCollection, useAdminRepository } from "../../data"
-import { SectionTitle, StatusBadge } from "./shared"
+import { AdminStatCard, AdminStats } from "../../components/AdminUI"
+import { SectionTitle } from "./shared"
 
 interface ResourceRecord {
   id: string
@@ -25,6 +26,8 @@ export default function PerformanceTab() {
     { label: "System events", state: logs },
     { label: "Backup jobs", state: backups },
   ]
+  const tones = ["purple", "green", "gold", "blue"] as const
+  const errors = resources.filter(({ state }) => state.error)
 
   return (
     <div>
@@ -32,27 +35,24 @@ export default function PerformanceTab() {
         title="Database Health"
         description="Live connectivity and record counts from Supabase. Infrastructure CPU, memory, and storage metrics belong in Supabase observability and are not fabricated here."
       />
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {resources.map(({ label, state }) => (
-          <section key={label} className="card-surface p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-white">{label}</h3>
-            <p className="text-3xl font-bold text-[#F5A800]">{state.total}</p>
-            <StatusBadge
-              label={
-                state.loading
-                  ? "Loading"
-                  : state.error
-                    ? "Unavailable"
-                    : "Connected"
-              }
-              variant={state.error ? "critical" : "positive"}
-            />
-            {state.error && (
-              <p className="text-xs text-red-300">{state.error.message}</p>
-            )}
-          </section>
+      <AdminStats>
+        {resources.map(({ label, state }, index) => (
+          <AdminStatCard
+            key={label}
+            label={label}
+            value={state.loading ? "—" : state.total}
+            hint={state.loading ? "Connecting to Supabase" : state.error ? "Connection unavailable" : "Connected to Supabase"}
+            tone={tones[index]}
+          />
         ))}
-      </div>
+      </AdminStats>
+      {errors.length > 0 && (
+        <div className="mt-4 rounded-lg border border-red-800/50 bg-red-950/20 px-4 py-3 text-sm text-red-300" role="alert">
+          {errors.map(({ label, state }) => (
+            <p key={label}>{label}: {state.error?.message}</p>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

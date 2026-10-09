@@ -395,22 +395,8 @@ function Select({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      style={{
-        padding: "8px 32px 8px 12px",
-        background: "#150D2A",
-        border: "1px solid #374151",
-        borderRadius: 6,
-        color: "#fff",
-        fontSize: 13,
-        fontFamily: "inherit",
-        cursor: "pointer",
-        appearance: "none",
-        backgroundImage:
-          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239CA3AF' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\")",
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "right 10px center",
-        ...style,
-      }}
+      className="content-command-bar__select"
+      style={style}
     >
       {options.map((o) => (
         <option key={o} value={o}>
@@ -781,17 +767,11 @@ function TableShell({
   children: React.ReactNode
 }) {
   return (
-    <div
-      style={{
-        background: "#150D2A",
-        borderRadius: 10,
-        border: "1px solid #374151",
-        overflow: "hidden",
-      }}
-    >
-      <div className="table-scroll">
+    <div className="card user-manager-table-card">
+      <div className="admin-manager-table-frame table-scroll">
         <table
-          style={{ width: "100%", borderCollapse: "collapse", minWidth: 800 }}
+          className="admin-manager-table user-manager-table"
+          style={{ minWidth: 800 }}
         >
           <thead>
             <tr style={{ borderBottom: "1px solid #374151" }}>
@@ -1441,22 +1421,14 @@ function SubscribersTab({
                     style={{ display: "flex", gap: 6 }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <VioletBtn
-                      onClick={() => {
-                        setSelectedId(s.id)
-                        setViewMode("details")
-                      }}
-                    >
-                      View
-                    </VioletBtn>
-                    <VioletBtn
-                      onClick={() => {
-                        setSelectedId(s.id)
-                        openEdit(s)
-                      }}
-                    >
-                      Edit
-                    </VioletBtn>
+                    <AdminRowAction action="view" name={`${s.firstName} ${s.lastName}`} onClick={() => {
+                      setSelectedId(s.id)
+                      setViewMode("details")
+                    }} />
+                    <AdminRowAction action="edit" name={`${s.firstName} ${s.lastName}`} onClick={() => {
+                      setSelectedId(s.id)
+                      openEdit(s)
+                    }} />
                   </div>
                 </Td>
               </Tr>
@@ -1741,17 +1713,12 @@ function EmptyState({
   onReset?: () => void
 }) {
   return (
-    <div
-      style={{
-        textAlign: "center",
-        padding: "60px 20px",
-        background: "#150D2A",
-        borderRadius: 10,
-        border: "1px solid #374151",
-      }}
-    >
-      <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>⊘</div>
-      <p style={{ margin: "0 0 16px", color: "#9CA3AF", fontSize: 14 }}>
+    <div className="admin-empty-state user-manager-empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+        <circle cx="12" cy="12" r="8" />
+        <path d="m8.5 8.5 7 7" />
+      </svg>
+      <p>
         {message}
       </p>
       {showReset && <VioletBtn onClick={onReset}>Reset Filters</VioletBtn>}
@@ -2222,23 +2189,15 @@ function SubscriptionsTab({
                     style={{ display: "flex", gap: 6 }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <VioletBtn
-                      onClick={() => {
-                        setSelectedId(s.id)
-                        setViewMode("details")
-                      }}
-                    >
-                      View
-                    </VioletBtn>
-                    <VioletBtn
-                      onClick={() => {
-                        setSelectedId(s.id)
-                        setEditData({ ...s })
-                        setViewMode("edit")
-                      }}
-                    >
-                      Edit
-                    </VioletBtn>
+                    <AdminRowAction action="view" name={`subscription ${s.id}`} onClick={() => {
+                      setSelectedId(s.id)
+                      setViewMode("details")
+                    }} />
+                    <AdminRowAction action="edit" name={`subscription ${s.id}`} onClick={() => {
+                      setSelectedId(s.id)
+                      setEditData({ ...s })
+                      setViewMode("edit")
+                    }} />
                   </div>
                 </Td>
               </Tr>
@@ -3099,15 +3058,22 @@ function PaymentsTab({ onToast }: { onToast: (m: string) => void }) {
                     style={{ display: "flex", gap: 6 }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <VioletBtn
-                      onClick={() => {
-                        setSelectedId(p.id)
-                        setVerifyMode(false)
-                      }}
+                    <AdminRowAction action="view" name={`payment ${p.id}`} onClick={() => {
+                      setSelectedId(p.id)
+                      setVerifyMode(false)
+                    }} />
+                    <button
+                      type="button"
+                      className="content-table__action user-payment-verify-action"
+                      onClick={() => openVerify(p)}
+                      aria-label={`Verify payment ${p.id}`}
+                      title="Verify payment"
                     >
-                      View
-                    </VioletBtn>
-                    <VioletBtn onClick={() => openVerify(p)}>Verify</VioletBtn>
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 3 5 6v5c0 4.6 2.8 7.9 7 10 4.2-2.1 7-5.4 7-10V6l-7-3Z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="m9 12 2 2 4-4" />
+                      </svg>
+                    </button>
                   </div>
                 </Td>
               </Tr>
@@ -3264,8 +3230,8 @@ export default function UserManagerView() {
   return (
     <div className="admin-page-shell users-workspace">
       <AdminPageHeader
-        eyebrow="User management"
-        title="Users"
+        eyebrow="Subscriber operations"
+        title="User Management"
         description="Manage subscriber accounts, viewing records, plans, subscriptions, and payment verification."
       />
 

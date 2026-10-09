@@ -1,6 +1,12 @@
 import { ReactNode } from "react"
-import AdminDetailsPanel from "../../components/AdminDetailsPanel"
+import AdminDetailsPanel, {
+  AdminDetailField,
+  AdminDetailGrid,
+  AdminDetailsSection,
+} from "../../components/AdminDetailsPanel"
 import { AdminTablePagination } from "../../components/AdminUI"
+
+export { AdminDetailGrid, AdminDetailsSection }
 
 export type StatusVariant = "positive" | "warning" | "critical" | "info" | "neutral"
 
@@ -126,7 +132,7 @@ export function Drawer({
         footer ? <div className="admin-details-actions">{footer}</div> : undefined
       }
     >
-      <div className="space-y-4">{children}</div>
+      <div className="space-y-5">{children}</div>
     </AdminDetailsPanel>
   )
 }
@@ -189,14 +195,7 @@ interface DetailRowProps {
 }
 
 export function DetailRow({ label, value }: DetailRowProps) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-xs text-[#9CA3AF] uppercase tracking-wider">
-        {label}
-      </span>
-      <span className="text-sm text-white">{value}</span>
-    </div>
-  )
+  return <AdminDetailField label={label} value={value} />
 }
 
 interface PaginationProps {
@@ -292,7 +291,7 @@ export function Select({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-label={ariaLabel ?? options[0]?.label ?? "Select option"}
-        className="appearance-none bg-[rgba(26,16,48,0.5)] border border-stone-700 rounded-md pl-3 pr-8 py-2 text-sm text-white focus:outline-none focus:border-[#7C3AED] cursor-pointer w-full"
+        className="admin-select appearance-none bg-[rgba(26,16,48,0.5)] border border-stone-700 rounded-md pl-3 pr-8 py-2 text-sm text-white focus:outline-none focus:border-[#7C3AED] cursor-pointer w-full"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -300,17 +299,6 @@ export function Select({
           </option>
         ))}
       </select>
-      <svg
-        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]"
-        width="12"
-        height="12"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-      >
-        <path d="m6 9 6 6 6-6" />
-      </svg>
     </div>
   )
 }

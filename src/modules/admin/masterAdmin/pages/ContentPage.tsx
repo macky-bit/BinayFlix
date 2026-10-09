@@ -307,7 +307,7 @@ export default function ContentPage() {
               <option value="">All Availability</option>
               <option>Available</option><option>Unavailable</option>
             </select>
-            <button onClick={() => { setSearch(''); setAvailFilter('') }} className="btn-ghost px-4 py-2 rounded-lg text-sm font-medium">Reset Filters</button>
+            <button onClick={() => { setSearch(''); setAvailFilter('') }} className="btn-violet focus-ring admin-reset-filters">Reset Filters</button>
           </div>
           <TableWrapper>
             <table className="w-full text-sm">

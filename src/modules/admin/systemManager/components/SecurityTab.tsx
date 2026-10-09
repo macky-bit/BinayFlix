@@ -14,6 +14,8 @@ import {
   Drawer,
   Modal,
   DetailRow,
+  AdminDetailGrid,
+  AdminDetailsSection,
   SectionTitle,
   Spinner,
 } from "./shared";
@@ -63,6 +65,18 @@ const SORT_OPTIONS = [
 ];
 
 const SEV_ORDER: Record<string, number> = { Critical: 3, Warning: 2, Info: 1 };
+
+const SECURITY_COLUMNS = [
+  { label: "Event ID", className: "security-col-id" },
+  { label: "Date & Time", className: "security-col-date" },
+  { label: "Event Type", className: "security-col-type" },
+  { label: "User / Source", className: "security-col-source" },
+  { label: "IP Address", className: "security-col-ip" },
+  { label: "Description", className: "security-col-description" },
+  { label: "Severity", className: "security-col-severity" },
+  { label: "Status", className: "security-col-status" },
+  { label: "Actions", className: "security-col-actions" },
+];
 
 export default function SecurityTab() {
   const logState = useAdminCollection(
@@ -203,28 +217,30 @@ export default function SecurityTab() {
       )}
 
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-4">
-        <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search security events..." className="w-full sm:w-64" />
-        <Select value={filterType} onChange={(v) => { setFilterType(v); setPage(1); }} options={TYPE_OPTIONS} className="w-full sm:w-52" />
-        <Select value={filterSev} onChange={(v) => { setFilterSev(v); setPage(1); }} options={SEV_OPTIONS} className="w-full sm:w-36" />
-        <Select value={filterStatus} onChange={(v) => { setFilterStatus(v); setPage(1); }} options={STATUS_OPTIONS} className="w-full sm:w-36" />
-        <Select value={sort} onChange={(v) => { setSort(v); setPage(1); }} options={SORT_OPTIONS} className="w-full sm:w-44" />
-        <button onClick={resetFilters} className="btn-ghost px-4 py-2 text-sm">Reset Filters</button>
-        <button onClick={() => setShowScanConfirm(true)} className="btn-outline px-4 py-2 text-sm whitespace-nowrap sm:ml-auto flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
-          Run Security Scan
-        </button>
+      <div className="admin-filter-row security-toolbar mb-4" role="search" aria-label="Search and filter security events">
+        <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search security events..." className="security-toolbar__search" />
+        <Select value={filterType} onChange={(v) => { setFilterType(v); setPage(1); }} options={TYPE_OPTIONS} className="security-toolbar__type" />
+        <Select value={filterSev} onChange={(v) => { setFilterSev(v); setPage(1); }} options={SEV_OPTIONS} className="security-toolbar__select" />
+        <Select value={filterStatus} onChange={(v) => { setFilterStatus(v); setPage(1); }} options={STATUS_OPTIONS} className="security-toolbar__select" />
+        <Select value={sort} onChange={(v) => { setSort(v); setPage(1); }} options={SORT_OPTIONS} className="security-toolbar__sort" />
+        <div className="security-toolbar__actions">
+          <button type="button" onClick={resetFilters} className="btn-violet focus-ring admin-reset-filters">Reset Filters</button>
+          <button type="button" onClick={() => setShowScanConfirm(true)} className="btn-outline security-toolbar__scan focus-ring">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            Run Security Scan
+          </button>
+        </div>
       </div>
 
       <div className="table-surface">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" aria-label="Security Events">
+        <div className="security-table-frame">
+          <table className="system-security-table text-sm" aria-label="Security Events">
             <thead>
               <tr className="border-b border-stone-700/60">
-                {["Event ID", "Date & Time", "Event Type", "User / Source", "IP Address", "Description", "Severity", "Status", "Actions"].map((h) => (
-                  <th key={h} className="text-left text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider px-4 py-3 whitespace-nowrap" scope="col">{h}</th>
+                {SECURITY_COLUMNS.map((column) => (
+                  <th key={column.label} className={`${column.className} text-left text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider`} scope="col">{column.label}</th>
                 ))}
               </tr>
             </thead>
@@ -234,26 +250,33 @@ export default function SecurityTab() {
               ) : (
                 pageRows.map((ev) => (
                   <tr key={ev.id} className="tr-hover border-b border-stone-700/30 last:border-0">
-                    <td className="px-4 py-3 font-mono text-xs text-[#9CA3AF] whitespace-nowrap">{ev.id}</td>
-                    <td className="px-4 py-3 text-[#9CA3AF] text-xs whitespace-nowrap">{ev.dateTime}</td>
-                    <td className="px-4 py-3 text-white whitespace-nowrap text-xs">{ev.eventType}</td>
-                    <td className="px-4 py-3 text-[#9CA3AF] text-xs whitespace-nowrap">{ev.userSource}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-[#9CA3AF] whitespace-nowrap">{ev.ip}</td>
-                    <td className="px-4 py-3 text-[#9CA3AF] text-xs max-w-xs truncate" title={ev.description}>{ev.description}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="security-col-id font-mono text-xs text-[#9CA3AF]" title={ev.id}>{ev.id}</td>
+                    <td className="security-col-date text-[#9CA3AF] text-xs" title={ev.dateTime}>{ev.dateTime}</td>
+                    <td className="security-col-type text-white text-xs" title={ev.eventType}>{ev.eventType}</td>
+                    <td className="security-col-source text-[#9CA3AF] text-xs" title={ev.userSource}>{ev.userSource}</td>
+                    <td className="security-col-ip font-mono text-xs text-[#9CA3AF]" title={ev.ip}>{ev.ip}</td>
+                    <td className="security-col-description text-[#9CA3AF] text-xs" title={ev.description}>{ev.description}</td>
+                    <td className="security-col-severity">
                       <StatusBadge label={ev.severity} variant={statusVariantFor(ev.severity)} />
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="security-col-status">
                       <StatusBadge label={ev.status} variant={statusVariantFor(ev.status)} />
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1.5 flex-wrap">
+                    <td className="security-col-actions">
+                      <div className="content-table__actions security-table-actions">
                         <AdminRowAction action="view" name={`security event ${ev.id}`} onClick={() => setViewEvent(ev)} />
                         {ev.status !== "Resolved" && ev.status !== "False Positive" && (
-                          <button onClick={() => applyAction(ev, "resolve")} className="btn-ghost px-2.5 py-1 text-xs whitespace-nowrap">Resolve</button>
+                          <button type="button" onClick={() => applyAction(ev, "resolve")} className="security-resolve-button" aria-label={`Resolve security event ${ev.id}`}>
+                            Resolve
+                          </button>
                         )}
                         {ev.status !== "False Positive" && (
-                          <button onClick={() => applyAction(ev, "false-positive")} className="btn-ghost px-2.5 py-1 text-xs whitespace-nowrap">False +</button>
+                          <button type="button" onClick={() => applyAction(ev, "false-positive")} className="content-table__action security-action--false-positive" aria-label={`Mark security event ${ev.id} as false positive`} title="Mark as false positive">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <circle cx="12" cy="12" r="8" strokeWidth={2} />
+                              <path strokeLinecap="round" strokeWidth={2} d="m9 9 6 6m0-6-6 6" />
+                            </svg>
+                          </button>
                         )}
                       </div>
                     </td>
@@ -273,32 +296,35 @@ export default function SecurityTab() {
         title="Security Event Details"
         footer={
           <>
-            <button onClick={() => setViewEvent(null)} className="btn-ghost px-4 py-2 text-sm">Close</button>
+            <button onClick={() => setViewEvent(null)} className="admin-details-button admin-details-button--secondary">Close</button>
             {viewEvent && viewEvent.status !== "Monitoring" && viewEvent.status !== "Resolved" && viewEvent.status !== "False Positive" && (
-              <button onClick={() => { applyAction(viewEvent, "monitor"); setViewEvent(null); }} className="btn-outline px-4 py-2 text-sm">Mark Monitoring</button>
+              <button onClick={() => { applyAction(viewEvent, "monitor"); setViewEvent(null); }} className="admin-details-button admin-details-button--secondary">Mark Monitoring</button>
             )}
             {viewEvent && viewEvent.status !== "Resolved" && viewEvent.status !== "False Positive" && (
-              <button onClick={() => { applyAction(viewEvent, "resolve"); setViewEvent(null); }} className="btn-outline px-4 py-2 text-sm">Mark Resolved</button>
+              <button onClick={() => { applyAction(viewEvent, "resolve"); setViewEvent(null); }} className="admin-details-button admin-details-button--primary">Mark Resolved</button>
             )}
             {viewEvent && viewEvent.status !== "False Positive" && (
-              <button onClick={() => { applyAction(viewEvent, "false-positive"); setViewEvent(null); }} className="btn-ghost px-4 py-2 text-sm">False Positive</button>
+              <button onClick={() => { applyAction(viewEvent, "false-positive"); setViewEvent(null); }} className="admin-details-button admin-details-button--secondary">False Positive</button>
             )}
           </>
         }
       >
         {viewEvent && (
-          <div className="space-y-4">
-            <DetailRow label="Event ID" value={<span className="font-mono">{viewEvent.id}</span>} />
-            <DetailRow label="Date & Time" value={viewEvent.dateTime} />
-            <DetailRow label="Event Type" value={viewEvent.eventType} />
-            <DetailRow label="Source" value={viewEvent.userSource} />
-            <DetailRow label="IP Address" value={<span className="font-mono">{viewEvent.ip}</span>} />
-            <DetailRow label="Description" value={viewEvent.description} />
-            <DetailRow label="Severity" value={<StatusBadge label={viewEvent.severity} variant={statusVariantFor(viewEvent.severity)} />} />
-            <DetailRow label="Status" value={<StatusBadge label={viewEvent.status} variant={statusVariantFor(viewEvent.status)} />} />
-            <div>
-              <span className="text-xs text-[#9CA3AF] uppercase tracking-wider">Technical Details</span>
-              <pre className="mt-1.5 text-xs bg-[var(--color-ink)] p-3 rounded border border-stone-700 text-[#9CA3AF] whitespace-pre-wrap font-mono leading-relaxed">
+          <>
+            <AdminDetailsSection title="Event Information">
+              <AdminDetailGrid>
+                <DetailRow label="Event ID" value={<span className="font-mono">{viewEvent.id}</span>} />
+                <DetailRow label="Date & Time" value={viewEvent.dateTime} />
+                <DetailRow label="Event Type" value={viewEvent.eventType} />
+                <DetailRow label="Source" value={viewEvent.userSource} />
+                <DetailRow label="IP Address" value={<span className="font-mono">{viewEvent.ip}</span>} />
+                <DetailRow label="Severity" value={<StatusBadge label={viewEvent.severity} variant={statusVariantFor(viewEvent.severity)} />} />
+                <DetailRow label="Status" value={<StatusBadge label={viewEvent.status} variant={statusVariantFor(viewEvent.status)} />} />
+              </AdminDetailGrid>
+              <DetailRow label="Description" value={viewEvent.description} />
+            </AdminDetailsSection>
+            <AdminDetailsSection title="Technical Details">
+              <pre className="admin-details-code-block">
                 {`event_id: ${viewEvent.id}
 timestamp: ${viewEvent.dateTime}
 source: ${viewEvent.userSource}
@@ -309,8 +335,8 @@ user_agent: Mozilla/5.0 (compatible)
 geo: Unknown
 attempts: ${Math.floor(Math.random() * 10) + 1}`}
               </pre>
-            </div>
-          </div>
+            </AdminDetailsSection>
+          </>
         )}
       </Drawer>
 
