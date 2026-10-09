@@ -10,6 +10,18 @@ BEGIN
   THEN
     RAISE EXCEPTION 'Only community moderators can change comment status';
   END IF;
+
+  IF (
+    NEW.content_id IS DISTINCT FROM OLD.content_id
+    OR NEW.user_id IS DISTINCT FROM OLD.user_id
+    OR NEW.member_profile_id IS DISTINCT FROM OLD.member_profile_id
+  )
+    AND NOT public.is_admin_role('commentManager'::character varying)
+    AND NOT public.is_master_admin()
+  THEN
+    RAISE EXCEPTION 'Comment authorship cannot be changed';
+  END IF;
+
   RETURN NEW;
 END;
 $$;

@@ -14,6 +14,15 @@ export interface ContentComment {
   commentedAt: string
   userId: string
   status: string
+  memberProfileId: number | null
+  authorName: string
+  authorAvatarUrl: string | null
+}
+
+export interface CommentAuthor {
+  profileId: number
+  name: string
+  avatarUrl: string
 }
 
 export interface EngagementSnapshot {
@@ -28,6 +37,97 @@ export interface EngagementSnapshot {
 interface ReactionRow {
   emoji: string | null
   user_id: string
+}
+
+interface CommentAuthorRow {
+  comment_id: string | number
+  comment_text: string
+  commented_at: string
+  user_id: string
+  status: string
+  member_profile_id?: string | number | null
+  author_name?: string | null
+  author_avatar?: string | null
+}
+
+const isExternalAvatar = (value: string) => /^(https?:|data:|blob:)/i.test(value)
+
+async function mapCommentRows(
+  client: SupabaseClient,
+  rows: CommentAuthorRow[],
+): Promise<ContentComment[]> {
+  const storedAvatarPaths = [
+    ...new Set(
+      rows
+        .map((row) => row.author_avatar?.trim() ?? "")
+        .filter((path) => path && !isExternalAvatar(path)),
+    ),
+  ]
+  const signedAvatarUrls = new Map<string, string>()
+  if (storedAvatarPaths.length) {
+    const { data } = await client.storage
+      .from("avatar")
+      .createSignedUrls(storedAvatarPaths, 60 * 60)
+    for (const item of data ?? []) {
+      if (item.signedUrl) signedAvatarUrls.set(item.path, item.signedUrl)
+    }
+  }
+
+  return rows
+    .filter((row) => isCommentVisible(String(row.status ?? "")))
+    .map((row) => {
+      const avatar = row.author_avatar?.trim() ?? ""
+      return {
+        id: String(row.comment_id),
+        text: String(row.comment_text),
+        commentedAt: String(row.commented_at),
+        userId: String(row.user_id),
+        status: String(row.status),
+        memberProfileId:
+          row.member_profile_id == null ? null : Number(row.member_profile_id),
+        authorName: row.author_name?.trim() || "Community member",
+        authorAvatarUrl: avatar
+          ? isExternalAvatar(avatar)
+            ? avatar
+            : (signedAvatarUrls.get(avatar) ?? null)
+          : null,
+      }
+    })
+}
+
+async function loadContentComments(
+  client: SupabaseClient,
+  contentId: number,
+): Promise<{ comments: ContentComment[]; error: unknown | null }> {
+  const authorResult = await client.rpc("get_content_comments_with_authors", {
+    selected_content_id: contentId,
+  })
+  if (!authorResult.error) {
+    return {
+      comments: await mapCommentRows(
+        client,
+        (authorResult.data ?? []) as CommentAuthorRow[],
+      ),
+      error: null,
+    }
+  }
+
+  // Keep comments available during a staggered database rollout.
+  const fallbackResult = await client
+    .from("content_comment")
+    .select("comment_id, comment_text, commented_at, user_id, status")
+    .eq("content_id", contentId)
+    .eq("status", "Active")
+    .order("commented_at", { ascending: false })
+  return {
+    comments: fallbackResult.error
+      ? []
+      : await mapCommentRows(
+          client,
+          (fallbackResult.data ?? []) as CommentAuthorRow[],
+        ),
+    error: fallbackResult.error,
+  }
 }
 
 export function normalizeComment(value: string): string {
@@ -152,12 +252,7 @@ export async function loadEngagement(
     .select("emoji, user_id")
     .eq("content_id", contentId)
     .eq("status", "Active")
-  const commentsPromise = client
-    .from("content_comment")
-    .select("comment_id, comment_text, commented_at, user_id, status")
-    .eq("content_id", contentId)
-    .eq("status", "Active")
-    .order("commented_at", { ascending: false })
+  const commentsPromise = loadContentComments(client, contentId)
   const [userId, reactionsResult, commentsResult] = await Promise.all([
     userPromise,
     reactionsPromise,
@@ -176,15 +271,7 @@ export async function loadEngagement(
     myReaction,
     userId,
     warning: warnings.length ? warnings.join(" ") : null,
-    comments: (commentsResult.error ? [] : (commentsResult.data ?? []))
-      .filter((row) => isCommentVisible(String(row.status ?? "")))
-      .map((row) => ({
-        id: String(row.comment_id),
-        text: String(row.comment_text),
-        commentedAt: String(row.commented_at),
-        userId: String(row.user_id),
-        status: String(row.status),
-      })),
+    comments: commentsResult.comments,
   }
 }
 
@@ -228,18 +315,35 @@ export async function postContentComment(
   contentId: number,
   userId: string | null,
   value: string,
+  author?: CommentAuthor | null,
 ): Promise<ContentComment> {
   const ownerId = requireAuthenticatedUserId(userId)
   const commentText = normalizeComment(value)
-  const { data, error } = await client
+  const basePayload = {
+    content_id: contentId,
+    user_id: ownerId,
+    comment_text: commentText,
+  }
+  let result = await client
     .from("content_comment")
     .insert({
-      content_id: contentId,
-      user_id: ownerId,
-      comment_text: commentText,
+      ...basePayload,
+      member_profile_id: author?.profileId ?? null,
     })
     .select("comment_id, comment_text, commented_at, user_id, status")
     .single()
+  if (
+    result.error &&
+    author?.profileId &&
+    /member_profile_id/i.test(result.error.message)
+  ) {
+    result = await client
+      .from("content_comment")
+      .insert(basePayload)
+      .select("comment_id, comment_text, commented_at, user_id, status")
+      .single()
+  }
+  const { data, error } = result
   if (error) throw error
   return {
     id: String(data.comment_id),
@@ -247,6 +351,9 @@ export async function postContentComment(
     commentedAt: String(data.commented_at),
     userId: String(data.user_id),
     status: String(data.status),
+    memberProfileId: author?.profileId ?? null,
+    authorName: author?.name.trim() || "You",
+    authorAvatarUrl: author?.avatarUrl || null,
   }
 }
 
@@ -272,6 +379,9 @@ export async function updateContentComment(
     commentedAt: String(data.commented_at),
     userId: String(data.user_id),
     status: String(data.status),
+    memberProfileId: null,
+    authorName: "Community member",
+    authorAvatarUrl: null,
   }
 }
 

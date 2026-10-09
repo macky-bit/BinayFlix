@@ -125,10 +125,14 @@ export default function PreviewModal({
 		<div
 			className={`fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-3 sm:p-6 md:p-10 ${styles.overlay}`}
 			onClick={onClose}
+			role="presentation"
 		>
 			<div
 				className={`relative w-full rounded-xl overflow-hidden shadow-2xl my-4 md:my-8 ${styles.modal}`}
 				onClick={(e) => e.stopPropagation()}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="preview-modal-title"
 			>
 				{/* Close button */}
 				<button
@@ -162,7 +166,7 @@ export default function PreviewModal({
 
 					<div className="absolute bottom-0 left-0 right-0 p-4 md:p-8 flex items-end justify-between gap-3">
 						<div>
-							<h2 className={`uppercase leading-none tracking-tight mb-3 text-2xl md:text-4xl ${styles.modalTitle}`}>
+							<h2 id="preview-modal-title" className={`uppercase leading-none tracking-tight mb-3 text-2xl md:text-4xl ${styles.modalTitle}`}>
 								{resolvedShow.title}
 							</h2>
 							<div className="flex items-center gap-3 flex-wrap">
