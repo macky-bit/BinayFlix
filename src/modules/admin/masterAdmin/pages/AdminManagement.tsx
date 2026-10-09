@@ -24,9 +24,13 @@ const ROLE_ACCESS: Record<ManagerRole, string> = {
 const SORT_OPTIONS = [
   { value: 'name-az', label: 'Name A–Z' },
   { value: 'name-za', label: 'Name Z–A' },
-  { value: 'newest-login', label: 'Newest Login' },
-  { value: 'oldest-login', label: 'Oldest Login' },
-]
+] as const
+
+type AdminSort = typeof SORT_OPTIONS[number]['value']
+
+function normalizeAdminSort(value: string): AdminSort {
+  return value === 'name-za' ? 'name-za' : 'name-az'
+}
 
 type ModalType = 'add' | 'edit' | 'assignRole' | 'resetPassword' | null
 type ConfirmType = 'activate' | 'deactivate' | 'remove' | 'confirmRole' | null
@@ -612,14 +616,9 @@ function ResetPasswordModal({ onReset, onClose }: {
 }
 
 // Details Panel
-function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivate, onDeactivate, onRemove }: {
+function ManagerDetailsPanel({ manager, onClose }: {
   manager: Manager
   onClose: () => void
-  onEdit: () => void
-  onAssignRole: () => void
-  onActivate: () => void
-  onDeactivate: () => void
-  onRemove: () => void
 }) {
   const isDeactivated = manager.status === 'Inactive'
   const [copiedId, setCopiedId] = useState(false)
@@ -629,30 +628,7 @@ function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivat
     window.setTimeout(() => setCopiedId(false), 1600)
   }
   const footer = (
-    <div className="space-y-2">
-      <div className="admin-details-actions">
-        <button onClick={onClose} className="admin-details-button admin-details-button--secondary">Close</button>
-        {!isDeactivated && <button onClick={onEdit} className="admin-details-button admin-details-button--primary">
-          Edit Profile
-        </button>}
-      </div>
-      {!isDeactivated && (
-        <button onClick={onAssignRole} className="admin-details-button admin-details-button--purple w-full">Assign Role</button>
-      )}
-      <div className="admin-details-actions">
-        {manager.status === 'Active' ? (
-          <button onClick={onDeactivate} className="admin-details-button admin-details-button--deactivate">
-            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18.36 6.64a9 9 0 11-12.73 0M12 3v9" />
-            </svg>
-            <span>Deactivate Account</span>
-          </button>
-        ) : (
-          <button onClick={onActivate} className="admin-details-button admin-details-button--success">Activate Account</button>
-        )}
-        {!isDeactivated && <button onClick={onRemove} className="admin-details-button admin-details-button--danger-strong">Remove Admin Access</button>}
-      </div>
-    </div>
+    <button type="button" onClick={onClose} className="admin-details-button admin-details-button--secondary w-full">Close</button>
   )
 
   return (
@@ -668,7 +644,7 @@ function ManagerDetailsPanel({ manager, onClose, onEdit, onAssignRole, onActivat
           <div className="pb-5" style={{ borderBottom: '1px solid var(--stone)' }}>
             <div>
               <p className="text-white font-semibold text-lg">{manager.name}</p>
-              <div className="mt-1 flex items-center gap-2"><p className="min-w-0 break-all text-xs font-mono" style={{ color: 'var(--taupe)' }}>User ID: {manager.id}</p><button type="button" onClick={() => void copyId()} className="shrink-0 rounded border border-violet-400/30 px-2 py-1 text-[11px] text-violet-200" aria-label={`Copy user ID for ${manager.name}`}>{copiedId ? 'Copied' : 'Copy'}</button></div>
+              <div className="mt-1 flex items-center gap-2"><p className="min-w-0 break-all text-xs font-mono" style={{ color: 'var(--taupe)' }}>User ID: {manager.id}</p><button type="button" onClick={() => void copyId()} className="shrink-0 rounded border border-violet-400/30 px-2 py-1 text-[11px] text-violet-200" aria-label={`Copy user ID for ${manager.name}`}><span aria-live="polite">{copiedId ? 'Copied' : 'Copy'}</span></button></div>
             </div>
           </div>
 
@@ -696,7 +672,7 @@ export default function AdminManagement() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [sortBy, setSortBy] = useState('name-az')
+  const [sortBy, setSortBy] = useState<AdminSort>(() => normalizeAdminSort('name-az'))
   const [page, setPage] = useState(1)
   const [rowsPerPage] = useState(10)
   const [modal, setModal] = useState<ModalType>(null)
@@ -705,15 +681,22 @@ export default function AdminManagement() {
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' } | null>(null)
   const [actionPending, setActionPending] = useState(false)
   const [actionMenuId, setActionMenuId] = useState<string | null>(null)
+  const [actionTargetId, setActionTargetId] = useState<string | null>(null)
   const [pendingResetPw, setPendingResetPw] = useState(false)
   const addBtnRef = useRef<HTMLButtonElement>(null)
+  const actionMenuTriggerRefs = useRef(new Map<string, HTMLButtonElement>())
+  const actionMenuFirstItemRefs = useRef(new Map<string, HTMLButtonElement>())
 
   useEffect(() => {
     const closeMenu = (event: PointerEvent) => {
       if (!(event.target as Element).closest('.admin-row-menu')) setActionMenuId(null)
     }
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setActionMenuId(null)
+      if (event.key === 'Escape' && actionMenuId) {
+        const trigger = actionMenuTriggerRefs.current.get(actionMenuId)
+        setActionMenuId(null)
+        window.requestAnimationFrame(() => trigger?.focus())
+      }
     }
     document.addEventListener('pointerdown', closeMenu)
     document.addEventListener('keydown', closeOnEscape)
@@ -721,9 +704,19 @@ export default function AdminManagement() {
       document.removeEventListener('pointerdown', closeMenu)
       document.removeEventListener('keydown', closeOnEscape)
     }
-  }, [])
+  }, [actionMenuId])
+
+  useEffect(() => {
+    if (!actionMenuId) return
+    window.requestAnimationFrame(() => actionMenuFirstItemRefs.current.get(actionMenuId)?.focus())
+  }, [actionMenuId])
 
   const selectedManager = useMemo(() => managers.find(m => m.id === selectedId) ?? null, [managers, selectedId])
+  const actionTargetManager = useMemo(() => managers.find(m => m.id === actionTargetId) ?? null, [managers, actionTargetId])
+
+  function isInteractiveRowTarget(target: EventTarget | null) {
+    return target instanceof Element && Boolean(target.closest('button, a, input, select, textarea, [role="button"], [role="menu"], [role="menuitem"]'))
+  }
 
   function showToast(message: string, type: 'success' | 'error' = 'success') {
     setToast({ message, type })
@@ -741,19 +734,8 @@ export default function AdminManagement() {
     if (roleFilter) list = list.filter(m => m.role === roleFilter)
     if (statusFilter) list = list.filter(m => m.status === statusFilter)
     list.sort((a, b) => {
-      if (sortBy === 'name-az') return a.name.localeCompare(b.name)
-      if (sortBy === 'name-za') return b.name.localeCompare(a.name)
-      if (sortBy === 'newest-login') {
-        if (!a.lastLogin) return 1
-        if (!b.lastLogin) return -1
-        return new Date(b.lastLogin).getTime() - new Date(a.lastLogin).getTime()
-      }
-      if (sortBy === 'oldest-login') {
-        if (!a.lastLogin) return 1
-        if (!b.lastLogin) return -1
-        return new Date(a.lastLogin).getTime() - new Date(b.lastLogin).getTime()
-      }
-      return 0
+      const comparison = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+      return sortBy === 'name-za' ? -comparison : comparison
     })
     return list
   }, [managers, search, roleFilter, statusFilter, sortBy])
@@ -805,15 +787,17 @@ export default function AdminManagement() {
     }
     await managerState.reload()
     setModal(null)
+    setActionTargetId(null)
     showToast('Manager account updated successfully.')
   }
 
   async function handleAssignRole(role: ManagerRole) {
-    if (!selectedId) return
-    const { error } = await supabase.rpc('set_admin_access_role', { target_admin_id: selectedId, assigned_role: role })
+    if (!actionTargetId) return
+    const { error } = await supabase.rpc('set_admin_access_role', { target_admin_id: actionTargetId, assigned_role: role })
     if (error) { showToast(error.message, 'error'); return }
     await managerState.reload()
     setModal(null)
+    setActionTargetId(null)
     showToast('Manager role updated successfully.')
   }
 
@@ -882,20 +866,20 @@ export default function AdminManagement() {
       {modal === 'add' && (
         <GrantAdminModal onGrant={handleGrantAdmin} onClose={() => { setModal(null); addBtnRef.current?.focus() }} />
       )}
-      {modal === 'edit' && selectedManager && !pendingResetPw && (
+      {modal === 'edit' && actionTargetManager && !pendingResetPw && (
         <EditManagerModal
-          manager={selectedManager}
+          manager={actionTargetManager}
           managers={managers}
           onSave={handleEditSave}
-          onClose={() => setModal(null)}
+          onClose={() => { setModal(null); setActionTargetId(null) }}
           onResetPassword={() => { setModal(null); setPendingResetPw(true) }}
         />
       )}
       {pendingResetPw && (
         <ResetPasswordModal onReset={handleResetPassword} onClose={() => { setPendingResetPw(false); setModal('edit') }} />
       )}
-      {modal === 'assignRole' && selectedManager && (
-        <AssignRoleModal manager={selectedManager} onAssign={handleAssignRole} onClose={() => setModal(null)} />
+      {modal === 'assignRole' && actionTargetManager && (
+        <AssignRoleModal manager={actionTargetManager} onAssign={handleAssignRole} onClose={() => { setModal(null); setActionTargetId(null) }} />
       )}
 
       <AdminPageHeader
@@ -959,7 +943,7 @@ export default function AdminManagement() {
           </svg>
           <select className="select-field" style={{ width: 'auto', minWidth: 148 }} value={sortBy}
             aria-label="Sort administrators"
-            onChange={e => { setSortBy(e.target.value); setPage(1) }}>
+            onChange={e => { setSortBy(normalizeAdminSort(e.target.value)); setPage(1) }}>
             {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
@@ -981,11 +965,11 @@ export default function AdminManagement() {
                 : (
                   <table className="admin-manager-table text-sm" role="grid">
                     <colgroup>
-                      <col style={{ width: '19%' }} />
-                      <col style={{ width: '20%' }} />
-                      <col style={{ width: '14%' }} />
-                      <col style={{ width: '12%' }} />
+                      <col style={{ width: '18%' }} />
+                      <col style={{ width: '18%' }} />
                       <col style={{ width: '17%' }} />
+                      <col style={{ width: '13%' }} />
+                      <col style={{ width: '16%' }} />
                       <col style={{ width: '18%' }} />
                     </colgroup>
                     <thead>
@@ -1003,16 +987,22 @@ export default function AdminManagement() {
                         return (
                           <tr
                             key={m.id}
-                            onClick={() => setSelectedId(isSelected ? null : m.id)}
+                            onClick={event => {
+                              if (isInteractiveRowTarget(event.target)) return
+                              setSelectedId(isSelected ? null : m.id)
+                            }}
                             className={`cursor-pointer transition-colors ${isSelected ? 'table-row-selected' : ''} ${m.status === 'Inactive' ? 'admin-manager-row--deactivated' : ''}`}
                             style={{
                               borderBottom: '1px solid rgba(55,65,81,0.5)',
-                              borderLeft: isSelected ? '3px solid var(--wine)' : '3px solid transparent',
                             }}
-                            onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.03)' }}
-                            onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
                             tabIndex={0}
-                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(isSelected ? null : m.id) } }}
+                            onKeyDown={event => {
+                              if (isInteractiveRowTarget(event.target)) return
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault()
+                                setSelectedId(isSelected ? null : m.id)
+                              }
+                            }}
                             aria-selected={isSelected}
                             role="row"
                           >
@@ -1028,23 +1018,23 @@ export default function AdminManagement() {
                             <td className="px-2 py-3">
                               <span className="text-xs truncate block" style={{ color: 'var(--taupe)' }} title={m.email}>{m.email}</span>
                             </td>
-                            <td className="px-2 py-3"><div className="overflow-hidden"><RoleBadge role={m.role} /></div></td>
-                            <td className="px-2 py-3"><div className="overflow-hidden"><StatusBadge status={m.status} /></div></td>
+                            <td className="px-2 py-3"><RoleBadge role={m.role} /></td>
+                            <td className="px-2 py-3"><StatusBadge status={m.status} /></td>
                             <td className="px-2 py-3">
                               <time className="text-xs block" style={{ color: 'var(--taupe)' }} dateTime={m.lastLogin ?? undefined} title={m.lastLogin ? new Date(m.lastLogin).toISOString() : 'This administrator has never logged in'}>{formatDate(m.lastLogin)}</time>
                             </td>
-                            <td className="px-2 py-3" onClick={e => e.stopPropagation()}>
-                              <div className="admin-manager-table__actions admin-row-menu">
+                            <td className="px-2 py-3">
+                              <div className="admin-manager-table__actions admin-row-menu" onClick={event => event.stopPropagation()} onPointerDown={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
                                 {m.status === 'Inactive' ? (
-                                  <button type="button" onClick={() => { setSelectedId(m.id); setConfirmTargetId(m.id); setConfirmType('activate') }} className="manager-status-action manager-status-action--activate" disabled={actionPending}>Reactivate</button>
+                                  <button type="button" onClick={() => { setConfirmTargetId(m.id); setConfirmType('activate') }} className="manager-status-action manager-status-action--activate" disabled={actionPending}>Reactivate</button>
                                 ) : (
                                   <><button type="button" onClick={() => setSelectedId(m.id)} className="admin-manager-table__compact-action btn-wine py-1 rounded text-xs font-medium flex-shrink-0" aria-label={`View details for ${m.name}`}>View details</button><div className="relative">
-                                    <button type="button" className="admin-row-menu__trigger" onClick={() => setActionMenuId(actionMenuId === m.id ? null : m.id)} aria-label={`More actions for ${m.name}`} aria-expanded={actionMenuId === m.id}>•••</button>
-                                    {actionMenuId === m.id && <div className="admin-row-menu__popover" role="menu">
-                                      <button type="button" role="menuitem" onClick={() => { setSelectedId(m.id); setModal('edit'); setActionMenuId(null) }}>Edit profile</button>
-                                      <button type="button" role="menuitem" onClick={() => { setSelectedId(m.id); setModal('assignRole'); setActionMenuId(null) }}>Change role</button>
-                                      <button type="button" role="menuitem" onClick={() => { setSelectedId(m.id); setConfirmTargetId(m.id); setConfirmType('deactivate'); setActionMenuId(null) }}>Deactivate</button>
-                                      <button type="button" role="menuitem" className="is-danger" onClick={() => { setSelectedId(m.id); setConfirmTargetId(m.id); setConfirmType('remove'); setActionMenuId(null) }}>Remove admin access</button>
+                                    <button ref={element => { if (element) actionMenuTriggerRefs.current.set(m.id, element); else actionMenuTriggerRefs.current.delete(m.id) }} type="button" className="admin-row-menu__trigger" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); setActionMenuId(actionMenuId === m.id ? null : m.id) }} aria-label={`More actions for ${m.name}`} aria-expanded={actionMenuId === m.id} aria-haspopup="menu">•••</button>
+                                    {actionMenuId === m.id && <div className="admin-row-menu__popover" role="menu" aria-label={`Actions for ${m.name}`} onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()} onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') { event.preventDefault(); setActionMenuId(null); window.requestAnimationFrame(() => actionMenuTriggerRefs.current.get(m.id)?.focus()) } }}>
+                                      <button ref={element => { if (element) actionMenuFirstItemRefs.current.set(m.id, element); else actionMenuFirstItemRefs.current.delete(m.id) }} type="button" role="menuitem" onClick={() => { setActionTargetId(m.id); setModal('edit'); setActionMenuId(null) }}>Edit profile</button>
+                                      <button type="button" role="menuitem" onClick={() => { setActionTargetId(m.id); setModal('assignRole'); setActionMenuId(null) }}>Change role</button>
+                                      <button type="button" role="menuitem" onClick={() => { setConfirmTargetId(m.id); setConfirmType('deactivate'); setActionMenuId(null) }}>Deactivate</button>
+                                      <button type="button" role="menuitem" className="is-danger" onClick={() => { setConfirmTargetId(m.id); setConfirmType('remove'); setActionMenuId(null) }}>Remove admin access</button>
                                     </div>}
                                   </div></>
                                 )}
@@ -1111,11 +1101,6 @@ export default function AdminManagement() {
           <ManagerDetailsPanel
             manager={selectedManager}
             onClose={() => setSelectedId(null)}
-            onEdit={() => setModal('edit')}
-            onAssignRole={() => setModal('assignRole')}
-            onActivate={() => { setConfirmType('activate'); setConfirmTargetId(selectedManager.id) }}
-            onDeactivate={() => { setConfirmType('deactivate'); setConfirmTargetId(selectedManager.id) }}
-            onRemove={() => { setConfirmType('remove'); setConfirmTargetId(selectedManager.id) }}
           />
         )}
       </div>
