@@ -95,21 +95,6 @@
 	background: #321e48;
 }
 
-.trendingMoreBtn {
-	background: rgba(31, 31, 39, 0.8);
-	color: #9ca3af;
-}
-
-.trendingMoreBtnInline {
-	color: #9ca3af;
-	background: transparent;
-}
-
-.trendingMoreBtnInline:hover {
-	color: #ffffff;
-	background: rgba(255, 255, 255, 0.08);
-}
-
 .trendingGenrePill {
 	background: rgba(124, 58, 237, 0.2);
 	color: #9ca3af;

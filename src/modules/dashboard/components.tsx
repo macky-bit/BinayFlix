@@ -179,16 +179,6 @@ function AccountMenuIcon({ name }: { name: AccountMenuIconName }) {
   )
 }
 
-function MoreDotsIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="12" cy="5" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="12" cy="19" r="1.5" />
-    </svg>
-  )
-}
-
 function MuteIcon({ muted }: { muted: boolean }) {
   return muted ? (
     <svg
@@ -288,17 +278,10 @@ export function TrendingCard({
       {/* metadata always visible */}
       <div className={`px-2.5 pt-2 pb-2.5 ${styles.trendingMeta} ${posterStyle ? styles.posterCardMeta : ""}`}>
         {/* title row */}
-        <div className="flex items-start justify-between gap-1 mb-1">
+        <div className="mb-1">
           <p className="text-[13px] font-semibold text-white leading-snug line-clamp-1 flex-1">
             {show.title}
           </p>
-          <button
-            className={`shrink-0 w-6 h-6 flex items-center justify-center rounded-full transition-colors ${styles.trendingMoreBtnInline}`}
-            onClick={(e) => e.stopPropagation()}
-            aria-label="More options"
-          >
-            <MoreDotsIcon />
-          </button>
         </div>
 
         {/* match + year */}
@@ -409,16 +392,6 @@ export function ContinueWatchingCard({
         />
         <div className={`absolute inset-0 ${styles.continueImgGradient}`} />
 
-        {/* more options */}
-        <button
-          className={`absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full opacity-0 transition-opacity ${styles.trendingMoreBtn} ${
-            hovered ? "opacity-100" : ""
-          }`}
-          onClick={(e) => e.stopPropagation()}
-          aria-label="More options"
-        >
-          <MoreDotsIcon />
-        </button>
       </div>
 
       {/* bottom bar: title, episode, progress, actions */}

@@ -499,3 +499,4 @@ test("Checkout sessions use server-owned recurring prices and authenticated user
   assert.match(source, /mode: "subscription"/i)
   assert.doesNotMatch(source, /selected_subscription_id/)
 })
+
