@@ -29,6 +29,8 @@ const C = {
 
 // ─── Help articles data ──────────────────────────────────────────
 
+const MAX_HELP_SEARCH_LENGTH = 50
+
 const ARTICLES = [
   {
     id: "reset-password",
@@ -1446,7 +1448,7 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
 
   if (selectedArticle) {
     return (
-      <div className={styles.page} style={{ minHeight: "100vh" }}>
+      <div className={styles.page}>
         <ArticlePage
           article={selectedArticle}
           onBack={() => setSelectedArticle(null)}
@@ -1461,7 +1463,9 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
     <div
       className={styles.page}
       style={{
-        minHeight: "100vh",
+        height: "100%",
+
+        minHeight: 0,
 
         display: "flex",
 
@@ -1540,6 +1544,7 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
               onFocus={() => setFocused(true)}
               onKeyDown={handleKeyDown}
               placeholder="Type a question, topic, or issue"
+              maxLength={MAX_HELP_SEARCH_LENGTH}
               aria-label="Search Help Center"
               aria-autocomplete="list"
               aria-expanded={showSuggestions}
@@ -2006,9 +2011,6 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
 
               "Privacy",
 
-              "Help Center",
-
-              "Back to StreamFlix",
             ].map((item) => (
               <a
                 key={item}

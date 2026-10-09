@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { Show, TMDBCatalogData, CatalogKind } from "../movie/types"
-import { useTMDBCatalog } from "../movie/useTMDB"
+import { useSupabaseCatalog } from "../movie/useSupabaseCatalog"
 import {
   CarouselRow,
   ContinueWatchingRow,
@@ -69,11 +69,14 @@ function CatalogView({
         ? row.shows
         : row.shows.filter((show) => show.genres.includes(genre)),
   }))
+  const heroShows =
+    rows.find((row) => row.title === "Trending Now")?.shows.slice(0, 5) ??
+    (featured ? [featured] : [])
 
   return (
     <div className={showHero ? undefined : "pt-20"}>
-      {showHero && featured && (
-        <Hero show={featured} onWatch={onWatch} onInfo={onInfo} />
+      {showHero && heroShows.length > 0 && (
+        <Hero shows={heroShows} onWatch={onWatch} onInfo={onInfo} />
       )}
       <div className="space-y-8 pb-10">
         <GenreFilters active={genre} setActive={setGenre} genres={GENRES} />
@@ -99,7 +102,7 @@ export default function CatalogPage({
   onWatch,
   onInfo,
 }: CatalogPageProps) {
-  const data = useTMDBCatalog(kind)
+  const data = useSupabaseCatalog(kind)
 
   return (
     <div className="min-h-screen bg-[var(--color-ink)] text-[var(--color-cream)]">

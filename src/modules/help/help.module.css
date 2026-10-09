@@ -1,38 +1,18 @@
-.moduleShell,
+.moduleShell {
+	background: var(--color-ink);
+	color: var(--color-cream);
+	font-family: var(--font-body);
+	height: 100dvh;
+	overflow: hidden;
+}
+
 .page {
 	background: var(--color-ink);
 	color: var(--color-cream);
 	font-family: var(--font-body);
-	min-height: 100vh;
-}
-
-.backRow {
-	max-width: 80rem;
-	margin: 0 auto;
-	padding: 1.5rem 2rem 0;
-}
-
-.backButton {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	padding: 8px 18px 8px 12px;
-	background: transparent;
-	border: 1.5px solid rgba(124,58,237,0.35);
-	border-radius: 9999px;
-	color: #9CA3AF;
-	font-family: var(--font-body);
-	font-size: 0.82rem;
-	font-weight: 500;
-	cursor: pointer;
-	transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
-}
-
-.backButton:hover {
-	border-color: #F5A800;
-	color: #F5A800;
-	background: rgba(245,168,0,0.07);
-	box-shadow: 0 0 0 3px rgba(245,168,0,0.1);
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
 }
 
 /* Hero */

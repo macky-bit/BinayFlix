@@ -32,9 +32,48 @@
 	background: #321e48;
 }
 
+.posterCarouselCard {
+	display: flex;
+	flex-direction: column;
+	width: clamp(11rem, 48vw, 13.5rem);
+	height: clamp(17rem, 75vw, 21rem);
+	background: #321e48;
+	scroll-snap-align: start;
+}
+
+.posterCardMedia {
+	flex: 0 0 64%;
+	height: 64%;
+	aspect-ratio: auto;
+}
+
+.posterCardMedia .trendingCardImgGradient {
+	background: linear-gradient(
+		to top,
+		rgba(22, 15, 37, 0.28) 0%,
+		transparent 35%
+	);
+}
+
+.posterCardMeta {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	justify-content: center;
+	min-height: 0;
+	background: #321e48;
+}
+
 @media (min-width: 640px) {
 	.trendingCard {
 		width: 220px;
+	}
+
+	.posterCarouselCard {
+		width: 13.5rem;
+		height: 21rem;
 	}
 }
 
@@ -122,13 +161,78 @@
 
 /* ─── Top 10 card ──────────────────────────────────────────────────────── */
 .rankNumber {
+	position: absolute;
+	left: 0;
+	bottom: -0.08em;
+	z-index: 0;
 	font-family: var(--font-display);
 	font-weight: 800;
-	font-size: clamp(8rem, 15vw, 11rem);
-	color: transparent;
-	-webkit-text-stroke: 3px rgba(124, 58, 237, 0.45);
+	font-size: clamp(5.5rem, 9vw, 8rem);
+	color: #08080f;
+	-webkit-text-stroke: 2px rgba(255, 255, 255, 0.92);
 	line-height: 1;
-	text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
+	letter-spacing: -0.08em;
+	text-shadow: 0 3px 18px rgba(124, 58, 237, 0.45);
+	user-select: none;
+}
+
+.top10Grid {
+	display: flex;
+	gap: 0.9rem;
+	overflow-x: auto;
+	overflow-y: hidden;
+	padding: 0.25rem 0 0.75rem;
+	scroll-behavior: smooth;
+	scroll-snap-type: x proximity;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.top10Grid::-webkit-scrollbar {
+	display: none;
+}
+
+.top10Card {
+	position: relative;
+	flex: 0 0 clamp(10.5rem, 40vw, 13.5rem);
+	height: clamp(10rem, 42vw, 13.5rem);
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	text-align: left;
+	scroll-snap-align: start;
+}
+
+.top10Poster {
+	position: relative;
+	z-index: 1;
+	width: 68%;
+	height: 100%;
+	margin-left: auto;
+	overflow: hidden;
+	border-radius: 0.75rem;
+	box-shadow: -10px 0 24px rgba(0, 0, 0, 0.45);
+	transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.top10Card:hover .top10Poster,
+.top10Card:focus-visible .top10Poster {
+	transform: translateY(-4px) scale(1.02);
+	box-shadow: -10px 8px 28px rgba(0, 0, 0, 0.58);
+}
+
+.top10Card:focus-visible {
+	outline: 2px solid #ffb800;
+	outline-offset: 3px;
+	border-radius: 0.85rem;
+	}
+
+@media (min-width: 640px) {
+	.top10Card {
+		flex-basis: 13.5rem;
+		height: 13.5rem;
+	}
 }
 
 /* ─── Carousel row ─────────────────────────────────────────────────────── */
@@ -526,6 +630,44 @@
 }
 
 /* ─── Hero ─────────────────────────────────────────────────────────────── */
+.heroRoot {
+	overflow: hidden;
+	container-type: size;
+}
+
+.heroDraggable {
+	cursor: grab;
+	touch-action: pan-y;
+	user-select: none;
+}
+
+.heroDraggable:active {
+	cursor: grabbing;
+}
+
+.heroDraggable button {
+	cursor: pointer;
+}
+
+.heroTrailer {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: max(100%, 177.78cqh);
+	height: max(100%, 56.25cqw);
+	min-width: 100%;
+	min-height: 100%;
+	border: 0;
+	opacity: 0;
+	pointer-events: none;
+	transform: translate(-50%, -50%);
+	transition: opacity 600ms ease;
+}
+
+.heroTrailerVisible {
+	opacity: 1;
+}
+
 .heroDim {
 	background: transparent;
 }
@@ -625,6 +767,53 @@
 
 .heroMuteBtn:hover {
 	border-color: rgba(255, 255, 255, 0.7);
+}
+
+.heroMuteBtn:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.heroCarouselDots {
+	position: absolute;
+	left: 50%;
+	bottom: 1.25rem;
+	z-index: 5;
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	transform: translateX(-50%);
+}
+
+.heroCarouselDot {
+	width: 1.35rem;
+	height: 0.22rem;
+	border: 0;
+	border-radius: 9999px;
+	background: rgba(255, 255, 255, 0.35);
+	transition: width 180ms ease, background 180ms ease;
+}
+
+.heroCarouselDot:hover,
+.heroCarouselDot:focus-visible {
+	background: rgba(255, 255, 255, 0.75);
+	outline: 2px solid rgba(245, 168, 0, 0.8);
+	outline-offset: 3px;
+}
+
+.heroCarouselDotActive {
+	width: 2.5rem;
+	background: linear-gradient(90deg, #f5a800, #7c3aed);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.heroTrailer {
+		transition: none;
+	}
+
+	.heroCarouselDot {
+		transition: none;
+	}
 }
 
 .heroRatingBadge {

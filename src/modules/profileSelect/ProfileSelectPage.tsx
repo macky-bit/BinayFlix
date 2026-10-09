@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import styles from "./profileSelect.module.css";
-import logoImg from "/streamflix_logo.svg";
+import logoImg from "/favicon.png";
 
 export interface Profile {
 	id: number;

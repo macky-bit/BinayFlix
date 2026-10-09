@@ -76,6 +76,8 @@ test("subscribed members choose a profile after login", () => {
 })
 
 test("dashboard search normalizes and limits user queries", () => {
+  assert.equal(MAX_SEARCH_LENGTH, 25)
+
   assert.equal(normalizeSearchQuery("  star   wars  "), "star wars")
 
   assert.equal(normalizeSearchQuery("x".repeat(120)).length, MAX_SEARCH_LENGTH)

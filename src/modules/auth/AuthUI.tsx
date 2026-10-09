@@ -3,7 +3,7 @@ import styles from "./auth.module.css";
 
 export const LOGO_SVG = (
 	<div className="flex items-center gap-2">
-		<img src="/streamflix_logo.svg" alt="" aria-hidden className="h-8 w-auto" />
+		<img src="/favicon.png" alt="" aria-hidden className="h-8 w-auto object-contain" />
 		<svg
 			viewBox="0 0 111.81 30"
 			className="h-7 w-auto"

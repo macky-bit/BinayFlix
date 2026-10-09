@@ -2,17 +2,21 @@ import { useEffect, useState, useRef, type RefObject } from "react"
 
 import type { Show } from "../movie/types"
 
+import { fetchTrailerKey } from "../movie/tmdb"
+
 import styles from "./dashboard.module.css"
 
 import { useMyList } from "./myList/myListStore"
 
 import { useContinueWatching } from "./continueWatchingStore"
 
+import { MAX_SEARCH_LENGTH } from "./search"
+
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 
 export const LOGO_SVG = (
   <div className="flex items-center gap-2">
-    <img src="/streamflix_logo.svg" alt="" aria-hidden className="h-7 w-auto" />
+    <img src="/favicon.png" alt="" aria-hidden className="h-7 w-auto object-contain" />
     <svg viewBox="0 0 111.81 30" className="h-6 w-auto" aria-label="StreamFlix">
       <defs>
         <linearGradient id="sfGradNav" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -227,12 +231,16 @@ export function TrendingCard({
   onPlay,
 
   onInfo,
+
+  posterStyle = false,
 }: {
   show: Show
 
   onPlay?: (show: Show) => void
 
   onInfo?: (show: Show) => void
+
+  posterStyle?: boolean
 }) {
   const [hovered, setHovered] = useState(false)
 
@@ -244,20 +252,31 @@ export function TrendingCard({
 
   return (
     <div
-      className={`relative shrink-0 rounded-xl overflow-hidden cursor-pointer ${styles.trendingCard}`}
+      className={`relative shrink-0 rounded-xl overflow-hidden cursor-pointer ${styles.trendingCard} ${posterStyle ? styles.posterCarouselCard : ""}`}
       style={{
-        transform: hovered ? "scale(1.04)" : "scale(1)",
+        transform: hovered
+          ? posterStyle
+            ? "translateY(-4px) scale(1.02)"
+            : "scale(1.04)"
+          : "scale(1)",
 
         transition: "transform 0.2s ease, box-shadow 0.2s ease",
 
-        boxShadow: hovered ? "0 8px 32px rgba(0,0,0,0.7)" : "none",
+        boxShadow: hovered
+          ? "-10px 8px 28px rgba(0,0,0,0.58)"
+          : posterStyle
+            ? "-10px 0 24px rgba(0,0,0,0.45)"
+            : "none",
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={() => onInfo?.(show)}
     >
       {/* thumbnail */}
-      <div className="relative w-full" style={{ aspectRatio: "16/10" }}>
+      <div
+        className={`relative w-full ${posterStyle ? styles.posterCardMedia : ""}`}
+        style={posterStyle ? undefined : { aspectRatio: "16/10" }}
+      >
         <img
           src={show.image}
           alt={show.title}
@@ -267,7 +286,7 @@ export function TrendingCard({
       </div>
 
       {/* metadata always visible */}
-      <div className={`px-2.5 pt-2 pb-2.5 ${styles.trendingMeta}`}>
+      <div className={`px-2.5 pt-2 pb-2.5 ${styles.trendingMeta} ${posterStyle ? styles.posterCardMeta : ""}`}>
         {/* title row */}
         <div className="flex items-start justify-between gap-1 mb-1">
           <p className="text-[13px] font-semibold text-white leading-snug line-clamp-1 flex-1">
@@ -483,19 +502,20 @@ export function Top10Card({
   onInfo?: (show: Show) => void
 }) {
   return (
-    <div
-      className="relative shrink-0 flex items-end cursor-pointer w-[140px] sm:w-[160px]"
+    <button
+      type="button"
+      className={`${styles.top10Card} cursor-pointer`}
       onClick={() => onInfo?.(show)}
+      aria-label={`View details for number ${rank}, ${show.title}`}
     >
       <span
-        className={`absolute left-0 bottom-0 z-10 leading-none select-none ${styles.rankNumber}`}
-        style={{ bottom: -8, left: -10 }}
+        className={styles.rankNumber}
+        aria-hidden="true"
       >
         {rank}
       </span>
       <div
-        className="relative z-20 ml-10 rounded-xl overflow-hidden w-[100px] sm:w-[120px]"
-        style={{ aspectRatio: "2/3" }}
+        className={styles.top10Poster}
       >
         <img
           src={show.image}
@@ -503,7 +523,7 @@ export function Top10Card({
           className="w-full h-full object-cover"
         />
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -536,10 +556,17 @@ export function CarouselRow({
 
   onInfo?: (show: Show) => void
 }) {
+  const posterStyleRows = new Set([
+    "trending now",
+    "new movies",
+    "popular tv shows",
+    "recommended movies",
+    "recommended tv shows",
+  ])
+  const usePosterCards = posterStyleRows.has(title.toLowerCase())
   const ref = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
-  const [paused, setPaused] = useState(false)
   const updateScrollState = () => {
     const element = ref.current
     if (!element) return
@@ -556,12 +583,6 @@ export function CarouselRow({
     element.addEventListener("scroll", updateScrollState, { passive: true })
     return () => { observer.disconnect(); element.removeEventListener("scroll", updateScrollState) }
   }, [shows])
-  useEffect(() => {
-    if (title.toLowerCase() !== "new movies" || paused || !canScrollRight || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    const timer = window.setInterval(() => ref.current?.scrollBy({ left: 600, behavior: "smooth" }), 10_000)
-    return () => window.clearInterval(timer)
-  }, [title, paused, canScrollRight])
-
   if (shows.length === 0) return null
 
   const scroll = (dir: "left" | "right") => {
@@ -583,7 +604,7 @@ export function CarouselRow({
         </div>
       </div>
 
-      <div className="relative group" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={() => setPaused(false)} onTouchStart={() => setPaused(true)}>
+      <div className="relative group">
         {canScrollLeft && <button
           onClick={() => scroll("left")}
           className={`hidden sm:flex absolute left-0 top-0 bottom-0 z-10 w-12 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${styles.scrollFadeLeft}`}
@@ -594,9 +615,9 @@ export function CarouselRow({
 
         <div
           ref={ref}
-          className={`flex gap-3 overflow-x-auto pb-2 ${styles.noScrollbar}`}
+          className={top10 ? styles.top10Grid : `flex gap-3 overflow-x-auto pb-2 ${styles.noScrollbar}`}
         >
-          {shows.map((show, i) =>
+          {shows.slice(0, top10 ? 10 : shows.length).map((show, i) =>
             top10 ? (
               <Top10Card
                 key={show.id}
@@ -617,6 +638,7 @@ export function CarouselRow({
                 show={show}
                 onPlay={onPlay}
                 onInfo={onInfo}
+                posterStyle={usePosterCards}
               />
             ),
           )}
@@ -989,7 +1011,7 @@ export function Navbar({
                   : "Search movies and TV shows"
               }
               value={searchQuery}
-              maxLength={100}
+              maxLength={MAX_SEARCH_LENGTH}
               onChange={(event) => onSearchQueryChange?.(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
@@ -1168,28 +1190,178 @@ export function Navbar({
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
 export function Hero({
-  show,
+  shows,
 
   onWatch,
 
   onInfo,
 }: {
-  show: Show
+  shows: Show[]
 
   onWatch: (show: Show) => void
 
   onInfo: (show: Show) => void
 }) {
-  const [muted, setMuted] = useState(true)
+  const slides = shows.slice(0, 5)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [muted, setMuted] = useState(false)
+  const [trailerKey, setTrailerKey] = useState<string | null>(null)
+  const [showTrailer, setShowTrailer] = useState(false)
+  const [trailerLoaded, setTrailerLoaded] = useState(false)
+  const [startupOverlayCleared, setStartupOverlayCleared] = useState(false)
+  const [heroVisible, setHeroVisible] = useState(true)
+  const heroRef = useRef<HTMLElement>(null)
+  const trailerRef = useRef<HTMLIFrameElement>(null)
+  const startupTimerRef = useRef<number | null>(null)
+  const dragStartRef = useRef<{
+    x: number
+    y: number
+    pointerId: number
+  } | null>(null)
+  const show = slides[activeIndex] ?? slides[0]
+
+  useEffect(() => {
+    if (activeIndex >= slides.length) setActiveIndex(0)
+  }, [activeIndex, slides.length])
+
+  useEffect(() => {
+    if (
+      !heroVisible ||
+      slides.length < 2 ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setActiveIndex((index) => (index + 1) % slides.length)
+    }, 20_000)
+
+    return () => window.clearTimeout(timer)
+  }, [heroVisible, slides.length, activeIndex])
+
+  const selectSlide = (index: number) => {
+    setActiveIndex((index + slides.length) % slides.length)
+  }
+
+  const startDrag = (event: React.PointerEvent<HTMLElement>) => {
+    if (
+      slides.length < 2 ||
+      (event.pointerType === "mouse" && event.button !== 0) ||
+      (event.target as HTMLElement).closest("button, a, input, select, textarea")
+    ) {
+      return
+    }
+
+    dragStartRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      pointerId: event.pointerId,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const finishDrag = (event: React.PointerEvent<HTMLElement>) => {
+    const start = dragStartRef.current
+    dragStartRef.current = null
+    if (!start || start.pointerId !== event.pointerId) return
+
+    const distanceX = event.clientX - start.x
+    const distanceY = event.clientY - start.y
+    if (Math.abs(distanceX) >= 60 && Math.abs(distanceX) > Math.abs(distanceY)) {
+      selectSlide(activeIndex + (distanceX < 0 ? 1 : -1))
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
 
   const bg = show.hero ?? show.image
 
   const genreTag = show.genres?.[0] ?? "Drama"
 
+  useEffect(() => {
+    let cancelled = false
+    setMuted(false)
+    setTrailerKey(null)
+    setShowTrailer(false)
+    setTrailerLoaded(false)
+    setStartupOverlayCleared(false)
+
+    const timer = window.setTimeout(() => {
+      if (!cancelled) setShowTrailer(true)
+    }, 3_000)
+
+    void fetchTrailerKey(show.id, show.mediaType ?? "movie").then((key) => {
+      if (!cancelled) setTrailerKey(key)
+    })
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+      if (startupTimerRef.current !== null) {
+        window.clearTimeout(startupTimerRef.current)
+      }
+    }
+  }, [show.id, show.mediaType])
+
+  useEffect(() => {
+    const element = heroRef.current
+    if (!element) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const visible = entry.isIntersecting && entry.intersectionRatio > 0.1
+        setHeroVisible(visible)
+        if (!visible) {
+          setTrailerLoaded(false)
+          setStartupOverlayCleared(false)
+          if (startupTimerRef.current !== null) {
+            window.clearTimeout(startupTimerRef.current)
+          }
+        }
+      },
+      { threshold: [0, 0.1, 0.25] },
+    )
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  const trailerVisible =
+    showTrailer && heroVisible && trailerLoaded && startupOverlayCleared
+
+  useEffect(() => {
+    if (!trailerVisible) return
+    trailerRef.current?.contentWindow?.postMessage(
+      JSON.stringify({
+        event: "command",
+        func: muted ? "mute" : "unMute",
+        args: [],
+      }),
+      "*",
+    )
+  }, [muted, trailerVisible])
+
+  const trailerUrl = trailerKey
+    ? `https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&controls=0&playsinline=1&rel=0&disablekb=1&fs=0&iv_load_policy=3&enablejsapi=1`
+    : null
+
   return (
     <section
-      className="relative w-full"
+      ref={heroRef}
+      className={`relative w-full ${styles.heroRoot} ${slides.length > 1 ? styles.heroDraggable : ""}`}
       style={{ height: "53vh", minHeight: 280 }}
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="Top 5 featured titles"
+      onPointerDown={startDrag}
+      onPointerUp={finishDrag}
+      onPointerCancel={() => {
+        dragStartRef.current = null
+      }}
+      onDragStart={(event) => event.preventDefault()}
     >
       <img
         src={bg}
@@ -1197,6 +1369,29 @@ export function Hero({
         aria-hidden
         className="absolute inset-0 w-full h-full object-cover object-top"
       />
+      {heroVisible && trailerUrl && (
+        <iframe
+          ref={trailerRef}
+          key={trailerKey}
+          className={`${styles.heroTrailer} ${trailerVisible ? styles.heroTrailerVisible : ""}`}
+          src={trailerUrl}
+          title={`${show.title} trailer`}
+          allow="autoplay; encrypted-media; picture-in-picture"
+          tabIndex={-1}
+          aria-hidden="true"
+          onLoad={() => {
+            setTrailerLoaded(true)
+            setStartupOverlayCleared(false)
+            if (startupTimerRef.current !== null) {
+              window.clearTimeout(startupTimerRef.current)
+            }
+            startupTimerRef.current = window.setTimeout(
+              () => setStartupOverlayCleared(true),
+              2_500,
+            )
+          }}
+        />
+      )}
       <div className={`absolute inset-0 ${styles.heroDim}`} />
       <div className={`absolute inset-0 ${styles.heroGradientRight}`} />
       <div className={`absolute inset-0 ${styles.heroGradientTop}`} />
@@ -1204,7 +1399,7 @@ export function Hero({
       <div className="absolute bottom-16 sm:bottom-20 left-4 sm:left-10 xl:left-12 right-4 sm:right-auto max-w-[540px]">
         {/* Genre tag replaces "StreamFlix Original" */}
         <p className={`text-[11px] font-semibold mb-3 ${styles.heroEyebrow}`}>
-          {genreTag}
+          Top {activeIndex + 1} of {slides.length} · {genreTag}
         </p>
         <h1
           className={`text-3xl sm:text-5xl xl:text-6xl uppercase leading-none mb-4 ${styles.heroTitle}`}
@@ -1249,9 +1444,12 @@ export function Hero({
 
       <div className="absolute bottom-20 right-4 sm:right-10 xl:right-12 flex flex-col items-end gap-3">
         <button
-          onClick={() => setMuted((m) => !m)}
+          onClick={() => {
+            setMuted((m) => !m)
+          }}
           className={`w-9 h-9 flex items-center justify-center transition-colors ${styles.heroMuteBtn}`}
           aria-label={muted ? "Unmute" : "Mute"}
+          disabled={!trailerVisible || !trailerKey}
         >
           <MuteIcon muted={muted} />
         </button>
@@ -1261,6 +1459,21 @@ export function Hero({
           {show.rating}
         </span>
       </div>
+
+      {slides.length > 1 && (
+        <div className={styles.heroCarouselDots} aria-label="Choose featured title">
+          {slides.map((slide, index) => (
+            <button
+              key={`${slide.mediaType ?? "movie"}-${slide.id}`}
+              type="button"
+              className={`${styles.heroCarouselDot} ${index === activeIndex ? styles.heroCarouselDotActive : ""}`}
+              onClick={() => selectSlide(index)}
+              aria-label={`Show ${index + 1}: ${slide.title}`}
+              aria-current={index === activeIndex ? "true" : undefined}
+            />
+          ))}
+        </div>
+      )}
     </section>
   )
 }

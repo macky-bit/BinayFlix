@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../../../lib/supabase'
-const streamflixLogo = "/streamflix_logo.svg";
+const streamflixLogo = "/favicon.png";
 interface LoginPageProps {
   onLogin: () => void
 }

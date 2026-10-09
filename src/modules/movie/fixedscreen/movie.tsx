@@ -30,7 +30,7 @@ interface WatchProps {
 	onBack: () => void;
 }
 
-type ActivePanel = "music" | "refresher" | null;
+type ActivePanel = "music" | "refresher" | "comments" | "episodes" | null;
 
 interface PlaceholderTrack {
 	id: string;
@@ -51,14 +51,25 @@ const MOVIE_FALLBACK_SECONDS = 2 * 60 * 60;
 
 function loadProgress(): Record<string, number> {
 	try {
-		return JSON.parse(localStorage.getItem("sf_progress") || "{}");
+		const parsed: unknown = JSON.parse(localStorage.getItem("sf_progress") || "{}");
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+		return Object.fromEntries(
+			Object.entries(parsed).filter(
+				(entry): entry is [string, number] =>
+					typeof entry[1] === "number" && Number.isFinite(entry[1]),
+			),
+		);
 	} catch {
 		return {};
 	}
 }
 
 function saveProgress(progress: Record<string, number>) {
-	localStorage.setItem("sf_progress", JSON.stringify(progress));
+	try {
+		localStorage.setItem("sf_progress", JSON.stringify(progress));
+	} catch {
+		// Playback should continue when storage is unavailable or full.
+	}
 }
 
 function formatTime(seconds: number) {
@@ -103,6 +114,36 @@ function RefreshIcon() {
 	);
 }
 
+function CommentsIcon() {
+	return (
+		<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+			<path d="M5 5h14v11H9l-4 3V5Z" />
+			<path d="M8 9h8M8 12h5" />
+		</svg>
+	);
+}
+
+function EpisodesIcon() {
+	return (
+		<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+			<rect x="4" y="5" width="16" height="14" rx="2" />
+			<path d="m10 9 5 3-5 3V9Z" />
+		</svg>
+	);
+}
+
+function ExpandIcon({ active }: { active: boolean }) {
+	return (
+		<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+			{active ? (
+				<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+			) : (
+				<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
+			)}
+		</svg>
+	);
+}
+
 function RefresherSection({ title, items }: { title: string; items: string[] }) {
 	return (
 		<div className={styles.refresherSection}>
@@ -134,6 +175,7 @@ export default function WatchScreen({
 	const [muted, setMuted] = useState(false);
 	const [captions, setCaptions] = useState(false);
 	const [activePanel, setActivePanel] = useState<ActivePanel>(null);
+	const [isFullscreen, setIsFullscreen] = useState(false);
 	const [spoilersRevealed, setSpoilersRevealed] = useState(false);
 	const [progress, setProgress] =
 		useState<Record<string, number>>(loadProgress);
@@ -154,6 +196,8 @@ export default function WatchScreen({
 	const [commentActionPending, setCommentActionPending] = useState<string | null>(null);
 	const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const engagementRequest = useRef(0);
+	const pageRef = useRef<HTMLDivElement>(null);
+	const panelCloseRef = useRef<HTMLButtonElement>(null);
 
 	useEffect(() => {
 		let active = true;
@@ -266,9 +310,11 @@ export default function WatchScreen({
 		if (!playing) return;
 		const timer = window.setInterval(() => {
 			setProgress((previous) => {
+				const previousTime = previous[contentId] ?? 0;
+				if (previousTime >= duration) return previous;
 				const next = {
 					...previous,
-					[contentId]: Math.min((previous[contentId] ?? 0) + 1, duration),
+					[contentId]: Math.min(previousTime + 1, duration),
 				};
 				saveProgress(next);
 				return next;
@@ -276,6 +322,30 @@ export default function WatchScreen({
 		}, 1000);
 		return () => window.clearInterval(timer);
 	}, [contentId, duration, playing]);
+
+	useEffect(() => {
+		if (playing && current >= duration) setPlaying(false);
+	}, [current, duration, playing]);
+
+	useEffect(() => {
+		const handleFullscreenChange = () => {
+			setIsFullscreen(document.fullscreenElement === pageRef.current);
+		};
+		document.addEventListener("fullscreenchange", handleFullscreenChange);
+		return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+	}, []);
+
+	useEffect(() => {
+		if (!activePanel) return;
+		panelCloseRef.current?.focus();
+		const handleEscape = (event: KeyboardEvent) => {
+			if (event.key === "Escape" && document.fullscreenElement === null) {
+				setActivePanel(null);
+			}
+		};
+		window.addEventListener("keydown", handleEscape);
+		return () => window.removeEventListener("keydown", handleEscape);
+	}, [activePanel]);
 
 	useEffect(
 		() => () => {
@@ -305,7 +375,7 @@ export default function WatchScreen({
 	const revealControls = () => {
 		setShowControls(true);
 		if (controlsTimer.current) clearTimeout(controlsTimer.current);
-		if (playing)
+		if (playing && !activePanel)
 			controlsTimer.current = setTimeout(() => setShowControls(false), 3000);
 	};
 
@@ -319,7 +389,17 @@ export default function WatchScreen({
 
 	const togglePanel = (panel: Exclude<ActivePanel, null>) => {
 		setActivePanel((currentPanel) => currentPanel === panel ? null : panel);
+		setShowControls(true);
 		setSpoilersRevealed(false);
+	};
+
+	const toggleFullscreen = async () => {
+		try {
+			if (document.fullscreenElement) await document.exitFullscreen();
+			else await pageRef.current?.requestFullscreen();
+		} catch {
+			setEngagementError("Fullscreen is unavailable in this browser or preview.");
+		}
 	};
 
 	const react = async (key: ReactionKey) => {
@@ -419,7 +499,7 @@ export default function WatchScreen({
 	};
 
 	return (
-		<div className={styles.page}>
+		<div className={styles.page} ref={pageRef}>
 			<nav className={styles.nav}>
 				<div className={styles.navInner}>
 					<button
@@ -429,17 +509,29 @@ export default function WatchScreen({
 					>
 						<span aria-hidden="true">‹</span> Back
 					</button>
-					<span className={styles.logo}>STREAMFLIX</span>
+					<span className={styles.logo} aria-label="StreamFlix">
+						<img src="/favicon.png" alt="" aria-hidden="true" />
+						<span>STREAMFLIX</span>
+					</span>
 					<span className={styles.navSpacer} aria-hidden="true" />
 				</div>
 			</nav>
 
 			<main className={styles.main}>
 				<section
-					className={`${styles.player} ${showControls ? "" : styles.hideCursor}`}
+					className={`${styles.player} ${showControls || activePanel ? "" : styles.hideCursor}`}
 					onMouseMove={revealControls}
-					onMouseLeave={() => playing && setShowControls(false)}
+					onMouseLeave={() => playing && !activePanel && setShowControls(false)}
 					onClick={() => setPlaying((value) => !value)}
+					tabIndex={0}
+					aria-label={`${contentLabel} player`}
+					onKeyDown={(event) => {
+						if (event.target !== event.currentTarget) return;
+						if (event.key === " " || event.key === "Enter") {
+							event.preventDefault();
+							setPlaying((value) => !value);
+						}
+					}}
 				>
 					{playerImage ? (
 						<img
@@ -460,7 +552,8 @@ export default function WatchScreen({
 					)}
 
 					<div
-						className={`${styles.controls} ${showControls ? styles.controlsVisible : ""}`}
+						className={`${styles.controls} ${showControls || activePanel ? styles.controlsVisible : ""}`}
+						aria-hidden={!showControls && !activePanel}
 					>
 						<div className={styles.centerControls}>
 							<button
@@ -498,17 +591,7 @@ export default function WatchScreen({
 							className={styles.bottomControls}
 							onClick={(event) => event.stopPropagation()}
 						>
-							<div
-								className={styles.scrubber}
-								onClick={(event) => {
-									const bounds =
-										event.currentTarget.getBoundingClientRect();
-									seekTo(
-										((event.clientX - bounds.left) / bounds.width) *
-											duration,
-									);
-								}}
-							>
+							<div className={styles.scrubber}>
 								<span
 									className={styles.scrubberFill}
 									style={{ width: `${percent}%` }}
@@ -516,6 +599,16 @@ export default function WatchScreen({
 								<span
 									className={styles.scrubberThumb}
 									style={{ left: `${percent}%` }}
+								/>
+								<input
+									type="range"
+									min="0"
+									max={duration}
+									step="1"
+									value={current}
+									aria-label="Playback position"
+									aria-valuetext={`${formatTime(current)} of ${formatTime(duration)}`}
+									onChange={(event) => seekTo(Number(event.target.value))}
 								/>
 							</div>
 							<div className={styles.controlRow}>
@@ -557,11 +650,12 @@ export default function WatchScreen({
 									>
 										CC
 									</button>
-									<button type="button" aria-label="Player settings">
-										⚙
-									</button>
-									<button type="button" aria-label="Fullscreen">
-										⛶
+									<button
+										type="button"
+										aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+										onClick={() => void toggleFullscreen()}
+									>
+										<ExpandIcon active={isFullscreen} />
 									</button>
 								</div>
 							</div>
@@ -595,19 +689,23 @@ export default function WatchScreen({
 				</section>
 
 				<div className={styles.featureActions}>
-					<button type="button" className={activePanel === "music" ? styles.featureActive : ""} onClick={() => togglePanel("music")}>
-						<MusicIcon /> Music
+					<button type="button" aria-label="Open movie music" aria-pressed={activePanel === "music"} className={activePanel === "music" ? styles.featureActive : ""} onClick={() => togglePanel("music")}>
+						<MusicIcon /><span>Music</span>
 					</button>
-					<button type="button" className={activePanel === "refresher" ? styles.featureActive : ""} onClick={() => togglePanel("refresher")}>
-						<RefreshIcon /> {isSeries ? "Episode Refresher" : "Movie Refresher"}
+					<button type="button" aria-label={`Open ${isSeries ? "episode" : "movie"} refresher`} aria-pressed={activePanel === "refresher"} className={activePanel === "refresher" ? styles.featureActive : ""} onClick={() => togglePanel("refresher")}>
+						<RefreshIcon /><span>Refresher</span>
 					</button>
+					<button type="button" aria-label="Open comments" aria-pressed={activePanel === "comments"} className={activePanel === "comments" ? styles.featureActive : ""} onClick={() => togglePanel("comments")}>
+						<CommentsIcon /><span>Comments</span>
+					</button>
+					{isSeries && <button type="button" aria-label="Open episodes" aria-pressed={activePanel === "episodes"} className={activePanel === "episodes" ? styles.featureActive : ""} onClick={() => togglePanel("episodes")}><EpisodesIcon /><span>Episodes</span></button>}
 				</div>
 
 				{activePanel === "music" && (
 					<section className={styles.featurePanel}>
 						<div className={styles.featureHeader}>
 							<div><MusicIcon /><h2>Soundtrack — {contentLabel}</h2></div>
-							<button type="button" onClick={() => setActivePanel(null)} aria-label="Close soundtrack">×</button>
+							<button ref={panelCloseRef} type="button" onClick={() => setActivePanel(null)} aria-label="Close soundtrack">×</button>
 						</div>
 						<div className={styles.trackList}>
 							{placeholderFeatures.tracks.map((track) => (
@@ -625,7 +723,7 @@ export default function WatchScreen({
 					<section className={styles.featurePanel}>
 						<div className={styles.featureHeader}>
 							<div><RefreshIcon /><h2>{isSeries ? "Episode" : "Movie"} Refresher — {contentLabel}</h2></div>
-							<button type="button" onClick={() => setActivePanel(null)} aria-label="Close refresher">×</button>
+							<button ref={panelCloseRef} type="button" onClick={() => setActivePanel(null)} aria-label="Close refresher">×</button>
 						</div>
 						<p className={styles.refresherSummary}>{placeholderFeatures.refresher.summary}</p>
 						{!spoilersRevealed ? (
@@ -640,9 +738,9 @@ export default function WatchScreen({
 					</section>
 				)}
 
-				{isSeries && (
+				{isSeries && activePanel === "episodes" && (
 					<section className={styles.episodesSection}>
-						<h2>Episodes</h2>
+						<div className={styles.featureHeader}><div><EpisodesIcon /><h2>Episodes</h2></div><button ref={panelCloseRef} type="button" onClick={() => setActivePanel(null)} aria-label="Close episodes">×</button></div>
 						{episodesLoading && (
 							<p className={styles.status}>
 								Loading episodes from TMDB…
@@ -728,8 +826,8 @@ export default function WatchScreen({
 					</div>
 				</section>
 
-				<section className={styles.comments}>
-					<h2>{comments.length} {comments.length === 1 ? "Comment" : "Comments"}</h2>
+				{activePanel === "comments" && <section className={styles.comments}>
+					<div className={styles.featureHeader}><div><CommentsIcon /><h2>{comments.length} {comments.length === 1 ? "Comment" : "Comments"}</h2></div><button ref={panelCloseRef} type="button" onClick={() => setActivePanel(null)} aria-label="Close comments">×</button></div>
 					<div className={styles.commentComposer}>
 						<textarea
 							rows={2}
@@ -758,7 +856,7 @@ export default function WatchScreen({
 					) : (
 						<div className={styles.commentList}>
 							{comments.map((comment) => (
-								<article key={comment.id} className={styles.commentItem}>
+								<article key={comment.id} className={styles.commentItem} data-own-comment={comment.userId === engagementUserId ? "true" : "false"}>
 									<header>
 										<strong>{comment.userId === engagementUserId ? "You" : "Community member"}</strong>
 										<time dateTime={comment.commentedAt}>{new Date(comment.commentedAt).toLocaleDateString()}</time>
@@ -779,7 +877,7 @@ export default function WatchScreen({
 							))}
 						</div>
 					)}
-				</section>
+				</section>}
 			</main>
 		</div>
 	);
