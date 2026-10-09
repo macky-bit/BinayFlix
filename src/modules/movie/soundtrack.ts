@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 export interface SoundtrackTrack {
   id: string
   title: string
+  lookupTitle: string
   artist: string
   audioUrl: string
   referenceUrl: string
@@ -38,6 +39,7 @@ export async function loadSoundtracks(
   return ((data ?? []) as SoundtrackRow[]).map((row) => ({
     id: String(row.soundtrack_id),
     title: row.track_title?.trim() || row.song_title.trim(),
+    lookupTitle: row.song_title.trim(),
     artist: row.artist?.trim() || "Artist unavailable",
     audioUrl: row.stream_link?.trim() || "",
     referenceUrl: row.external_url?.trim() || "",

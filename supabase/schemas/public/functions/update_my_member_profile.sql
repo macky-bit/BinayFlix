@@ -43,6 +43,14 @@ begin
         when normalized_pin is not null
           then extensions.crypt(normalized_pin, extensions.gen_salt('bf'))
         else profile.pin_hash
+      end,
+      pin_failed_attempts = case
+        when remove_pin or normalized_pin is not null then 0
+        else profile.pin_failed_attempts
+      end,
+      pin_locked_until = case
+        when remove_pin or normalized_pin is not null then null
+        else profile.pin_locked_until
       end
   from public."user" as account
   where profile.member_profile_id = selected_profile_id

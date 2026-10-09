@@ -10,6 +10,7 @@ export interface Profile {
 	avatar: string;
 	avatarPath: string;
 	isKids: boolean;
+	hasPin: boolean;
 }
 
 interface MemberProfileRow {
@@ -17,6 +18,7 @@ interface MemberProfileRow {
 	profile_name: string;
 	avatar_image: string | null;
 	is_kids: boolean;
+	has_pin: boolean;
 	display_order: number;
 }
 
@@ -113,7 +115,7 @@ function ProfileCard({
 			type="button"
 			className={styles.card}
 			onClick={() => onSelect(profile)}
-			aria-label={`Continue as ${profile.name}`}
+			aria-label={`Continue as ${profile.name}${profile.hasPin ? ", PIN required" : ""}`}
 		>
 			<div className={styles.avatarWrap}>
 				<div className={styles.avatarFallback} aria-hidden>
@@ -132,7 +134,7 @@ function ProfileCard({
 			</div>
 			<span className={styles.profileName}>{profile.name}</span>
 			<span className={styles.profileLabel}>{profile.label}</span>
-			<span className={styles.editIcon}><PencilIcon /></span>
+			<span className={styles.editIcon} aria-hidden>{profile.hasPin ? <LockIcon /> : <PencilIcon />}</span>
 		</button>
 	);
 }
@@ -237,6 +239,115 @@ function AddProfileDialog({
 	);
 }
 
+interface VerifyPinRow {
+	is_verified: boolean;
+	retry_after_seconds: number;
+}
+
+function ProfilePinDialog({
+	profile,
+	onCancel,
+	onVerified,
+}: {
+	profile: Profile;
+	onCancel: () => void;
+	onVerified: () => void;
+}) {
+	const [pin, setPin] = useState("");
+	const [verifying, setVerifying] = useState(false);
+	const [error, setError] = useState("");
+
+	const verify = async () => {
+		if (verifying || pin.length !== 4) return;
+		setVerifying(true);
+		setError("");
+
+		const { data, error: verifyError } = await supabase.rpc(
+			"verify_my_member_profile_pin",
+			{
+				selected_profile_id: profile.id,
+				selected_pin: pin,
+			},
+		);
+
+		setPin("");
+		setVerifying(false);
+		if (verifyError) {
+			setError("The PIN could not be verified. Try again.");
+			return;
+		}
+
+		const result = ((data ?? [])[0] ?? null) as VerifyPinRow | null;
+		if (result?.is_verified) {
+			onVerified();
+			return;
+		}
+
+		if ((result?.retry_after_seconds ?? 0) > 0) {
+			const minutes = Math.max(1, Math.ceil(result!.retry_after_seconds / 60));
+			setError(`Too many attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`);
+			return;
+		}
+
+		setError("Incorrect PIN.");
+	};
+
+	return (
+		<div
+			className={styles.dialogBackdrop}
+			role="presentation"
+			onMouseDown={() => {
+				if (!verifying) onCancel();
+			}}
+		>
+			<div
+				className={styles.dialog}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="profile-pin-title"
+				onMouseDown={(event) => event.stopPropagation()}
+			>
+				<h2 id="profile-pin-title" className={styles.dialogTitle}>Enter profile PIN</h2>
+				<p className={styles.dialogCopy}>Enter the four-digit PIN for {profile.name}.</p>
+
+				<form
+					onSubmit={(event) => {
+						event.preventDefault();
+						void verify();
+					}}
+				>
+					<label className={styles.fieldLabel} htmlFor="selected-profile-pin">Profile PIN</label>
+					<input
+						id="selected-profile-pin"
+						className={`${styles.textInput} ${styles.pinInput}`}
+						type="password"
+						inputMode="numeric"
+						pattern="[0-9]{4}"
+						autoComplete="current-password"
+						maxLength={4}
+						value={pin}
+						onChange={(event) => {
+							setPin(event.target.value.replace(/\D/g, "").slice(0, 4));
+							setError("");
+						}}
+						autoFocus
+						required
+					/>
+
+					{error && <p className={styles.inlineError} role="alert">{error}</p>}
+
+					<div className={styles.dialogActions}>
+						<button type="button" className={styles.secondaryBtn} onClick={onCancel} disabled={verifying}>Cancel</button>
+						<button type="submit" className={styles.primaryBtn} disabled={verifying || pin.length !== 4}>
+							{verifying ? "Checking…" : "Unlock profile"}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	);
+}
+
 interface Props {
 	maxProfiles?: number;
 	onSelect: (profile: Profile) => void;
@@ -252,6 +363,7 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 	const [showAddProfile, setShowAddProfile] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [createError, setCreateError] = useState("");
+	const [lockedProfile, setLockedProfile] = useState<Profile | null>(null);
 
 	const loadProfiles = useCallback(async () => {
 		setLoading(true);
@@ -290,6 +402,7 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 					avatarPath,
 					avatar: isExternalAvatar(avatarPath) ? avatarPath : (signedUrls.get(avatarPath) ?? ""),
 					isKids: row.is_kids,
+					hasPin: row.has_pin,
 				};
 			});
 
@@ -339,9 +452,27 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 	};
 
 	const canAdd = canAddProfile && profiles.length < profileLimit;
+	const selectProfile = (profile: Profile) => {
+		if (profile.hasPin) {
+			setLockedProfile(profile);
+			return;
+		}
+		onSelect(profile);
+	};
 
 	return (
 		<div className={styles.page}>
+			{lockedProfile && (
+				<ProfilePinDialog
+					profile={lockedProfile}
+					onCancel={() => setLockedProfile(null)}
+					onVerified={() => {
+						const selected = lockedProfile;
+						setLockedProfile(null);
+						onSelect(selected);
+					}}
+				/>
+			)}
 			<div className={styles.bgGlow} aria-hidden />
 
 			<div className={styles.container}>
@@ -363,7 +494,7 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 							<ProfileCard
 								key={profile.id}
 								profile={profile}
-								onSelect={onSelect}
+								onSelect={selectProfile}
 							/>
 						))}
 						{!loading && canAdd && <AddProfileCard onClick={() => { setCreateError(""); setShowAddProfile(true); }} />}

@@ -10,6 +10,7 @@ type ProfileIdentity = {
   avatarPath: string
   avatarUrl: string
   isKids: boolean
+  hasPin: boolean
   displayOrder: number
   joinedAt: string | null
 }
@@ -19,6 +20,7 @@ type MemberProfileRow = {
   profile_name: string
   avatar_image: string | null
   is_kids: boolean
+  has_pin: boolean
   display_order: number
 }
 
@@ -602,26 +604,54 @@ function EditProfileModal({
 // ── PINModal ───────────────────────────────────────────────────────────────
 
 function PINModal({
+  profileId,
   hasPin,
 
   onClose,
+
+  onSaved,
 }: {
+  profileId: number
+
   hasPin: boolean
 
   onClose: () => void
+
+  onSaved: (hasPin: boolean) => void
 }) {
   const [pin, setPin] = useState("")
 
   const [confirm, setConfirm] = useState("")
 
-  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const [error, setError] = useState("")
+
+  async function savePin(selectedPin: string | null) {
+    if (saving) return
+    setSaving(true)
+    setError("")
+
+    const { error: saveError } = await supabase.rpc(
+      "set_my_member_profile_pin",
+      {
+        selected_profile_id: profileId,
+        selected_pin: selectedPin,
+      },
+    )
+
+    if (saveError) {
+      setError(saveError.message || "The profile PIN could not be saved.")
+      setSaving(false)
+      return
+    }
+
+    setSaving(false)
+    onSaved(selectedPin !== null)
+  }
 
   function handleSave() {
-    if (pin.length === 4 && pin === confirm) {
-      setSaved(true)
-
-      setTimeout(onClose, 1000)
-    }
+    if (pin.length === 4 && pin === confirm) void savePin(pin)
   }
 
   return (
@@ -645,7 +675,10 @@ function PINModal({
             {hasPin ? "Change PIN" : "Set PIN"}
           </h2>
           <button
+            type="button"
             onClick={onClose}
+            disabled={saving}
+            aria-label="Close profile PIN settings"
             className="text-[var(--color-taupe)] hover:text-[var(--color-cream)] transition-colors p-1"
           >
             <XIcon />
@@ -661,13 +694,18 @@ function PINModal({
         <div className="space-y-4">
           <div>
             <label
+              htmlFor="profile-pin"
               className="block text-xs text-[var(--color-taupe)] mb-1.5 uppercase tracking-wider"
               style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
             >
               4-Digit PIN
             </label>
             <input
+              id="profile-pin"
               type="password"
+              inputMode="numeric"
+              pattern="[0-9]{4}"
+              autoComplete="new-password"
               maxLength={4}
               value={pin}
               onChange={(e) =>
@@ -680,13 +718,18 @@ function PINModal({
           </div>
           <div>
             <label
+              htmlFor="profile-pin-confirm"
               className="block text-xs text-[var(--color-taupe)] mb-1.5 uppercase tracking-wider"
               style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
             >
               Confirm PIN
             </label>
             <input
+              id="profile-pin-confirm"
               type="password"
+              inputMode="numeric"
+              pattern="[0-9]{4}"
+              autoComplete="new-password"
               maxLength={4}
               value={confirm}
               onChange={(e) =>
@@ -699,12 +742,9 @@ function PINModal({
           </div>
         </div>
 
-        {saved && (
-          <p
-            className="text-[var(--color-wine)] text-sm mt-3"
-            style={{ fontFamily: "'Barlow', sans-serif" }}
-          >
-            PIN saved successfully.
+        {error && (
+          <p role="alert" className="text-red-400 text-sm mt-3">
+            {error}
           </p>
         )}
         {pin.length === 4 && confirm.length === 4 && pin !== confirm && (
@@ -718,21 +758,34 @@ function PINModal({
 
         <div className="flex gap-3 mt-7">
           <button
+            type="button"
             onClick={onClose}
+            disabled={saving}
             className="flex-1 py-2.5 border border-[var(--color-stone)] text-[var(--color-cream)] text-sm rounded-sm hover:border-[var(--color-taupe)] transition-colors"
             style={{ fontFamily: "'Barlow', sans-serif" }}
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSave}
-            disabled={pin.length !== 4 || confirm.length !== 4}
+            disabled={saving || pin.length !== 4 || confirm.length !== 4 || pin !== confirm}
             className="flex-1 py-2.5 bg-[var(--color-wine)] text-[var(--color-cream)] text-sm rounded-sm hover:bg-[var(--color-ink-soft)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ fontFamily: "'Barlow', sans-serif" }}
           >
-            Save PIN
+            {saving ? "Saving…" : "Save PIN"}
           </button>
         </div>
+        {hasPin && (
+          <button
+            type="button"
+            onClick={() => void savePin(null)}
+            disabled={saving}
+            className="mt-4 w-full py-2 text-sm text-red-300 hover:text-red-200 disabled:opacity-40"
+          >
+            Remove PIN
+          </button>
+        )}
       </div>
     </div>
   )
@@ -1303,6 +1356,7 @@ export function ProfileView({
       avatarPath,
       avatarUrl,
       isKids: selectedRow.is_kids,
+      hasPin: selectedRow.has_pin,
       displayOrder: selectedRow.display_order,
       joinedAt: accountResult.data?.joined_at
         ? String(accountResult.data.joined_at)
@@ -1347,8 +1401,6 @@ export function ProfileView({
 
   const [manageOpen, setManageOpen] = useState(false)
 
-  const [hasPin, setHasPin] = useState(false)
-
   // Cards
 
   const [cards, setCards] = useState(INITIAL_CARDS)
@@ -1388,13 +1440,16 @@ export function ProfileView({
           }}
         />
       )}
-      {pinOpen && (
+      {pinOpen && profileIdentity && (
         <PINModal
-          hasPin={hasPin}
-          onClose={() => {
+          profileId={profileIdentity.id}
+          hasPin={profileIdentity.hasPin}
+          onClose={() => setPinOpen(false)}
+          onSaved={(hasPin) => {
+            setProfileIdentity((current) =>
+              current ? { ...current, hasPin } : current,
+            )
             setPinOpen(false)
-
-            setHasPin(true)
           }}
         />
       )}
@@ -1650,7 +1705,7 @@ export function ProfileView({
                 </h3>
                 <RightPanelRow
                   icon={<LockIcon />}
-                  label={hasPin ? "Change PIN" : "Set PIN"}
+                  label={profileIdentity?.hasPin ? "Change PIN" : "Set PIN"}
                   description="Require a PIN to access this profile."
                   onClick={() => setPinOpen(true)}
                   last

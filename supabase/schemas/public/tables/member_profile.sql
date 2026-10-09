@@ -6,12 +6,15 @@ CREATE TABLE "public"."member_profile" (
   "avatar_image"      text,
   "is_kids"           boolean                  NOT NULL DEFAULT false,
   "pin_hash"          text,
+  "pin_failed_attempts" smallint                NOT NULL DEFAULT 0,
+  "pin_locked_until"  timestamp with time zone,
   "display_order"     smallint                 NOT NULL DEFAULT 1,
   "created_at"        timestamp with time zone NOT NULL DEFAULT now(),
   "updated_at"        timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT "member_profile_display_order_positive" CHECK ((display_order > 0)),
   CONSTRAINT "member_profile_name_not_blank" CHECK ((btrim((profile_name)::text) <> ''::text)),
   CONSTRAINT "member_profile_pin_hash_not_blank" CHECK (((pin_hash IS NULL) OR (btrim(pin_hash) <> ''::text))),
+  CONSTRAINT "member_profile_pin_failed_attempts_range" CHECK (((pin_failed_attempts >= 0) AND (pin_failed_attempts <= 5))),
   CONSTRAINT "member_profile_pkey" PRIMARY KEY (member_profile_id),
   CONSTRAINT "member_profile_user_id_fkey" FOREIGN KEY (user_id) REFERENCES public."user"(user_id) ON UPDATE CASCADE ON DELETE CASCADE
 );
@@ -47,5 +50,9 @@ COMMENT ON COLUMN "public"."member_profile"."display_order" IS 'One-based positi
 COMMENT ON COLUMN "public"."member_profile"."is_kids" IS 'Whether the viewing profile should receive child-appropriate content.';
 
 COMMENT ON COLUMN "public"."member_profile"."pin_hash" IS 'Optional secure hash of a profile PIN; never store the raw PIN.';
+
+COMMENT ON COLUMN "public"."member_profile"."pin_failed_attempts" IS 'Failed PIN checks since the last successful verification or lock reset.';
+
+COMMENT ON COLUMN "public"."member_profile"."pin_locked_until" IS 'Temporary server-side lock expiry after repeated failed PIN checks.';
 
 COMMENT ON COLUMN "public"."member_profile"."profile_name" IS 'Viewer-facing profile name within the subscriber account.';

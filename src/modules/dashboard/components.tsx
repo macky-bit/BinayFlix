@@ -704,6 +704,8 @@ const ADMIN_PROFILE_BY_ITEM: Record<string, {
 }
 
 export function Navbar({
+  currentProfile,
+
   onSignOut,
 
   searchOpen,
@@ -742,6 +744,11 @@ export function Navbar({
 
   showAdminLink = false,
 }: {
+  currentProfile?: {
+    name: string
+    avatar?: string | null
+  } | null
+
   onSignOut: () => void
 
   searchOpen: boolean
@@ -829,6 +836,9 @@ export function Navbar({
     activePage === "admin"
       ? (ADMIN_PROFILE_BY_ITEM[adminProfileKey] ?? ADMIN_PROFILE_BY_ITEM.master)
       : null
+
+  const currentProfileInitial =
+    currentProfile?.name.trim().charAt(0).toUpperCase() || "A"
 
   const visibleNavLinks = showAdminLink
     ? NAV_LINKS
@@ -1055,9 +1065,24 @@ export function Navbar({
             aria-haspopup="menu"
           >
             <span
-              className={`w-7 h-7 rounded flex items-center justify-center text-xs font-bold shrink-0 ${styles.avatarBadge}`}
+              className={`relative w-7 h-7 overflow-hidden rounded flex items-center justify-center text-xs font-bold shrink-0 ${styles.avatarBadge}`}
+              aria-label={
+                adminProfile
+                  ? adminProfile.name
+                  : currentProfile?.name ?? "Current profile"
+              }
             >
-              {adminProfile?.initial ?? "A"}
+              {adminProfile?.initial ?? currentProfileInitial}
+              {!adminProfile && currentProfile?.avatar && (
+                <img
+                  src={currentProfile.avatar}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.hidden = true
+                  }}
+                />
+              )}
             </span>
             {adminProfile && (
               <span className="hidden xl:flex flex-col text-left leading-tight">

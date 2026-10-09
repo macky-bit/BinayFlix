@@ -193,6 +193,7 @@ export default function App() {
       {page === "dashboard" && (
         <>
           <Dashboard
+            activeProfile={activeProfile}
             onSignOut={handleSignOut}
             onWatch={handleWatch}
             onInfo={handleInfo}

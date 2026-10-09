@@ -50,7 +50,8 @@
     "public/functions/sync_streamflix_account_email.sql",
     "public/functions/update_my_account_profile.sql",
     "public/functions/update_my_birth_date.sql",
-    "public/functions/update_my_member_profile.sql"
+    "public/functions/update_my_member_profile.sql",
+    "public/functions/verify_my_member_profile_pin.sql"
   ],
   "profile": "supabase",
   "defaultOwner": "postgres",
@@ -85,6 +86,7 @@
     "public/functions/update_my_account_profile.sql",
     "public/functions/update_my_birth_date.sql",
     "public/functions/update_my_member_profile.sql",
+    "public/functions/verify_my_member_profile_pin.sql",
     "public/schema.sql",
     "public/tables/admin.sql",
     "public/tables/category.sql",

@@ -2,11 +2,14 @@ import { useEffect, useState } from "react"
 import { supabase } from "../../lib/supabase"
 import type { Show } from "../movie/types"
 import { Navbar, type DashboardView } from "./components"
+import type { Profile } from "../profileSelect/ProfileSelectPage"
 import CatalogPage from "./CatalogPage"
 import { MyListView } from "./myList/components"
 import SearchResultsPage from "./SearchResultsPage"
 
 interface Props {
+  activeProfile: Profile | null
+
   onSignOut: () => void
 
   onWatch: (show: Show) => void
@@ -19,6 +22,7 @@ interface Props {
 }
 
 export default function Dashboard({
+  activeProfile,
   onSignOut,
   onWatch,
   onInfo,
@@ -50,6 +54,7 @@ export default function Dashboard({
   return (
     <div className="min-h-screen" style={{ background: "var(--color-ink)" }}>
       <Navbar
+        currentProfile={activeProfile}
         activeView={view}
         onSignOut={onSignOut}
         searchOpen={searchOpen}

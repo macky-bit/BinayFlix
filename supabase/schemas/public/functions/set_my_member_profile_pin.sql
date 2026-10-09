@@ -20,7 +20,9 @@ begin
   set pin_hash = case
     when selected_pin is null then null
     else extensions.crypt(selected_pin, extensions.gen_salt('bf'))
-  end
+  end,
+      pin_failed_attempts = 0,
+      pin_locked_until = null
   from public."user" as account
   where profile.member_profile_id = selected_profile_id
     and profile.user_id = account.user_id

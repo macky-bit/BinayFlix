@@ -13,6 +13,7 @@ import {
 } from "../engagement";
 import { fetchTVEpisodes, type TMDBEpisode } from "../tmdb";
 import { loadSoundtracks, type SoundtrackTrack } from "../soundtrack";
+import { loadTrackLyrics, type TrackLyricsResult } from "../lyrics";
 import {
 	createEmptyReactionCounts,
 	REACTION_DEFINITIONS,
@@ -44,6 +45,12 @@ interface PlaceholderRefresher {
 	characters: string[];
 	keyDetails: string[];
 }
+
+type LyricsLookupState =
+	| { status: "loading" }
+	| { status: "ready"; result: TrackLyricsResult }
+	| { status: "not-found" }
+	| { status: "error" };
 
 const MOVIE_FALLBACK_SECONDS = 2 * 60 * 60;
 
@@ -230,6 +237,7 @@ export default function WatchScreen({
 	const [soundtracksError, setSoundtracksError] = useState<string | null>(null);
 	const [activeTrackId, setActiveTrackId] = useState<string | null>(null);
 	const [lyricsTrackId, setLyricsTrackId] = useState<string | null>(null);
+	const [lyricsLookups, setLyricsLookups] = useState<Record<string, LyricsLookupState>>({});
 	const [audioPlaying, setAudioPlaying] = useState(false);
 	const [audioError, setAudioError] = useState<string | null>(null);
 	const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -237,6 +245,8 @@ export default function WatchScreen({
 	const pageRef = useRef<HTMLDivElement>(null);
 	const panelCloseRef = useRef<HTMLButtonElement>(null);
 	const soundtrackAudioRef = useRef<HTMLAudioElement>(null);
+	const lyricsRequestRef = useRef<AbortController | null>(null);
+	const lyricsRequestVersion = useRef(0);
 
 	useEffect(() => {
 		let active = true;
@@ -339,6 +349,10 @@ export default function WatchScreen({
 		setAudioPlaying(false);
 		setActiveTrackId(null);
 		setLyricsTrackId(null);
+		setLyricsLookups({});
+		lyricsRequestVersion.current += 1;
+		lyricsRequestRef.current?.abort();
+		lyricsRequestRef.current = null;
 		setAudioError(null);
 		setSoundtracksError(null);
 
@@ -370,6 +384,7 @@ export default function WatchScreen({
 
 		return () => {
 			active = false;
+			lyricsRequestRef.current?.abort();
 		};
 	}, [internalContentId]);
 
@@ -509,6 +524,48 @@ export default function WatchScreen({
 		}
 	};
 
+	const toggleLyrics = (track: SoundtrackTrack) => {
+		if (lyricsTrackId === track.id) {
+			setLyricsTrackId(null);
+			return;
+		}
+
+		setLyricsTrackId(track.id);
+		const previousLookup = lyricsLookups[track.id];
+		if (
+			track.lyrics ||
+			previousLookup?.status === "loading" ||
+			previousLookup?.status === "ready" ||
+			previousLookup?.status === "not-found"
+		) return;
+
+		const controller = new AbortController();
+		const requestVersion = lyricsRequestVersion.current;
+		lyricsRequestRef.current = controller;
+		setLyricsLookups((current) => ({
+			...current,
+			[track.id]: { status: "loading" },
+		}));
+
+		void loadTrackLyrics(track.lookupTitle, track.artist, controller.signal)
+			.then((result) => {
+				if (controller.signal.aborted || requestVersion !== lyricsRequestVersion.current) return;
+				setLyricsLookups((current) => ({
+					...current,
+					[track.id]: result
+						? { status: "ready", result }
+						: { status: "not-found" },
+				}));
+			})
+			.catch(() => {
+				if (controller.signal.aborted || requestVersion !== lyricsRequestVersion.current) return;
+				setLyricsLookups((current) => ({
+					...current,
+					[track.id]: { status: "error" },
+				}));
+			});
+	};
+
 	const toggleFullscreen = async () => {
 		try {
 			if (document.fullscreenElement) await document.exitFullscreen();
@@ -628,6 +685,7 @@ export default function WatchScreen({
 		}
 	};
 	const lyricsTrack = soundtracks.find((track) => track.id === lyricsTrackId) ?? null;
+	const lyricsLookup = lyricsTrack ? lyricsLookups[lyricsTrack.id] : undefined;
 
 	return (
 		<div className={styles.page} ref={pageRef}>
@@ -873,7 +931,7 @@ export default function WatchScreen({
 												<small>{track.artist}</small>
 												{track.timestamp && <small>Featured at {track.timestamp}</small>}
 											</div>
-											<button type="button" className={styles.lyricsButton} aria-expanded={lyricsOpen} onClick={() => setLyricsTrackId(lyricsOpen ? null : track.id)}>
+											<button type="button" className={styles.lyricsButton} aria-expanded={lyricsOpen} onClick={() => toggleLyrics(track)}>
 												<LyricsIcon /> Lyrics
 											</button>
 											<button type="button" className={styles.trackPlayButton} disabled={!track.audioUrl} aria-label={isPlaying ? `Pause ${track.title}` : `Play ${track.title}`} onClick={() => void toggleSoundtrack(track)}>
@@ -897,8 +955,19 @@ export default function WatchScreen({
 								<div className={styles.lyricsRule} />
 								{lyricsTrack.lyrics ? (
 									<p className={styles.lyricsText}>{lyricsTrack.lyrics}</p>
+								) : lyricsLookup?.status === "loading" ? (
+									<p className={styles.lyricsUnavailable} role="status">Searching for verified lyrics…</p>
+								) : lyricsLookup?.status === "ready" && lyricsLookup.result.instrumental ? (
+									<p className={styles.lyricsUnavailable}>Instrumental track — no lyrics.</p>
+								) : lyricsLookup?.status === "ready" && lyricsLookup.result.lyrics ? (
+									<>
+										<p className={styles.lyricsText}>{lyricsLookup.result.lyrics}</p>
+										<a className={styles.lyricsSource} href="https://lrclib.net" target="_blank" rel="noreferrer">Lyrics provided by LRCLIB</a>
+									</>
+								) : lyricsLookup?.status === "error" ? (
+									<p className={styles.lyricsUnavailable} role="alert">Lyrics could not be loaded. Try again later.</p>
 								) : (
-									<p className={styles.lyricsUnavailable}>Lyrics are not available for this track.</p>
+									<p className={styles.lyricsUnavailable}>No verified lyrics were found for this track.</p>
 								)}
 							</section>
 						)}

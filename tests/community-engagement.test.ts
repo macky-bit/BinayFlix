@@ -16,6 +16,8 @@ import {
 
 import { createEmptyReactionCounts } from "../src/shared/reactions.ts"
 
+import { selectBestLyricsMatch } from "../src/modules/movie/lyrics.ts"
+
 import { getMemberDestination } from "../src/lib/authRouting.ts"
 
 import {
@@ -533,6 +535,38 @@ test("movie soundtrack uses database audio and lyrics instead of placeholders", 
   assert.match(soundtrackSource, /stream_link/)
 })
 
+test("lyrics lookup accepts an exact title and artist match", () => {
+  const match = selectBestLyricsMatch("Breaking Bad Main Title Theme", "Dave Porter - Topic", [
+    {
+      id: 1,
+      trackName: "Breaking Bad Main Title Theme",
+      artistName: "Dave Porter",
+      albumName: "Breaking Bad",
+      instrumental: true,
+      plainLyrics: null,
+      syncedLyrics: null,
+    },
+  ])
+
+  assert.equal(match?.id, 1)
+})
+
+test("lyrics lookup rejects generic-title matches from unrelated artists", () => {
+  const match = selectBestLyricsMatch("Opening", "SonySoundtracksVEVO", [
+    {
+      id: 2,
+      trackName: "Opening",
+      artistName: "Unrelated Artist",
+      albumName: "Different Film",
+      instrumental: false,
+      plainLyrics: "Wrong lyrics",
+      syncedLyrics: null,
+    },
+  ])
+
+  assert.equal(match, null)
+})
+
 test("Help Center renders at true 100 percent while preserving all actions", () => {
   const pageSource = readFileSync(
     new URL("../src/modules/help/HelpPage.tsx", import.meta.url),
@@ -547,6 +581,44 @@ test("Help Center renders at true 100 percent while preserving all actions", () 
   assert.match(pageSource, /style\.removeProperty\("zoom"\)/)
   assert.match(viewSource, />\s*Back to StreamFlix\s*</)
   assert.match(viewSource, />\s*Contact Us\s*</)
+})
+
+test("profile PINs are persisted and gate locked profile selection", () => {
+  const profileSource = readFileSync(
+    new URL("../src/modules/profile/components.tsx", import.meta.url),
+    "utf8",
+  )
+  const selectorSource = readFileSync(
+    new URL("../src/modules/profileSelect/ProfileSelectPage.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(profileSource, /set_my_member_profile_pin/)
+  assert.match(profileSource, /selected_pin:\s*selectedPin/)
+  assert.match(profileSource, /Remove PIN/)
+  assert.match(selectorSource, /row\.has_pin/)
+  assert.match(selectorSource, /if \(profile\.hasPin\)/)
+  assert.match(selectorSource, /verify_my_member_profile_pin/)
+  assert.match(selectorSource, /if \(result\?\.is_verified\)/)
+})
+
+test("profile PIN verification is owner-scoped, hashed, and rate limited", () => {
+  const sql = readFileSync(
+    new URL(
+      "../supabase/migrations/20261010103000_secure_member_profile_pin_flow.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.match(sql, /profile\.pin_hash is not null as has_pin/i)
+  assert.match(sql, /account\.auth_user_id = \(select auth\.uid\(\)\)/i)
+  assert.match(sql, /for update of profile/i)
+  assert.match(sql, /extensions\.crypt\(selected_pin, stored_pin_hash\) = stored_pin_hash/i)
+  assert.match(sql, /next_failed_attempts >= 5/i)
+  assert.match(sql, /interval '15 minutes'/i)
+  assert.match(sql, /revoke all on function public\.verify_my_member_profile_pin/i)
+  assert.match(sql, /to authenticated, postgres, service_role/i)
 })
 
 

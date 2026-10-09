@@ -331,6 +331,12 @@
 	font-size: 0.82rem;
 }
 
+.pinInput {
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.55em;
+	text-align: center;
+}
+
 .dialogActions {
 	display: flex;
 	justify-content: flex-end;
