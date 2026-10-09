@@ -328,6 +328,24 @@ test("opening video runs after profile confirmation instead of login", () => {
   assert.doesNotMatch(loginSource, /requestOpeningVideo|onAuthenticated/)
 })
 
+test("opening video uses its own public media bucket", () => {
+  const sql = readFileSync(
+    new URL(
+      "../supabase/migrations/20261009211500_publish_opening_video.sql",
+
+      import.meta.url,
+    ),
+
+    "utf8",
+  )
+
+  assert.match(sql, /'streamflix-media'[\s\S]*true[\s\S]*'video\/mp4'/i)
+
+  assert.match(sql, /file_size_limit[\s\S]*52428800/i)
+
+  assert.match(sql, /drop policy if exists authenticated_can_read_streamflix_opening/i)
+})
+
 test("help feedback validates image attachments", () => {
   assert.doesNotThrow(() =>
     validateFeedbackImage({ type: "image/png", size: 1024 } as File),

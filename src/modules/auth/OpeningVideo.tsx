@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
+import { supabase } from "../../lib/supabase"
 import styles from "./openingVideo.module.css"
 
-const OPENING_VIDEO_SRC = "/media/streamflix-opening.mp4"
+const OPENING_VIDEO_BUCKET = "streamflix-media"
+const OPENING_VIDEO_PATH = "opening/streamflix-opening.mp4"
+const OPENING_VIDEO_URL = supabase.storage
+  .from(OPENING_VIDEO_BUCKET)
+  .getPublicUrl(OPENING_VIDEO_PATH).data.publicUrl
 
 export default function OpeningVideo({ onComplete }: { onComplete: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -90,7 +95,7 @@ export default function OpeningVideo({ onComplete }: { onComplete: () => void })
       <video
         ref={videoRef}
         className={styles.video}
-        src={OPENING_VIDEO_SRC}
+        src={OPENING_VIDEO_URL}
         autoPlay
         playsInline
         preload="auto"
