@@ -3,7 +3,7 @@ import {
   useAdminCollection,
   useAdminRepository,
 } from "../data";
-import { AdminPageHeader, AdminStatCard, AdminStats, AdminWorkspaceTabs } from "../components/AdminUI";
+import { AdminPageHeader, AdminRowAction, AdminStatCard, AdminStats, AdminWorkspaceTabs } from "../components/AdminUI";
 import AdminDetailsPanel from "../components/AdminDetailsPanel";
 import { REACTION_DEFINITIONS } from "../../../shared/reactions";
 import ContentCommentsWorkspace from "./ContentCommentsWorkspace";
@@ -643,8 +643,7 @@ function PostsWorkspace({ toast }: { toast: (msg: string) => void }) {
                   <td className="px-4 py-3 text-xs text-center" style={{ color: "#9CA3AF" }}>{post.commentCount}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1.5 flex-wrap">
-                      <button onClick={() => setDrawerPost(post)} className="px-2.5 py-1 text-xs rounded font-medium transition-fast"
-                        style={{ border: "1px solid #374151", color: "#9CA3AF" }}>View</button>
+                      <AdminRowAction action="view" name={post.title || `post ${post.id}`} onClick={() => setDrawerPost(post)} />
                       {post.status === "Active" && (
                         <button onClick={() => setConfirmAction({ action: "hide", post })} className="px-2.5 py-1 text-xs rounded font-medium transition-fast"
                           style={{ border: "1px solid rgba(161,98,7,0.5)", color: "#FDE68A", background: "rgba(161,98,7,0.1)" }}>Hide</button>
@@ -653,8 +652,7 @@ function PostsWorkspace({ toast }: { toast: (msg: string) => void }) {
                         <button onClick={() => setConfirmAction({ action: "restore", post })} className="px-2.5 py-1 text-xs rounded font-medium transition-fast"
                           style={{ border: "1px solid rgba(21,128,61,0.5)", color: "#86EFAC", background: "rgba(21,128,61,0.1)" }}>Restore</button>
                       )}
-                      <button onClick={() => setConfirmAction({ action: "delete", post })} className="px-2.5 py-1 text-xs rounded font-medium transition-fast"
-                        style={{ border: "1px solid rgba(153,27,27,0.5)", color: "#FCA5A5", background: "rgba(153,27,27,0.1)" }}>Delete</button>
+                      <AdminRowAction action="delete" name={post.title || `post ${post.id}`} onClick={() => setConfirmAction({ action: "delete", post })} />
                     </div>
                   </td>
                 </tr>
@@ -889,9 +887,9 @@ function CommentsWorkspace({ toast }: { toast: (msg: string) => void }) {
                   </td>
                   <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "#9CA3AF" }}>{comment.dateCommented}</td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button onClick={() => setDrawerComment(comment)} className="px-3 py-1 text-xs rounded font-medium transition-fast" style={{ border: "1px solid #374151", color: "#9CA3AF" }}>View</button>
-                      <button onClick={() => setConfirmDelete({ type: "single", id: comment.id })} className="px-3 py-1 text-xs rounded font-medium transition-fast" style={{ border: "1px solid rgba(153,27,27,0.5)", color: "#FCA5A5", background: "rgba(153,27,27,0.1)" }}>Delete</button>
+                    <div className="content-table__actions">
+                      <AdminRowAction action="view" name={`comment ${comment.id}`} onClick={() => setDrawerComment(comment)} />
+                      <AdminRowAction action="delete" name={`comment ${comment.id}`} onClick={() => setConfirmDelete({ type: "single", id: comment.id })} />
                     </div>
                   </td>
                 </tr>

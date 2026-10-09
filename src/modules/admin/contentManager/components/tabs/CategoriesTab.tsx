@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Category, Toast } from '../../types';
 import Modal from '../shared/Modal';
 import ConfirmDialog from '../shared/ConfirmDialog';
+import { AdminRowAction } from '../../../components/AdminUI';
 
 interface CategoriesTabProps {
   categories: Category[];
@@ -10,7 +11,6 @@ interface CategoriesTabProps {
   onDelete: (id: string) => void;
   addToast: (msg: string, type: Toast['type']) => void;
 }
-
 interface FormState { name: string; description: string; }
 interface Errors { name?: string; }
 
@@ -173,10 +173,10 @@ export default function CategoriesTab({ categories, onAdd, onEdit, onDelete, add
                   <span className="ml-1 text-xs" style={{ color: '#9CA3AF' }}>items</span>
                 </td>
                 <td className="px-3 py-3">
-                  <div className="flex gap-1">
-                    <CrudBtn label="View" onClick={() => setViewId(cat.id)} />
-                    <CrudBtn label="Edit" onClick={() => setEditId(cat.id)} />
-                    <CrudBtn label="Delete" onClick={() => setDeleteId(cat.id)} danger />
+                  <div className="content-table__actions">
+                    <AdminRowAction action="view" name={cat.name || `category ${cat.id}`} onClick={() => setViewId(cat.id)} />
+                    <AdminRowAction action="edit" name={cat.name || `category ${cat.id}`} onClick={() => setEditId(cat.id)} />
+                    <AdminRowAction action="delete" name={cat.name || `category ${cat.id}`} onClick={() => setDeleteId(cat.id)} />
                   </div>
                 </td>
               </tr>
@@ -263,19 +263,5 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
       <p className="text-xs mb-0.5" style={{ color: '#9CA3AF' }}>{label}</p>
       <p className={`text-sm ${mono ? 'font-mono' : 'font-medium'} text-white`}>{value}</p>
     </div>
-  );
-}
-
-function CrudBtn({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      className="px-2 py-1 rounded text-xs font-medium transition-colors"
-      style={{ border: `1px solid ${danger ? 'rgba(239,68,68,0.4)' : 'rgba(124,58,237,0.4)'}`, color: danger ? '#EF4444' : '#A78BFA', backgroundColor: 'transparent' }}
-      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = danger ? 'rgba(239,68,68,0.1)' : 'rgba(124,58,237,0.15)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-    >
-      {label}
-    </button>
   );
 }

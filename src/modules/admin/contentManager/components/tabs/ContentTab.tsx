@@ -4,6 +4,7 @@ import type { Content, Category, Genre, Toast } from "../../types"
 import AdminDetailsPanel, {
   AdminDetailsSection,
 } from "../../../components/AdminDetailsPanel"
+import { AdminTablePagination } from "../../../components/AdminUI"
 
 import ConfirmDialog from "../shared/ConfirmDialog"
 
@@ -1580,8 +1581,19 @@ export default function ContentTab({
           </div>
 
           {/* Pagination */}
+          <AdminTablePagination
+            page={safePage}
+            total={filtered.length}
+            perPage={rowsPerPage}
+            onPage={setPage}
+            onPerPage={(amount) => {
+              setRowsPerPage(amount)
+              setPage(1)
+            }}
+            label="titles"
+          />
           <div
-            className="flex flex-wrap items-center justify-between gap-4 px-4 py-3"
+            className="hidden"
             style={{
               borderTop: "1px solid #374151",
               backgroundColor: "rgba(11, 7, 25, 0.3)",
@@ -1768,7 +1780,18 @@ export default function ContentTab({
               </div>
             )}
           </div>
-          <div className="admin-table-pagination">
+          <AdminTablePagination
+            page={safePage}
+            total={filtered.length}
+            perPage={rowsPerPage}
+            onPage={setPage}
+            onPerPage={(amount) => {
+              setRowsPerPage(amount)
+              setPage(1)
+            }}
+            label="titles"
+          />
+          <div className="admin-table-pagination hidden">
             <p>
               Showing{" "}
               {filtered.length === 0 ? 0 : (safePage - 1) * rowsPerPage + 1}–
@@ -1797,7 +1820,7 @@ export default function ContentTab({
                 disabled={safePage === 1}
                 aria-label="Previous content page"
               >
-                ‹
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
               {Array.from({ length: totalPages }, (_, index) => index + 1)
                 .slice(Math.max(0, safePage - 3), Math.max(5, safePage + 2))
@@ -1820,7 +1843,7 @@ export default function ContentTab({
                 disabled={safePage === totalPages}
                 aria-label="Next content page"
               >
-                ›
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </button>
             </div>
           </div>

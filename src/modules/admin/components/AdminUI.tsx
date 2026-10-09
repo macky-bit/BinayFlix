@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { Children, type ReactNode } from "react"
 
 export function AdminPageHeader({
   eyebrow,
@@ -102,17 +102,20 @@ export function AdminStatCard({
   onClick?: () => void
   actionLabel?: string
 }) {
-  const className = `admin-stat-card admin-stat-${tone}${
+  const toneClass =
+    tone === "purple"
+      ? "is-purple"
+      : tone === "red"
+        ? "is-red"
+        : `is-${tone}`
+  const className = `content-overview__metric admin-kpi-card ${toneClass}${
     onClick ? " is-interactive" : ""
   }${active ? " is-active" : ""}`
   const content = (
     <>
-      <div className="admin-stat-marker" aria-hidden="true" />
-      <div>
-        <p>{label}</p>
-        <strong>{value}</strong>
-        {hint && <span>{hint}</span>}
-      </div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {hint && <small>{hint}</small>}
     </>
   )
   return onClick ? (
@@ -131,7 +134,63 @@ export function AdminStatCard({
 }
 
 export function AdminStats({ children }: { children: ReactNode }) {
-  return <div className="admin-stats-grid">{children}</div>
+  const items = Children.toArray(children)
+  const count = items.length
+
+  if (count === 5) {
+    return (
+      <div className="content-overview admin-kpi-overview" data-count={count}>
+        <div className="admin-kpi-overview__primary">{items[0]}</div>
+        <div className="content-overview__metadata">
+          {items.slice(1)}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="content-overview__metadata admin-kpi-overview__metadata"
+      data-count={count}
+    >
+      {items}
+    </div>
+  )
+}
+
+export function AdminRowAction({
+  action,
+  name,
+  onClick,
+  disabled = false,
+}: {
+  action: "view" | "edit" | "delete"
+  name: string
+  onClick: () => void
+  disabled?: boolean
+}) {
+  const verb = `${action.charAt(0).toUpperCase()}${action.slice(1)}`
+  const path =
+    action === "view"
+      ? "M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
+      : action === "edit"
+        ? "m4 16-.75 4.75L8 20l10.8-10.8a2.12 2.12 0 0 0-3-3L5 17v3h3 M14.5 7.5l3 3"
+        : "M4 7h16 M9 7V4h6v3 M7 7l1 13h8l1-13 M10 11v5 M14 11v5"
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={`${verb} ${name}`}
+      title={verb}
+      className={`content-table__action${action === "delete" ? " content-table__action--danger" : ""}`}
+    >
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={path} />
+      </svg>
+    </button>
+  )
 }
 
 export function AdminTablePagination({
@@ -167,66 +226,79 @@ export function AdminTablePagination({
 
   const last = Math.min(safePage * perPage, total)
 
-  const visiblePages = Array.from(
-    { length: Math.min(5, totalPages) },
+  const visiblePages: (number | "ellipsis")[] = (() => {
+    if (totalPages <= 7)
+      return Array.from({ length: totalPages }, (_, index) => index + 1)
 
-    (_, index) => {
-      const start = Math.min(
-        Math.max(1, safePage - 2),
-
-        Math.max(1, totalPages - 4),
-      )
-
-      return start + index
-    },
-  )
+    const pages: (number | "ellipsis")[] = [1]
+    if (safePage > 3) pages.push("ellipsis")
+    for (
+      let pageNumber = Math.max(2, safePage - 1);
+      pageNumber <= Math.min(totalPages - 1, safePage + 1);
+      pageNumber += 1
+    ) {
+      pages.push(pageNumber)
+    }
+    if (safePage < totalPages - 2) pages.push("ellipsis")
+    pages.push(totalPages)
+    return pages
+  })()
 
   return (
     <div className="admin-table-pagination" aria-label={`${label} pagination`}>
-      <p>
-        Showing {first}–{last} of {total} {label}
-      </p>
-      {onPerPage && (
-        <select
-          className="admin-select"
-          value={perPage}
-          onChange={(event) => onPerPage(Number(event.target.value))}
-          aria-label={`Rows per page for ${label}`}
-        >
-          {[10, 25, 50].map((amount) => (
-            <option key={amount} value={amount}>
-              {amount} per page
-            </option>
-          ))}
-        </select>
-      )}
+      <div className="admin-pagination-summary">
+        <span>Showing {first}–{last} of {total} {label}</span>
+        {onPerPage && (
+          <select
+            className="admin-select"
+            value={perPage}
+            onChange={(event) => onPerPage(Number(event.target.value))}
+            aria-label={`Rows per page for ${label}`}
+          >
+            {[10, 25, 50].map((amount) => (
+              <option key={amount} value={amount}>
+                {amount} per page
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
       <div className="admin-pagination-controls">
         <button
           type="button"
           onClick={() => onPage(safePage - 1)}
           disabled={safePage === 1}
-          aria-label={`Previous ${label} page`}
+          aria-label="Previous page"
         >
-          ‹
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
         </button>
-        {visiblePages.map((pageNumber) => (
-          <button
-            type="button"
-            key={pageNumber}
-            className={safePage === pageNumber ? "is-active" : ""}
-            aria-current={safePage === pageNumber ? "page" : undefined}
-            onClick={() => onPage(pageNumber)}
-          >
-            {pageNumber}
-          </button>
-        ))}
+        {visiblePages.map((pageNumber, index) =>
+          pageNumber === "ellipsis" ? (
+            <span className="admin-pagination-ellipsis" aria-hidden="true" key={`ellipsis-${index}`}>…</span>
+          ) : (
+            <button
+              type="button"
+              key={pageNumber}
+              className={safePage === pageNumber ? "is-active" : ""}
+              aria-label={`Page ${pageNumber}`}
+              aria-current={safePage === pageNumber ? "page" : undefined}
+              onClick={() => onPage(pageNumber)}
+            >
+              {pageNumber}
+            </button>
+          ),
+        )}
         <button
           type="button"
           onClick={() => onPage(safePage + 1)}
           disabled={safePage === totalPages}
-          aria-label={`Next ${label} page`}
+          aria-label="Next page"
         >
-          ›
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </button>
       </div>
     </div>

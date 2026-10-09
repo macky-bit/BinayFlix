@@ -3,6 +3,7 @@ import {
   useAdminCollection,
   useAdminRepository,
 } from "../../data";
+import { AdminRowAction, AdminStatCard, AdminStats } from "../../components/AdminUI";
 import {
   StatusBadge,
   statusVariantFor,
@@ -167,30 +168,23 @@ export default function SecurityTab() {
     }).finally(() => setScanning(false));
   }
 
-  const pageRows = filtered.slice((page - 1) * perPage, page * perPage);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = filtered.slice((safePage - 1) * perPage, safePage * perPage);
   const criticalCount = events.filter((e) => e.severity === "Critical" && e.status === "New").length;
   const failedLogins = events.filter((e) => e.eventType === "Failed Login").length;
-  const activeAlerts = events.filter((e) => e.status === "New" || e.status === "Monitoring").length;
+  const newAlertCount = events.filter((e) => e.status === "New").length;
 
   return (
     <div>
       <SectionTitle title="Security Monitoring" description="Review security events, access attempts, and potential threats." />
 
-      {/* Status panels */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        {[
-          { title: "Security Status", value: criticalCount > 0 ? "Warning" : "Protected", sub: criticalCount > 0 ? `${criticalCount} critical event${criticalCount !== 1 ? "s" : ""}` : "No active threats" },
-          { title: "Failed Logins Today", value: String(failedLogins), sub: "Across all accounts" },
-          { title: "Active Alerts", value: String(activeAlerts), sub: "New or monitoring" },
-          { title: "Last Security Scan", value: events.find(event => event.eventType === "Security Scan")?.dateTime ?? "No record", sub: "Stored in system logs" },
-        ].map((p) => (
-          <div key={p.title} className="card-surface p-4">
-            <p className="text-xs text-[#9CA3AF] mb-1">{p.title}</p>
-            <p className="text-lg font-semibold text-white">{p.value}</p>
-            <p className="text-xs text-[#9CA3AF] mt-0.5">{p.sub}</p>
-          </div>
-        ))}
-      </div>
+      <AdminStats>
+        <AdminStatCard label="Security events" value={events.length} hint="All monitored events" tone="purple" active={filterSev === "all" && filterStatus === "all"} onClick={() => { setFilterSev("all"); setFilterStatus("all"); setPage(1); }} actionLabel="Show all security events" />
+        <AdminStatCard label="Critical open" value={criticalCount} hint="Critical events marked new" tone="red" active={filterSev === "Critical" && filterStatus === "New"} onClick={() => { setFilterSev("Critical"); setFilterStatus("New"); setPage(1); }} actionLabel="Filter to critical open events" />
+        <AdminStatCard label="New alerts" value={newAlertCount} hint="Awaiting review" tone="gold" active={filterStatus === "New" && filterSev === "all"} onClick={() => { setFilterSev("all"); setFilterStatus("New"); setPage(1); }} actionLabel="Filter to new alerts" />
+        <AdminStatCard label="Latest security scan" value={events.find(event => event.eventType === "Security Scan")?.dateTime ?? "No record"} hint={`${failedLogins} failed login event${failedLogins === 1 ? "" : "s"}`} tone="blue" />
+      </AdminStats>
 
       {/* Scan progress */}
       {scanning && (
@@ -254,7 +248,7 @@ export default function SecurityTab() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5 flex-wrap">
-                        <button onClick={() => setViewEvent(ev)} className="btn-outline px-2.5 py-1 text-xs">View</button>
+                        <AdminRowAction action="view" name={`security event ${ev.id}`} onClick={() => setViewEvent(ev)} />
                         {ev.status !== "Resolved" && ev.status !== "False Positive" && (
                           <button onClick={() => applyAction(ev, "resolve")} className="btn-ghost px-2.5 py-1 text-xs whitespace-nowrap">Resolve</button>
                         )}
@@ -269,7 +263,7 @@ export default function SecurityTab() {
             </tbody>
           </table>
         </div>
-        <Pagination page={page} total={filtered.length} perPage={perPage} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} label="security events" />
+        <Pagination page={safePage} total={filtered.length} perPage={perPage} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} label="security events" />
       </div>
 
       {/* Event detail drawer */}

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { FilmRefresher, Content, Toast } from '../../types';
 import Modal from '../shared/Modal';
 import ConfirmDialog from '../shared/ConfirmDialog';
+import { AdminRowAction } from '../../../components/AdminUI';
 
 interface FilmRefreshersTabProps {
   refreshers: FilmRefresher[];
@@ -105,16 +106,6 @@ function RefresherForm({
   );
 }
 
-function CrudBtn({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) {
-  return (
-    <button onClick={onClick} className="px-2 py-1 rounded text-xs font-medium transition-colors" style={{ border: `1px solid ${danger ? 'rgba(239,68,68,0.4)' : 'rgba(124,58,237,0.4)'}`, color: danger ? '#EF4444' : '#A78BFA', backgroundColor: 'transparent' }}
-      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = danger ? 'rgba(239,68,68,0.1)' : 'rgba(124,58,237,0.15)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-      {label}
-    </button>
-  );
-}
-
 export default function FilmRefreshersTab({ refreshers, content, onAdd, onEdit, onDelete, addToast }: FilmRefreshersTabProps) {
   const [search, setSearch] = useState('');
   const [contentFilter, setContentFilter] = useState('');
@@ -158,8 +149,12 @@ export default function FilmRefreshersTab({ refreshers, content, onAdd, onEdit, 
       </div>
 
       <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #374151' }}>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm" style={{ backgroundColor: '#150D2A' }}>
+        <div className="content-media-table-scroll">
+          <table className="content-media-table content-refreshers-table border-collapse text-sm" style={{ backgroundColor: '#150D2A' }}>
+            <colgroup>
+              <col className="media-col-id" /><col className="media-col-title" /><col className="media-col-content" /><col className="media-col-summary" />
+              <col className="media-col-video" /><col className="media-col-updated" /><col className="media-col-status" /><col className="media-col-actions" />
+            </colgroup>
             <thead>
               <tr style={{ borderBottom: '1px solid #374151' }}>
                 <th style={thStyle}>Refresher ID</th>
@@ -182,11 +177,11 @@ export default function FilmRefreshersTab({ refreshers, content, onAdd, onEdit, 
                 <tr key={r.id} style={{ borderBottom: '1px solid #1F2937' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(124,58,237,0.05)'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
-                  <td className="px-3 py-3"><span className="font-mono text-xs" style={{ color: '#8B5CF6' }}>{r.id}</span></td>
-                  <td className="px-3 py-3 font-medium text-white max-w-[180px]"><span className="truncate block">{r.title}</span></td>
-                  <td className="px-3 py-3 max-w-[160px]"><span className="truncate block text-white">{getTitle(r.contentId)}</span></td>
-                  <td className="px-3 py-3 max-w-xs" style={{ color: '#9CA3AF' }}>
-                    <span className="line-clamp-2 text-xs leading-relaxed">{r.summary.slice(0, 100)}{r.summary.length > 100 ? '…' : ''}</span>
+                  <td className="px-3 py-3"><span className="block truncate font-mono text-xs" title={r.id} style={{ color: '#8B5CF6' }}>{r.id}</span></td>
+                  <td className="px-3 py-3 font-medium text-white"><span className="truncate block" title={r.title}>{r.title}</span></td>
+                  <td className="px-3 py-3"><span className="truncate block text-white" title={getTitle(r.contentId)}>{getTitle(r.contentId)}</span></td>
+                  <td className="px-3 py-3" style={{ color: '#9CA3AF' }}>
+                    <span className="line-clamp-2 text-xs leading-relaxed" title={r.summary}>{r.summary.slice(0, 100)}{r.summary.length > 100 ? '…' : ''}</span>
                   </td>
                   <td className="px-3 py-3">
                     {r.videoFilename ? (
@@ -199,10 +194,10 @@ export default function FilmRefreshersTab({ refreshers, content, onAdd, onEdit, 
                   <td className="px-3 py-3 text-xs" style={{ color: '#9CA3AF' }}>{r.lastUpdated}</td>
                   <td className="px-3 py-3"><span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium" style={{ backgroundColor: r.availability === 'available' ? 'rgba(16,185,129,.1)' : 'rgba(107,114,128,.15)', borderColor: r.availability === 'available' ? 'rgba(16,185,129,.35)' : 'rgba(107,114,128,.4)', color: r.availability === 'available' ? '#6EE7B7' : '#D1D5DB' }}><span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: r.availability === 'available' ? '#10B981' : '#6B7280' }} aria-hidden="true" />{r.availability === 'available' ? 'Available' : 'Unavailable'}</span></td>
                   <td className="px-3 py-3">
-                    <div className="flex gap-1">
-                      <CrudBtn label="View" onClick={() => setViewId(r.id)} />
-                      <CrudBtn label="Edit" onClick={() => setEditId(r.id)} />
-                      <CrudBtn label="Delete" onClick={() => setDeleteId(r.id)} danger />
+                    <div className="content-table__actions">
+                      <AdminRowAction action="view" name={r.title || `refresher ${r.id}`} onClick={() => setViewId(r.id)} />
+                      <AdminRowAction action="edit" name={r.title || `refresher ${r.id}`} onClick={() => setEditId(r.id)} />
+                      <AdminRowAction action="delete" name={r.title || `refresher ${r.id}`} onClick={() => setDeleteId(r.id)} />
                     </div>
                   </td>
                 </tr>

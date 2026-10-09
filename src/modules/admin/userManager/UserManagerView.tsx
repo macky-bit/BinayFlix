@@ -4,8 +4,10 @@ import { useAdminCollection, useAdminRepository } from "../data"
 
 import {
   AdminPageHeader,
+  AdminRowAction,
   AdminStatCard,
   AdminStats,
+  AdminTablePagination,
   AdminWorkspaceTabs,
 } from "../components/AdminUI"
 
@@ -494,6 +496,17 @@ function Pagination({
   onPerPage,
   label,
 }: PaginationProps) {
+  return (
+    <AdminTablePagination
+      page={page}
+      total={total}
+      perPage={perPage}
+      onPage={onPage}
+      onPerPage={onPerPage}
+      label={label}
+    />
+  )
+
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
   const start = (page - 1) * perPage + 1
@@ -568,7 +581,7 @@ function Pagination({
           <select
             className="admin-select"
             value={perPage}
-            onChange={(event) => onPerPage(Number(event.target.value))}
+            onChange={(event) => onPerPage?.(Number(event.target.value))}
             aria-label={`Rows per page for ${label}`}
           >
             {[10, 25, 50].map((amount) => (
@@ -588,7 +601,7 @@ function Pagination({
           }}
           aria-label="Previous page"
         >
-          ‹
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>
         {pageNums.map((n, i) =>
           n === "..." ? (
@@ -615,7 +628,7 @@ function Pagination({
           }}
           aria-label="Next page"
         >
-          ›
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
         </button>
       </div>
     </div>
@@ -1903,7 +1916,7 @@ function WatchHistoryTab() {
                   {r.lastPlayback}
                 </Td>
                 <Td>
-                  <VioletBtn onClick={() => setViewId(r.id)}>View</VioletBtn>
+                  <AdminRowAction action="view" name={r.contentTitle || `watch record ${r.id}`} onClick={() => setViewId(r.id)} />
                 </Td>
               </Tr>
             ))}
@@ -2693,19 +2706,19 @@ function PlansTab({ onToast }: { onToast: (m: string) => void }) {
               </Td>
               <Td>
                 <div
-                  style={{ display: "flex", gap: 6 }}
+                  className="content-table__actions"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <VioletBtn
+                  <AdminRowAction
+                    action="view"
+                    name={p.name || `plan ${p.id}`}
                     onClick={() => {
                       setSelectedId(p.id)
                       setViewMode("view")
                     }}
-                  >
-                    View
-                  </VioletBtn>
-                  <VioletBtn onClick={() => openEdit(p)}>Edit</VioletBtn>
-                  <DangerBtn onClick={() => tryDelete(p.id)}>Delete</DangerBtn>
+                  />
+                  <AdminRowAction action="edit" name={p.name || `plan ${p.id}`} onClick={() => openEdit(p)} />
+                  <AdminRowAction action="delete" name={p.name || `plan ${p.id}`} onClick={() => tryDelete(p.id)} />
                 </div>
               </Td>
             </Tr>

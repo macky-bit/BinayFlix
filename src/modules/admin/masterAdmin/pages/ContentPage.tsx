@@ -5,6 +5,7 @@ import { formatNumber, generateId } from '../utils'
 import { GenericBadge } from '../components/Badge'
 import Toast from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { AdminRowAction } from '../../components/AdminUI'
 
 type ContentTab = 'content' | 'categories' | 'genres' | 'soundtracks'
 
@@ -335,10 +336,10 @@ export default function ContentPage() {
                       <td className="px-3 py-3 whitespace-nowrap" style={{ color: 'var(--gold)' }}>{formatNumber(c.totalStreams)}</td>
                       <td className="px-3 py-3"><GenericBadge label={c.availability} /></td>
                       <td className="px-3 py-3">
-                        <div className="flex gap-1">
-                          <button onClick={() => setViewItem(c)} className="btn-wine px-2 py-1 rounded text-xs">View</button>
-                          <button onClick={() => setEditItem(c)} className="btn-wine px-2 py-1 rounded text-xs">Edit</button>
-                          <button onClick={() => setDeleteTarget(c.id)} className="btn-danger px-2 py-1 rounded text-xs">Delete</button>
+                        <div className="content-table__actions">
+                          <AdminRowAction action="view" name={c.title || `content ${c.id}`} onClick={() => setViewItem(c)} />
+                          <AdminRowAction action="edit" name={c.title || `content ${c.id}`} onClick={() => setEditItem(c)} />
+                          <AdminRowAction action="delete" name={c.title || `content ${c.id}`} onClick={() => setDeleteTarget(c.id)} />
                         </div>
                       </td>
                     </tr>
@@ -370,9 +371,9 @@ export default function ContentPage() {
                   <td className="px-3 py-3" style={{ color: 'var(--taupe)' }}>{cat.description}</td>
                   <td className="px-3 py-3 text-center" style={{ color: 'var(--gold)' }}>{cat.contentCount}</td>
                   <td className="px-3 py-3">
-                    <div className="flex gap-1">
-                      <button className="btn-wine px-2 py-1 rounded text-xs" onClick={() => showToast('Category updated successfully.')}>Edit</button>
-                      <button className="btn-danger px-2 py-1 rounded text-xs" onClick={() => showToast('Category deleted.', 'success')}>Delete</button>
+                    <div className="content-table__actions">
+                      <AdminRowAction action="edit" name={cat.name || `category ${cat.id}`} onClick={() => showToast('Category updated successfully.')} />
+                      <AdminRowAction action="delete" name={cat.name || `category ${cat.id}`} onClick={() => showToast('Category deleted.', 'success')} />
                     </div>
                   </td>
                 </tr>
@@ -402,9 +403,9 @@ export default function ContentPage() {
                   <td className="px-3 py-3 font-medium text-white">{g.name}</td>
                   <td className="px-3 py-3 text-center" style={{ color: 'var(--gold)' }}>{g.contentCount}</td>
                   <td className="px-3 py-3">
-                    <div className="flex gap-1">
-                      <button className="btn-wine px-2 py-1 rounded text-xs" onClick={() => showToast('Genre updated successfully.')}>Edit</button>
-                      <button className="btn-danger px-2 py-1 rounded text-xs" onClick={() => showToast('Genre deleted.')}>Delete</button>
+                    <div className="content-table__actions">
+                      <AdminRowAction action="edit" name={g.name || `genre ${g.id}`} onClick={() => showToast('Genre updated successfully.')} />
+                      <AdminRowAction action="delete" name={g.name || `genre ${g.id}`} onClick={() => showToast('Genre deleted.')} />
                     </div>
                   </td>
                 </tr>
@@ -436,9 +437,9 @@ export default function ContentPage() {
                   <td className="px-3 py-3" style={{ color: 'var(--taupe)' }}>{s.artist}</td>
                   <td className="px-3 py-3" style={{ color: 'var(--taupe)' }}>{s.duration}</td>
                   <td className="px-3 py-3">
-                    <div className="flex gap-1">
-                      <button className="btn-wine px-2 py-1 rounded text-xs" onClick={() => showToast('Soundtrack details.')}>View</button>
-                      <button className="btn-danger px-2 py-1 rounded text-xs" onClick={() => void soundtrackState.remove(s.id)}>Delete</button>
+                    <div className="content-table__actions">
+                      <AdminRowAction action="view" name={s.title || `soundtrack ${s.id}`} onClick={() => showToast('Soundtrack details.')} />
+                      <AdminRowAction action="delete" name={s.title || `soundtrack ${s.id}`} onClick={() => void soundtrackState.remove(s.id)} disabled={soundtrackState.mutating} />
                     </div>
                   </td>
                 </tr>

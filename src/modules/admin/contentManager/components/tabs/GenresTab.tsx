@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Genre, Toast } from '../../types';
 import Modal from '../shared/Modal';
 import ConfirmDialog from '../shared/ConfirmDialog';
+import { AdminRowAction } from '../../../components/AdminUI';
 
 interface GenresTabProps {
   genres: Genre[];
@@ -56,16 +57,6 @@ function GenreForm({
         </button>
       </div>
     </form>
-  );
-}
-
-function CrudBtn({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) {
-  return (
-    <button onClick={onClick} className="px-2 py-1 rounded text-xs font-medium transition-colors" style={{ border: `1px solid ${danger ? 'rgba(239,68,68,0.4)' : 'rgba(124,58,237,0.4)'}`, color: danger ? '#EF4444' : '#A78BFA', backgroundColor: 'transparent' }}
-      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = danger ? 'rgba(239,68,68,0.1)' : 'rgba(124,58,237,0.15)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-      {label}
-    </button>
   );
 }
 
@@ -131,10 +122,10 @@ export default function GenresTab({ genres, onAdd, onEdit, onDelete, addToast }:
                 <td className="px-3 py-3 max-w-xs" style={{ color: '#9CA3AF' }}><span className="truncate block">{g.description || '—'}</span></td>
                 <td className="px-3 py-3"><span className="font-semibold" style={{ color: '#F5A800' }}>{g.contentCount}</span><span className="ml-1 text-xs" style={{ color: '#9CA3AF' }}>items</span></td>
                 <td className="px-3 py-3">
-                  <div className="flex gap-1">
-                    <CrudBtn label="View" onClick={() => setViewId(g.id)} />
-                    <CrudBtn label="Edit" onClick={() => setEditId(g.id)} />
-                    <CrudBtn label="Delete" onClick={() => setDeleteId(g.id)} danger />
+                  <div className="content-table__actions">
+                    <AdminRowAction action="view" name={g.name || `genre ${g.id}`} onClick={() => setViewId(g.id)} />
+                    <AdminRowAction action="edit" name={g.name || `genre ${g.id}`} onClick={() => setEditId(g.id)} />
+                    <AdminRowAction action="delete" name={g.name || `genre ${g.id}`} onClick={() => setDeleteId(g.id)} />
                   </div>
                 </td>
               </tr>

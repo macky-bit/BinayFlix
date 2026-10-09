@@ -6,6 +6,7 @@ import {
   AdminPageHeader,
   AdminStatCard,
   AdminStats,
+  AdminTablePagination,
 } from "../components/AdminUI"
 
 import AdminDetailsPanel, {
@@ -809,7 +810,7 @@ export default function FeedbackManagerView() {
 
       {/* ── Navbar ─────────────────────────────────────────────────────────── */}
       {/* ── Page content ───────────────────────────────────────────────────── */}
-      <main className="admin-page-shell">
+      <main className="admin-page-shell feedback-workspace">
         {/* Header */}
         <AdminPageHeader
           eyebrow="Member voice"
@@ -868,7 +869,7 @@ export default function FeedbackManagerView() {
             alignItems: "center",
           }}
           role="search"
-          className="admin-filter-row"
+          className="admin-filter-row feedback-filter-bar"
           aria-label="Filter and search feedback"
         >
           {/* Search */}
@@ -1429,7 +1430,7 @@ export default function FeedbackManagerView() {
                             >
                               <button
                                 type="button"
-                                className="content-table__action-button"
+                                className="content-table__action"
                                 onClick={() => setSelectedId(item.id)}
                                 aria-label={`View feedback ${item.id}`}
                                 title="View feedback"
@@ -1460,7 +1461,21 @@ export default function FeedbackManagerView() {
 
             {/* ── Pagination ──────────────────────────────────────────────── */}
             {!loading && filtered.length > 0 && (
+              <AdminTablePagination
+                page={page}
+                total={filtered.length}
+                perPage={rowsPerPage}
+                onPage={setPage}
+                onPerPage={(amount) => {
+                  setRowsPerPage(amount)
+                  setPage(1)
+                }}
+                label="feedback items"
+              />
+            )}
+            {!loading && filtered.length > 0 && (
               <div
+                hidden
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -1520,7 +1535,7 @@ export default function FeedbackManagerView() {
                       fontSize: 14,
                     }}
                   >
-                    ‹
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                   </button>
 
                   {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
@@ -1647,7 +1662,7 @@ export default function FeedbackManagerView() {
                       fontSize: 14,
                     }}
                   >
-                    ›
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </button>
                 </div>
               </div>

@@ -1804,7 +1804,7 @@ export default function AdminManagement() {
     : null
 
   return (
-    <div className="admin-page-shell">
+    <div className="admin-page-shell master-admin-workspace">
       {toast && (
         <Toast
           message={toast.message}

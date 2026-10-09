@@ -3,6 +3,7 @@ import {
   useAdminCollection,
   useAdminRepository,
 } from "../../data";
+import { AdminRowAction, AdminStatCard, AdminStats } from "../../components/AdminUI";
 import {
   StatusBadge,
   statusVariantFor,
@@ -62,9 +63,10 @@ const SORT_OPTIONS = [
 const SEV_ORDER: Record<string, number> = { Critical: 3, Warning: 2, Info: 1 };
 
 export default function SystemLogsTab() {
-  const logs = useAdminCollection(
+  const logState = useAdminCollection(
     useAdminRepository<LogEntry>("system-logs"),
-  ).items;
+  );
+  const logs = logState.items;
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterSev, setFilterSev] = useState("all");
@@ -72,7 +74,6 @@ export default function SystemLogsTab() {
   const [sort, setSort] = useState("newest");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewLog, setViewLog] = useState<LogEntry | null>(null);
   const [markedReviewed, setMarkedReviewed] = useState<Set<string>>(new Set());
 
@@ -91,8 +92,12 @@ export default function SystemLogsTab() {
     return result;
   }, [logs, search, filterType, filterSev, filterStatus, sort]);
 
-  const pageRows = filtered.slice((page - 1) * perPage, page * perPage);
-  const allPageSelected = pageRows.length > 0 && pageRows.every((r) => selected.has(r.id));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = filtered.slice((safePage - 1) * perPage, safePage * perPage);
+  const warningCount = logs.filter((log) => log.severity === "Warning").length;
+  const criticalCount = logs.filter((log) => log.severity === "Critical").length;
+  const failedCount = logs.filter((log) => log.status === "Failed").length;
 
   function resetFilters() {
     setSearch("");
@@ -103,18 +108,6 @@ export default function SystemLogsTab() {
     setPage(1);
   }
 
-  function toggleSelectAll() {
-    if (allPageSelected) {
-      setSelected((s) => { const n = new Set(s); pageRows.forEach((r) => n.delete(r.id)); return n; });
-    } else {
-      setSelected((s) => { const n = new Set(s); pageRows.forEach((r) => n.add(r.id)); return n; });
-    }
-  }
-
-  function toggleSelect(id: string) {
-    setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  }
-
   return (
     <div>
       <SectionTitle
@@ -122,37 +115,53 @@ export default function SystemLogsTab() {
         description="Review recorded activities, warnings, and system events."
       />
 
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-4">
-        <SearchInput
-          value={search}
-          onChange={(v) => { setSearch(v); setPage(1); }}
-          placeholder="Search system logs..."
-          className="w-full sm:w-64"
-        />
-        <Select value={filterType} onChange={(v) => { setFilterType(v); setPage(1); }} options={EVENT_TYPE_OPTIONS} className="w-full sm:w-40" />
-        <Select value={filterSev} onChange={(v) => { setFilterSev(v); setPage(1); }} options={SEVERITY_OPTIONS} className="w-full sm:w-36" />
-        <Select value={filterStatus} onChange={(v) => { setFilterStatus(v); setPage(1); }} options={STATUS_OPTIONS} className="w-full sm:w-36" />
-        <Select value={sort} onChange={(v) => { setSort(v); setPage(1); }} options={SORT_OPTIONS} className="w-full sm:w-44" />
-        <button onClick={resetFilters} className="btn-ghost px-4 py-2 text-sm whitespace-nowrap">Reset Filters</button>
-      </div>
+      <AdminStats>
+        <AdminStatCard label="Total events" value={logs.length} hint="All recorded logs" tone="purple" active={filterSev === "all" && filterStatus === "all"} onClick={() => { setFilterSev("all"); setFilterStatus("all"); setPage(1); }} actionLabel="Show all system logs" />
+        <AdminStatCard label="Warnings" value={warningCount} hint="Warning severity" tone="gold" active={filterSev === "Warning"} onClick={() => { setFilterSev("Warning"); setFilterStatus("all"); setPage(1); }} actionLabel="Filter to warnings" />
+        <AdminStatCard label="Critical events" value={criticalCount} hint="Critical severity" tone="red" active={filterSev === "Critical"} onClick={() => { setFilterSev("Critical"); setFilterStatus("all"); setPage(1); }} actionLabel="Filter to critical events" />
+        <AdminStatCard label="Failed events" value={failedCount} hint="Failed status" tone="blue" active={filterStatus === "Failed"} onClick={() => { setFilterSev("all"); setFilterStatus("Failed"); setPage(1); }} actionLabel="Filter to failed events" />
+      </AdminStats>
 
-      <div className="table-surface">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" aria-label="System Logs">
+      <section className="table-surface system-logs-panel">
+        <div className="content-table-frame__heading system-logs-panel__heading">
+          <div>
+            <h2>System event records</h2>
+            <p>Audit platform activity, sources, severity, and processing status.</p>
+          </div>
+          <span>{filtered.length.toLocaleString()}</span>
+        </div>
+
+        <div className="admin-filter-row system-logs-toolbar" role="search" aria-label="Search and filter system logs">
+          <SearchInput
+            value={search}
+            onChange={(v) => { setSearch(v); setPage(1); }}
+            placeholder="Search logs, sources, IP addresses..."
+            className="system-logs-toolbar__search"
+          />
+          <Select value={filterType} onChange={(v) => { setFilterType(v); setPage(1); }} options={EVENT_TYPE_OPTIONS} className="system-logs-toolbar__select" />
+          <Select value={filterSev} onChange={(v) => { setFilterSev(v); setPage(1); }} options={SEVERITY_OPTIONS} className="system-logs-toolbar__select" />
+          <Select value={filterStatus} onChange={(v) => { setFilterStatus(v); setPage(1); }} options={STATUS_OPTIONS} className="system-logs-toolbar__select" />
+          <Select value={sort} onChange={(v) => { setSort(v); setPage(1); }} options={SORT_OPTIONS} className="system-logs-toolbar__sort" />
+          <button type="button" onClick={resetFilters} className="btn-ghost system-logs-toolbar__reset">Reset filters</button>
+        </div>
+
+        <div className="system-table-scroll">
+          <table className="system-logs-table w-full text-sm" aria-label="System Logs">
+            <colgroup>
+              <col className="system-log-col-id" />
+              <col className="system-log-col-date" />
+              <col className="system-log-col-event" />
+              <col className="system-log-col-source" />
+              <col className="system-log-col-description" />
+              <col className="system-log-col-ip" />
+              <col className="system-log-col-severity" />
+              <col className="system-log-col-status" />
+              <col className="system-log-col-actions" />
+            </colgroup>
             <thead>
               <tr className="border-b border-stone-700/60">
-                <th className="px-4 py-3 w-10">
-                  <input
-                    type="checkbox"
-                    checked={allPageSelected}
-                    onChange={toggleSelectAll}
-                    className="accent-[#7C3AED] w-4 h-4"
-                    aria-label="Select all on page"
-                  />
-                </th>
                 {["Log ID", "Date & Time", "Event Type", "User / Source", "Description", "IP Address", "Severity", "Status", "Actions"].map((h) => (
-                  <th key={h} className="text-left text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider px-4 py-3 whitespace-nowrap" scope="col">
+                  <th key={h} className="text-left text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider px-2 py-3" scope="col">
                     {h}
                   </th>
                 ))}
@@ -160,40 +169,31 @@ export default function SystemLogsTab() {
             </thead>
             <tbody>
               {pageRows.length === 0 ? (
-                <EmptyRow cols={10} message="No records match your search or selected filters." />
+                <EmptyRow cols={9} message={logState.loading ? "Loading system logs…" : logState.error ? logState.error.message : "No records match your search or selected filters."} />
               ) : (
                 pageRows.map((log) => (
                   <tr
                     key={log.id}
-                    className={`border-b border-stone-700/30 last:border-0 ${selected.has(log.id) ? "tr-selected" : "tr-hover"}`}
+                    className="border-b border-stone-700/30 last:border-0 tr-hover"
                   >
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(log.id)}
-                        onChange={() => toggleSelect(log.id)}
-                        className="accent-[#7C3AED] w-4 h-4"
-                        aria-label={`Select ${log.id}`}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-[#9CA3AF] font-mono text-xs whitespace-nowrap">{log.id}</td>
-                    <td className="px-4 py-3 text-[#9CA3AF] whitespace-nowrap text-xs">{log.dateTime}</td>
-                    <td className="px-4 py-3 text-white whitespace-nowrap">{log.eventType}</td>
-                    <td className="px-4 py-3 text-[#9CA3AF] text-xs whitespace-nowrap">{log.userSource}</td>
-                    <td className="px-4 py-3 text-[#9CA3AF] max-w-xs truncate text-xs" title={log.description}>{log.description}</td>
-                    <td className="px-4 py-3 text-[#9CA3AF] font-mono text-xs whitespace-nowrap">{log.ip}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="system-log-id font-mono text-xs" title={log.id}>{log.id}</td>
+                    <td className="system-log-date text-xs">{log.dateTime}</td>
+                    <td className="system-log-event text-xs">{log.eventType}</td>
+                    <td className="system-log-source text-xs" title={log.userSource}>{log.userSource}</td>
+                    <td className="system-log-description text-xs" title={log.description}><span>{log.description}</span></td>
+                    <td className="system-log-ip font-mono text-xs" title={log.ip}>{log.ip}</td>
+                    <td className="px-2 py-3">
                       <StatusBadge label={log.severity} variant={statusVariantFor(log.severity)} />
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-2 py-3">
                       {markedReviewed.has(log.id) ? (
                         <StatusBadge label="Reviewed" variant="positive" />
                       ) : (
                         <StatusBadge label={log.status} variant={statusVariantFor(log.status)} />
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => setViewLog(log)} className="btn-outline px-3 py-1 text-xs">View</button>
+                    <td className="system-log-action-cell">
+                      <AdminRowAction action="view" name={`system log ${log.id}`} onClick={() => setViewLog(log)} />
                     </td>
                   </tr>
                 ))
@@ -202,14 +202,14 @@ export default function SystemLogsTab() {
           </table>
         </div>
         <Pagination
-          page={page}
+          page={safePage}
           total={filtered.length}
           perPage={perPage}
           onPage={setPage}
           onPerPage={(n) => { setPerPage(n); setPage(1); }}
           label="system logs"
         />
-      </div>
+      </section>
 
       {/* Log detail drawer */}
       <Drawer
@@ -255,8 +255,7 @@ event_type: ${viewLog.eventType}
 severity: ${viewLog.severity}
 status: ${viewLog.status}
 ip_address: ${viewLog.ip}
-session_id: sess_${Math.random().toString(36).slice(2, 10)}
-platform: STREAMFLIX v3.2.1`}
+`}
               </pre>
             </div>
           </div>

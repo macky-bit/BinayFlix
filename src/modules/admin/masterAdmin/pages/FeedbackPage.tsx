@@ -4,6 +4,7 @@ import { useAdminCollection, useAdminRepository } from '../../data'
 import { formatDate } from '../utils'
 import { GenericBadge } from '../components/Badge'
 import Toast from '../components/Toast'
+import { AdminRowAction } from '../../components/AdminUI'
 
 // Feedback Detail Panel
 function FeedbackDetailPanel({ item, onClose, onStatusChange }: {
@@ -200,7 +201,7 @@ export default function FeedbackPage() {
                           <td className="px-3 py-3 whitespace-nowrap text-xs" style={{ color: 'var(--taupe)' }}>{formatDate(f.submissionDate)}</td>
                           <td className="px-3 py-3"><GenericBadge label={f.status} /></td>
                           <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => setSelectedId(f.id)} className="btn-wine px-2.5 py-1 rounded text-xs">View</button>
+                            <AdminRowAction action="view" name={`feedback ${f.id}`} onClick={() => setSelectedId(f.id)} />
                           </td>
                         </tr>
                       )

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 
 import { supabase } from "../../../../lib/supabase"
 import { useAdminCollection, useAdminRepository } from "../../data"
+import { AdminRowAction, AdminStatCard, AdminStats } from "../../components/AdminUI"
 import {
   DetailRow,
   Drawer,
@@ -136,7 +137,12 @@ export default function BackupsTab() {
   }), [backups, search, filterType, filterStatus])
 
   const selectedDataset = DATASETS.find((dataset) => dataset.value === runData.dataset) ?? DATASETS[0]
-  const pageRows = filtered.slice((page - 1) * perPage, page * perPage)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
+  const safePage = Math.min(page, totalPages)
+  const pageRows = filtered.slice((safePage - 1) * perPage, safePage * perPage)
+  const successfulCount = backups.filter((backup) => backup.status === "Successful").length
+  const failedCount = backups.filter((backup) => backup.status === "Failed").length
+  const latestBackup = backups[0]
 
   function resetFilters() {
     setSearch("")
@@ -204,6 +210,13 @@ export default function BackupsTab() {
         description="Export selected StreamFlix database datasets as CSV files to private Supabase Storage."
       />
 
+      <AdminStats>
+        <AdminStatCard label="Total backups" value={backups.length} hint="All recorded jobs" tone="purple" active={filterStatus === "all"} onClick={() => { setFilterStatus("all"); setPage(1) }} actionLabel="Show all backups" />
+        <AdminStatCard label="Successful" value={successfulCount} hint="Completed exports" tone="green" active={filterStatus === "Successful"} onClick={() => { setFilterStatus("Successful"); setPage(1) }} actionLabel="Filter to successful backups" />
+        <AdminStatCard label="Failed" value={failedCount} hint="Jobs needing review" tone="red" active={filterStatus === "Failed"} onClick={() => { setFilterStatus("Failed"); setPage(1) }} actionLabel="Filter to failed backups" />
+        <AdminStatCard label="Latest backup" value={latestBackup?.completed || latestBackup?.started || "No record"} hint={latestBackup?.type || "No backup jobs"} tone="blue" />
+      </AdminStats>
+
       {notice && (
         <div
           role={notice.tone === "error" ? "alert" : "status"}
@@ -264,7 +277,7 @@ export default function BackupsTab() {
                   <td className="px-4 py-3 whitespace-nowrap"><StatusBadge label={backup.status} variant={statusVariantFor(backup.status)} /></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2 flex-wrap">
-                      <button onClick={() => setViewBackup(backup)} className="btn-outline px-3 py-1 text-xs">View</button>
+                      <AdminRowAction action="view" name={`backup ${backup.id}`} onClick={() => setViewBackup(backup)} />
                       {backup.status === "Successful" && backup.storagePath && (
                         <button onClick={() => void downloadBackup(backup)} disabled={downloadingId === backup.id} className="btn-ghost px-3 py-1 text-xs whitespace-nowrap">
                           {downloadingId === backup.id ? "Preparing…" : "Download CSVs"}
@@ -280,7 +293,7 @@ export default function BackupsTab() {
             </tbody>
           </table>
         </div>
-        <Pagination page={page} total={filtered.length} perPage={perPage} onPage={setPage} onPerPage={(amount) => { setPerPage(amount); setPage(1) }} label="backups" />
+        <Pagination page={safePage} total={filtered.length} perPage={perPage} onPage={setPage} onPerPage={(amount) => { setPerPage(amount); setPage(1) }} label="backups" />
       </div>
 
       <Drawer

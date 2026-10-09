@@ -14,7 +14,7 @@ type AdminDetailsPanelProps = {
 
   children: ReactNode
 
-  footer: ReactNode
+  footer?: ReactNode
 
   ariaLabel?: string
 
@@ -223,9 +223,11 @@ export default function AdminDetailsPanel({
           {children}
         </div>
 
-        <footer className="admin-details-footer shrink-0 px-6 py-4">
-          {footer}
-        </footer>
+        {footer && (
+          <footer className="admin-details-footer shrink-0 px-6 py-4">
+            {footer}
+          </footer>
+        )}
       </aside>
     </div>
   )

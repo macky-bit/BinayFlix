@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { Soundtrack, Content, Toast } from '../../types';
 import Modal from '../shared/Modal';
 import ConfirmDialog from '../shared/ConfirmDialog';
+import { AdminRowAction } from '../../../components/AdminUI';
 
 interface SoundtracksTabProps {
   soundtracks: Soundtrack[];
@@ -94,16 +95,6 @@ function SoundtrackForm({
   );
 }
 
-function CrudBtn({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) {
-  return (
-    <button onClick={onClick} className="px-2 py-1 rounded text-xs font-medium transition-colors" style={{ border: `1px solid ${danger ? 'rgba(239,68,68,0.4)' : 'rgba(124,58,237,0.4)'}`, color: danger ? '#EF4444' : '#A78BFA', backgroundColor: 'transparent' }}
-      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = danger ? 'rgba(239,68,68,0.1)' : 'rgba(124,58,237,0.15)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-      {label}
-    </button>
-  );
-}
-
 export default function SoundtracksTab({ soundtracks, content, onAdd, onEdit, onDelete, addToast }: SoundtracksTabProps) {
   const [search, setSearch] = useState('');
   const [contentFilter, setContentFilter] = useState('');
@@ -147,8 +138,12 @@ export default function SoundtracksTab({ soundtracks, content, onAdd, onEdit, on
       </div>
 
       <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #374151' }}>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm" style={{ backgroundColor: '#150D2A' }}>
+        <div className="content-media-table-scroll">
+          <table className="content-media-table content-soundtracks-table border-collapse text-sm" style={{ backgroundColor: '#150D2A' }}>
+            <colgroup>
+              <col className="media-col-id" /><col className="media-col-title" /><col className="media-col-artist" /><col className="media-col-content" />
+              <col className="media-col-timestamp" /><col className="media-col-link" /><col className="media-col-actions" />
+            </colgroup>
             <thead>
               <tr style={{ borderBottom: '1px solid #374151' }}>
                 <th style={thStyle}>Soundtrack ID</th>
@@ -170,10 +165,10 @@ export default function SoundtracksTab({ soundtracks, content, onAdd, onEdit, on
                 <tr key={s.id} style={{ borderBottom: '1px solid #1F2937' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(124,58,237,0.05)'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
-                  <td className="px-3 py-3"><span className="font-mono text-xs" style={{ color: '#8B5CF6' }}>{s.id}</span></td>
-                  <td className="px-3 py-3 font-medium text-white">{s.songTitle}</td>
-                  <td className="px-3 py-3" style={{ color: '#9CA3AF' }}>{s.artist}</td>
-                  <td className="px-3 py-3 max-w-[160px]"><span className="truncate block text-white">{getContentTitle(s.contentId)}</span></td>
+                  <td className="px-3 py-3"><span className="block truncate font-mono text-xs" title={s.id} style={{ color: '#8B5CF6' }}>{s.id}</span></td>
+                  <td className="px-3 py-3 font-medium text-white"><span className="block truncate" title={s.songTitle}>{s.songTitle}</span></td>
+                  <td className="px-3 py-3" style={{ color: '#9CA3AF' }}><span className="block truncate" title={s.artist}>{s.artist}</span></td>
+                  <td className="px-3 py-3"><span className="truncate block text-white" title={getContentTitle(s.contentId)}>{getContentTitle(s.contentId)}</span></td>
                   <td className="px-3 py-3"><span className="font-mono text-xs" style={{ color: '#F5A800' }}>{s.timestamp || '—'}</span></td>
                   <td className="px-3 py-3">
                     {s.streamingLink ? (
@@ -183,10 +178,10 @@ export default function SoundtracksTab({ soundtracks, content, onAdd, onEdit, on
                     ) : <span style={{ color: '#374151' }}>—</span>}
                   </td>
                   <td className="px-3 py-3">
-                    <div className="flex gap-1">
-                      <CrudBtn label="View" onClick={() => setViewId(s.id)} />
-                      <CrudBtn label="Edit" onClick={() => setEditId(s.id)} />
-                      <CrudBtn label="Delete" onClick={() => setDeleteId(s.id)} danger />
+                    <div className="content-table__actions">
+                      <AdminRowAction action="view" name={s.songTitle || `soundtrack ${s.id}`} onClick={() => setViewId(s.id)} />
+                      <AdminRowAction action="edit" name={s.songTitle || `soundtrack ${s.id}`} onClick={() => setEditId(s.id)} />
+                      <AdminRowAction action="delete" name={s.songTitle || `soundtrack ${s.id}`} onClick={() => setDeleteId(s.id)} />
                     </div>
                   </td>
                 </tr>

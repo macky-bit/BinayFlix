@@ -96,7 +96,7 @@ function SidebarIcon({ name }: { name: SidebarIconName }) {
 export default function AdminPage({ onBack, onSignOut, onNavigate }: Props) {
   const [route, setRoute] = useState<AdminRoute>("master")
   const [searchOpen, setSearchOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [mobileSidebarMode, setMobileSidebarMode] = useState(
     () => window.matchMedia(MOBILE_SIDEBAR_QUERY).matches,
