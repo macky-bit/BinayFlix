@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs"
 import test from "node:test"
 
 import {
+  COMMENT_MAX_LENGTH,
   categoryMatchesMedia,
   isCommentVisible,
   normalizeComment,
@@ -196,6 +197,18 @@ test("trims comment submissions and rejects empty posts", () => {
   assert.throws(() => normalizeComment("  \n "), /before posting/)
 })
 
+test("accepts long comments through the supported character limit", () => {
+  const longComment = "x".repeat(501)
+
+  assert.equal(normalizeComment(longComment), longComment)
+
+  assert.throws(
+    () => normalizeComment("x".repeat(COMMENT_MAX_LENGTH + 1)),
+
+    /limited to/i,
+  )
+})
+
 test("hides moderated comments from public views while preserving admin visibility", () => {
   assert.equal(isCommentVisible("Active"), true)
 
@@ -272,6 +285,47 @@ test("comment owners can edit without overriding moderation status", () => {
   assert.match(sql, /protect_content_comment_moderation_fields/i)
 
   assert.match(sql, /Only community moderators can change comment status/i)
+})
+
+test("content comments preserve and safely expose their author profile", () => {
+  const sql = readFileSync(
+    new URL(
+      "../supabase/migrations/20261009194500_connect_comment_author_profiles.sql",
+
+      import.meta.url,
+    ),
+
+    "utf8",
+  )
+
+  assert.match(sql, /add column if not exists member_profile_id bigint/i)
+
+  assert.match(sql, /profile\.user_id = content_comment\.user_id/i)
+
+  assert.match(sql, /Comment authorship cannot be changed/i)
+
+  assert.match(sql, /get_content_comments_with_authors/i)
+
+  assert.match(sql, /lower\(comment\.status\) = 'active'/i)
+})
+
+test("opening video runs after profile confirmation instead of login", () => {
+  const appSource = readFileSync(
+    new URL("../src/App.tsx", import.meta.url),
+
+    "utf8",
+  )
+  const loginSource = readFileSync(
+    new URL("../src/modules/login/LoginPage.tsx", import.meta.url),
+
+    "utf8",
+  )
+
+  assert.match(appSource, /setActiveProfile\(profile\)[\s\S]*beginOpening\(\)/)
+
+  assert.match(appSource, /page === "opening"[\s\S]*<OpeningVideo/)
+
+  assert.doesNotMatch(loginSource, /requestOpeningVideo|onAuthenticated/)
 })
 
 test("help feedback validates image attachments", () => {

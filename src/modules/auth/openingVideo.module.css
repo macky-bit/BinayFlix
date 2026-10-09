@@ -1,0 +1,145 @@
+.opening {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: grid;
+	width: 100vw;
+	height: 100dvh;
+	place-items: center;
+	overflow: hidden;
+	background: #020204;
+	zoom: calc(1 / 1.3);
+	opacity: 1;
+	transition: opacity 380ms ease;
+}
+
+.video {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	opacity: 0;
+	transition: opacity 280ms ease;
+}
+
+.ready .video {
+	opacity: 1;
+}
+
+.leaving {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.loading {
+	display: grid;
+	width: 4.5rem;
+	height: 4.5rem;
+	place-items: center;
+	border: 1px solid rgba(245, 168, 0, 0.42);
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(124, 58, 237, 0.3), transparent 68%);
+	color: var(--color-gold);
+	font-family: var(--font-display);
+	font-size: 1.4rem;
+	font-weight: 800;
+	letter-spacing: 0.08em;
+	animation: opening-pulse 1.1s ease-in-out infinite alternate;
+}
+
+.ready .loading {
+	opacity: 0;
+}
+
+.actions {
+	position: absolute;
+	right: max(1.25rem, env(safe-area-inset-right));
+	bottom: max(1.25rem, env(safe-area-inset-bottom));
+	display: flex;
+	gap: 0.65rem;
+}
+
+.actions button,
+.startButton {
+	min-height: 2.75rem;
+	padding: 0.7rem 1.15rem;
+	border: 1px solid rgba(255, 255, 255, 0.28);
+	border-radius: 999px;
+	background: rgba(7, 6, 11, 0.64);
+	color: #fff;
+	font: 600 0.82rem/1 var(--font-body);
+	backdrop-filter: blur(14px);
+	cursor: pointer;
+	transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.errorPanel {
+	position: relative;
+	z-index: 3;
+	display: grid;
+	gap: 1rem;
+	max-width: min(28rem, calc(100vw - 2rem));
+	padding: 1.35rem;
+	border: 1px solid rgba(245, 168, 0, 0.34);
+	border-radius: 1rem;
+	background: rgba(10, 7, 18, 0.88);
+	color: #fff;
+	text-align: center;
+	backdrop-filter: blur(18px);
+}
+
+.errorPanel div {
+	display: flex;
+	justify-content: center;
+	gap: 0.65rem;
+}
+
+.errorPanel button {
+	min-height: 2.65rem;
+	padding: 0.65rem 1rem;
+	border: 1px solid rgba(255, 255, 255, 0.24);
+	border-radius: 999px;
+	background: rgba(76, 29, 149, 0.7);
+	color: #fff;
+	font: 600 0.8rem/1 var(--font-body);
+	cursor: pointer;
+}
+
+.actions button:hover,
+.startButton:hover {
+	border-color: rgba(245, 168, 0, 0.72);
+	background: rgba(76, 29, 149, 0.7);
+	transform: translateY(-1px);
+}
+
+.actions button:focus-visible,
+.startButton:focus-visible {
+	outline: 2px solid var(--color-gold);
+	outline-offset: 3px;
+}
+
+.startButton {
+	position: relative;
+	z-index: 2;
+	padding-inline: 1.5rem;
+	background: rgba(76, 29, 149, 0.82);
+}
+
+@keyframes opening-pulse {
+	from { transform: scale(0.96); opacity: 0.68; }
+	to { transform: scale(1.04); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.opening,
+	.video,
+	.actions button,
+	.startButton {
+		transition: none;
+	}
+
+	.loading {
+		animation: none;
+	}
+}

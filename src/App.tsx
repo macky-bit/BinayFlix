@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { Show } from "./modules/movie/types"
 
@@ -29,8 +29,9 @@ import { supabase } from "./lib/supabase"
 import { getSignedInDestination } from "./lib/auth"
 import ResetPasswordPage from "./modules/auth/ResetPasswordPage"
 import { LOGO_SVG } from "./modules/auth/AuthUI"
+import OpeningVideo from "./modules/auth/OpeningVideo"
 
-type Page = "loading" | "login" | "register" | "resetPassword" | "subscription" | "profileSelect" | "dashboard" | "watch" | "account" | "profile" | "help" | "settings" | "admin"
+type Page = "loading" | "login" | "opening" | "register" | "resetPassword" | "subscription" | "profileSelect" | "dashboard" | "watch" | "account" | "profile" | "help" | "settings" | "admin"
 
 export default function App() {
   const [page, setPage] = useState<Page>("loading")
@@ -43,9 +44,24 @@ export default function App() {
 
   const [activeProfileId, setActiveProfileId] = useState<number | null>(null)
 
+  const [activeProfile, setActiveProfile] = useState<Profile | null>(null)
+
   const activeProfileIdRef = useRef<number | null>(null)
 
   const activeAuthUserIdRef = useRef<string | null>(null)
+
+  const openingStartedRef = useRef(false)
+
+  const beginOpening = useCallback(() => {
+    if (openingStartedRef.current) return
+    openingStartedRef.current = true
+    setPage("opening")
+  }, [])
+
+  const finishOpening = useCallback(() => {
+    openingStartedRef.current = false
+    setPage("dashboard")
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -56,9 +72,11 @@ export default function App() {
           activeAuthUserIdRef.current = userId
           activeProfileIdRef.current = null
           if (mounted) setActiveProfileId(null)
+          if (mounted) setActiveProfile(null)
         }
         const destination = await getSignedInDestination()
-        if (mounted) setPage(destination)
+        if (!mounted) return
+        if (!openingStartedRef.current) setPage(destination)
       } catch {
         if (mounted) setPage("login")
       }
@@ -80,6 +98,8 @@ export default function App() {
             activeAuthUserIdRef.current = null
             activeProfileIdRef.current = null
             setActiveProfileId(null)
+            setActiveProfile(null)
+            openingStartedRef.current = false
             setPage("login")
           } else if (event === "SIGNED_IN" && session) {
             if (
@@ -115,6 +135,8 @@ export default function App() {
     activeAuthUserIdRef.current = null
     activeProfileIdRef.current = null
     setActiveProfileId(null)
+    setActiveProfile(null)
+    openingStartedRef.current = false
     void supabase.auth.signOut().finally(() => setPage("login"))
   }
 
@@ -131,6 +153,8 @@ export default function App() {
       )}
 
       {page === "login" && <LoginPage onNavigate={(p) => setPage(p)} />}
+
+      {page === "opening" && <OpeningVideo onComplete={finishOpening} />}
 
       {page === "resetPassword" && (
         <ResetPasswordPage onComplete={() => setPage("login")} />
@@ -160,7 +184,8 @@ export default function App() {
           onSelect={(profile: Profile) => {
             activeProfileIdRef.current = profile.id
             setActiveProfileId(profile.id)
-            setPage("dashboard")
+            setActiveProfile(profile)
+            beginOpening()
           }}
         />
       )}
@@ -197,6 +222,7 @@ export default function App() {
           match={watchShow.match ?? 0}
           backgroundImage={watchShow.hero ?? watchShow.image}
           isSeries={watchShow.mediaType === "tv"}
+          activeProfile={activeProfile}
           onBack={() => setPage("dashboard")}
         />
       )}

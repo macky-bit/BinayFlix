@@ -27,6 +27,11 @@ interface WatchProps {
 	match: number;
 	backgroundImage: string;
 	isSeries?: boolean;
+	activeProfile?: {
+		id: number;
+		name: string;
+		avatar: string;
+	} | null;
 	onBack: () => void;
 }
 
@@ -85,6 +90,16 @@ function formatTime(seconds: number) {
 function durationSeconds(duration: string) {
 	const minutes = Number.parseInt(duration, 10);
 	return Number.isFinite(minutes) && minutes > 0 ? minutes * 60 : 45 * 60;
+}
+
+function initialsFor(name: string) {
+	return name
+		.trim()
+		.split(/\s+/)
+		.map((part) => part[0])
+		.join("")
+		.slice(0, 2)
+		.toUpperCase() || "SF";
 }
 
 function PlayerIcon({ playing }: { playing: boolean }) {
@@ -161,6 +176,7 @@ export default function WatchScreen({
 	match,
 	backgroundImage,
 	isSeries = false,
+	activeProfile = null,
 	onBack,
 }: WatchProps) {
 	const [episodes, setEpisodes] = useState<TMDBEpisode[]>([]);
@@ -444,6 +460,13 @@ export default function WatchScreen({
 				internalContentId,
 				engagementUserId,
 				commentDraft,
+				activeProfile
+					? {
+						profileId: activeProfile.id,
+						name: activeProfile.name,
+						avatarUrl: activeProfile.avatar,
+					}
+					: null,
 			);
 			if (requestId === engagementRequest.current) {
 				setComments((currentComments) => [created, ...currentComments]);
@@ -470,7 +493,14 @@ export default function WatchScreen({
 				engagementUserId,
 				editingCommentText,
 			);
-			setComments((currentComments) => currentComments.map((comment) => comment.id === commentId ? updated : comment));
+			setComments((currentComments) => currentComments.map((comment) => comment.id === commentId
+				? {
+					...updated,
+					memberProfileId: comment.memberProfileId,
+					authorName: comment.authorName,
+					authorAvatarUrl: comment.authorAvatarUrl,
+				}
+				: comment));
 			setEditingCommentId(null);
 			setEditingCommentText("");
 		} catch (reason) {
@@ -829,6 +859,10 @@ export default function WatchScreen({
 				{activePanel === "comments" && <section className={styles.comments}>
 					<div className={styles.featureHeader}><div><CommentsIcon /><h2>{comments.length} {comments.length === 1 ? "Comment" : "Comments"}</h2></div><button ref={panelCloseRef} type="button" onClick={() => setActivePanel(null)} aria-label="Close comments">×</button></div>
 					<div className={styles.commentComposer}>
+						<span className={styles.commentComposerAvatar} aria-hidden="true">
+							<span>{initialsFor(activeProfile?.name ?? "StreamFlix member")}</span>
+							{activeProfile?.avatar && <img src={activeProfile.avatar} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
+						</span>
 						<textarea
 							rows={2}
 							placeholder="Write a comment…"
@@ -855,10 +889,18 @@ export default function WatchScreen({
 						</div>
 					) : (
 						<div className={styles.commentList}>
-							{comments.map((comment) => (
-								<article key={comment.id} className={styles.commentItem} data-own-comment={comment.userId === engagementUserId ? "true" : "false"}>
+							{comments.map((comment) => {
+								const isOwnComment = comment.userId === engagementUserId;
+								const useActiveProfileFallback = isOwnComment && comment.memberProfileId === null;
+								const authorName = (useActiveProfileFallback ? activeProfile?.name : comment.authorName) || comment.authorName || "Community member";
+								const authorAvatar = (useActiveProfileFallback ? activeProfile?.avatar : comment.authorAvatarUrl) || comment.authorAvatarUrl;
+								return <article key={comment.id} className={styles.commentItem} data-own-comment={isOwnComment ? "true" : "false"}>
+									<span className={styles.commentAvatar} aria-hidden="true">
+										<span>{initialsFor(authorName)}</span>
+										{authorAvatar && <img src={authorAvatar} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
+									</span>
 									<header>
-										<strong>{comment.userId === engagementUserId ? "You" : "Community member"}</strong>
+										<strong>{authorName}{isOwnComment && <small className={styles.commentOwnerLabel}>You</small>}</strong>
 										<time dateTime={comment.commentedAt}>{new Date(comment.commentedAt).toLocaleDateString()}</time>
 									</header>
 									{editingCommentId === comment.id ? (
@@ -867,14 +909,14 @@ export default function WatchScreen({
 											<div><small>{editingCommentText.length}/{COMMENT_MAX_LENGTH}</small><button type="button" disabled={!editingCommentText.trim() || commentActionPending === comment.id} onClick={() => void saveCommentEdit(comment.id)}>{commentActionPending === comment.id ? "Saving…" : "Save"}</button><button type="button" disabled={commentActionPending === comment.id} onClick={() => { setEditingCommentId(null); setEditingCommentText(""); }}>Cancel</button></div>
 										</div>
 									) : <p>{comment.text}</p>}
-									{comment.userId === engagementUserId && editingCommentId !== comment.id && (
+									{isOwnComment && editingCommentId !== comment.id && (
 										<div className={styles.commentActions}>
 											<button type="button" disabled={commentActionPending === comment.id} onClick={() => { setEditingCommentId(comment.id); setEditingCommentText(comment.text); }}>Edit</button>
 											<button type="button" disabled={commentActionPending === comment.id} onClick={() => void removeOwnComment(comment.id)}>{commentActionPending === comment.id ? "Deleting…" : "Delete"}</button>
 										</div>
 									)}
-								</article>
-							))}
+								</article>;
+							})}
 						</div>
 					)}
 				</section>}
