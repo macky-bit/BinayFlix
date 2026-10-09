@@ -533,3 +533,20 @@ test("movie soundtrack uses database audio and lyrics instead of placeholders", 
   assert.match(soundtrackSource, /stream_link/)
 })
 
+test("Help Center renders at true 100 percent while preserving all actions", () => {
+  const pageSource = readFileSync(
+    new URL("../src/modules/help/HelpPage.tsx", import.meta.url),
+    "utf8",
+  )
+  const viewSource = readFileSync(
+    new URL("../src/modules/help/components.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(pageSource, /style\.setProperty\("zoom", "1"\)/)
+  assert.match(pageSource, /style\.removeProperty\("zoom"\)/)
+  assert.match(viewSource, />\s*Back to StreamFlix\s*</)
+  assert.match(viewSource, />\s*Contact Us\s*</)
+})
+
+
