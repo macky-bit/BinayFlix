@@ -44,6 +44,20 @@ import {
   validateFeedbackText,
 } from "../src/modules/help/feedback.ts"
 
+test("admin last-login timestamps are synchronized from Supabase Auth", () => {
+  const migration = readFileSync(
+    new URL(
+      "../supabase/migrations/20261010234500_sync_admin_last_login.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.match(migration, /after update of last_sign_in_at on auth\.users/i)
+  assert.match(migration, /last_login = new\.last_sign_in_at/i)
+  assert.match(migration, /auth_user\.last_sign_in_at/i)
+})
+
 test("creates a reaction optimistically", async () => {
   const result = optimisticReaction(createEmptyReactionCounts(), null, "love")
 
