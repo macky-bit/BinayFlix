@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import type { Tab, Toast } from "./types"
 
 import ContentTab from "./components/tabs/ContentTab"
@@ -19,6 +19,9 @@ import { AdminPageHeader } from "../components/AdminUI"
 
 export default function ContentManagerView() {
   const [activeTab, setActiveTab] = useState<Tab>("content")
+  const [streamFilter, setStreamFilter] = useState<"all" | "movies" | "tv">(
+    "all",
+  )
   const [addRequest, setAddRequest] = useState(0)
   const [toasts, setToasts] = useState<Toast[]>([])
 
@@ -82,6 +85,32 @@ export default function ContentManagerView() {
   const availabilityPercent = content.length
     ? Math.round((availableTitles / content.length) * 100)
     : 0
+
+  const categoryNames = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.name])),
+    [categories],
+  )
+  const topStreamedTitles = useMemo(() => {
+    return content
+      .map((item) => {
+        const categoryName = categoryNames.get(item.categoryId) ?? ""
+        const kind = categoryName.toLowerCase().includes("tv") ? "tv" : "movies"
+        return { ...item, kind }
+      })
+      .filter((item) => streamFilter === "all" || item.kind === streamFilter)
+      .sort(
+        (left, right) =>
+          right.totalStreams - left.totalStreams ||
+          left.title.localeCompare(right.title),
+      )
+      .slice(0, 10)
+  }, [categoryNames, content, streamFilter])
+  const largestStreamCount = Math.max(
+    1,
+    ...topStreamedTitles.map((item) => item.totalStreams),
+  )
+  const formatStreams = (value: number) =>
+    new Intl.NumberFormat("en-US").format(value)
 
   const openAddTitle = () => {
     setActiveTab("content")
@@ -183,6 +212,80 @@ export default function ContentManagerView() {
           </button>
         </div>
       </div>
+
+      {activeTab === "content" && (
+        <section
+          className="content-stream-chart"
+          aria-labelledby="top-streamed-titles-heading"
+        >
+          <header className="content-stream-chart__header">
+            <div>
+              <h2 id="top-streamed-titles-heading">Top 10 streamed titles</h2>
+              <p>Top titles by total streams</p>
+            </div>
+            <div
+              className="content-stream-chart__filters"
+              role="group"
+              aria-label="Filter top streamed titles"
+            >
+              {([
+                ["all", "All"],
+                ["movies", "Movies"],
+                ["tv", "TV Series"],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={streamFilter === value ? "is-active" : ""}
+                  aria-pressed={streamFilter === value}
+                  onClick={() => setStreamFilter(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </header>
+
+          {topStreamedTitles.length ? (
+            <ol className="content-stream-chart__list">
+              {topStreamedTitles.map((item, index) => {
+                const percentage = Math.max(
+                  item.totalStreams > 0 ? 2 : 0,
+                  (item.totalStreams / largestStreamCount) * 100,
+                )
+                return (
+                  <li key={item.id} data-kind={item.kind}>
+                    <span className="content-stream-chart__rank">
+                      {index + 1}
+                    </span>
+                    <span className="content-stream-chart__title" title={item.title}>
+                      {item.title}
+                    </span>
+                    <span
+                      className="content-stream-chart__track"
+                      role="img"
+                      aria-label={`${item.title}: ${formatStreams(item.totalStreams)} streams`}
+                    >
+                      <span style={{ width: `${percentage}%` }} />
+                    </span>
+                    <strong>{formatStreams(item.totalStreams)}</strong>
+                  </li>
+                )
+              })}
+            </ol>
+          ) : (
+            <p className="content-stream-chart__empty">
+              No streamed titles are available for this filter.
+            </p>
+          )}
+
+          <footer className="content-stream-chart__legend" aria-hidden="true">
+            <span><i className="is-movie" /> Movies</span>
+            <span><i className="is-tv" /> TV Series</span>
+            <small>Streams</small>
+          </footer>
+        </section>
+      )}
 
       <div>
         {/* Tab content */}

@@ -1170,6 +1170,39 @@ test("admin user-management navigation does not expose watch history", () => {
   assert.doesNotMatch(masterTabs, /label: "Watch History"/)
 })
 
+test("content management ranks Supabase stream totals in a filterable top ten", () => {
+  const contentManagerSource = readFileSync(
+    new URL(
+      "../src/modules/admin/contentManager/ContentManagerView.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const repositorySource = readFileSync(
+    new URL(
+      "../src/modules/admin/data/supabaseAdminRepository.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const seedMigration = readFileSync(
+    new URL(
+      "../supabase/migrations/20261010233000_seed_dashboard_top_stream_counts.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.match(contentManagerSource, /Top 10 streamed titles/)
+  assert.match(contentManagerSource, /right\.totalStreams - left\.totalStreams/)
+  assert.match(contentManagerSource, /\.slice\(0, 10\)/)
+  assert.match(contentManagerSource, /\["movies", "Movies"\]/)
+  assert.match(contentManagerSource, /\["tv", "TV Series"\]/)
+  assert.match(repositorySource, /totalStreams: number\(row\.total_streams_count\)/)
+  assert.match(seedMigration, /row_number\(\) OVER/i)
+  assert.match(seedMigration, /SET total_streams_count = seeded_counts\.stream_count/i)
+})
+
 test("dashboard footer keeps only support and legal links", () => {
   const componentsSource = readFileSync(
     new URL("../src/modules/dashboard/components.tsx", import.meta.url),
