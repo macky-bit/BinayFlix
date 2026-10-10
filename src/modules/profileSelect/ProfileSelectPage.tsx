@@ -11,6 +11,7 @@ export interface Profile {
 	avatarPath: string;
 	isKids: boolean;
 	hasPin: boolean;
+	isEntitled: boolean;
 }
 
 interface MemberProfileRow {
@@ -20,6 +21,7 @@ interface MemberProfileRow {
 	is_kids: boolean;
 	has_pin: boolean;
 	display_order: number;
+	is_entitled: boolean;
 }
 
 interface ProfileContextRow {
@@ -114,9 +116,14 @@ function ProfileCard({
 	return (
 		<button
 			type="button"
-			className={styles.card}
+			className={`${styles.card} ${!profile.isEntitled ? styles.cardDisabled : ""}`}
 			onClick={() => onSelect(profile)}
-			aria-label={`Continue as ${profile.name}${profile.hasPin ? ", PIN required" : ""}`}
+			disabled={!profile.isEntitled}
+			aria-label={
+				profile.isEntitled
+					? `Continue as ${profile.name}${profile.hasPin ? ", PIN required" : ""}`
+					: `${profile.name} is unavailable on the current plan`
+			}
 		>
 			<div className={styles.avatarWrap}>
 				<div className={styles.avatarFallback} aria-hidden>
@@ -134,7 +141,9 @@ function ProfileCard({
 				)}
 			</div>
 			<span className={styles.profileName}>{profile.name}</span>
-			<span className={styles.profileLabel}>{profile.label}</span>
+			<span className={styles.profileLabel}>
+				{profile.isEntitled ? profile.label : "Unavailable on this plan"}
+			</span>
 			<span className={styles.editIcon} aria-hidden>{profile.hasPin ? <LockIcon /> : <PencilIcon />}</span>
 		</button>
 	);
@@ -409,6 +418,7 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 					avatar: isExternalAvatar(avatarPath) ? avatarPath : (signedUrls.get(avatarPath) ?? ""),
 					isKids: row.is_kids,
 					hasPin: row.has_pin,
+					isEntitled: row.is_entitled,
 				};
 			});
 
@@ -464,6 +474,7 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 
 	const canAdd = canAddProfile && profiles.length < profileLimit;
 	const selectProfile = (profile: Profile) => {
+		if (!profile.isEntitled) return;
 		if (profile.hasPin) {
 			setLockedProfile(profile);
 			return;
@@ -491,7 +502,9 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 
 				<h1 className={styles.heading}>{"Who's watching?"}</h1>
 				<p className={styles.subheading}>
-					{loading ? "Loading your profiles…" : `Select a profile to continue · ${profiles.length}/${profileLimit}`}
+					{loading
+						? "Loading your profiles…"
+						: `Select a profile to continue · ${Math.min(profiles.length, profileLimit)} available · ${profiles.length} total`}
 				</p>
 
 				{loadError ? (

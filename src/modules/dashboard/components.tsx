@@ -50,6 +50,24 @@ export function PlayIcon({
   )
 }
 
+function CarouselArrowIcon({ direction }: { direction: "left" | "right" }) {
+  return (
+    <svg
+      viewBox="0 0 512 512"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M146 32C122 32 110 53 119 74L194 238C198 248 198 260 194 270L119 437C110 458 122 480 146 480C154 480 162 477 168 472L384 281C400 267 400 243 384 229L168 39C162 34 154 32 146 32Z"
+        transform={
+          direction === "left" ? "translate(512 0) scale(-1 1)" : undefined
+        }
+      />
+    </svg>
+  )
+}
+
 function CirclePlayIcon({
   size = 18,
 
@@ -236,6 +254,8 @@ export function TrendingCard({
   onInfo,
 
   posterStyle = false,
+
+  unavailable = false,
 }: {
   show: Show
 
@@ -244,6 +264,8 @@ export function TrendingCard({
   onInfo?: (show: Show) => void
 
   posterStyle?: boolean
+
+  unavailable?: boolean
 }) {
   const [hovered, setHovered] = useState(false)
 
@@ -255,9 +277,12 @@ export function TrendingCard({
 
   return (
     <div
-      className={`relative shrink-0 rounded-xl overflow-hidden cursor-pointer ${styles.trendingCard} ${posterStyle ? styles.posterCarouselCard : ""}`}
+      className={`relative shrink-0 rounded-xl overflow-hidden ${
+        unavailable ? styles.trendingCardUnavailable : "cursor-pointer"
+      } ${styles.trendingCard} ${posterStyle ? styles.posterCarouselCard : ""}`}
+      aria-disabled={unavailable || undefined}
       style={{
-        transform: hovered
+        transform: hovered && !unavailable
           ? posterStyle
             ? "translateY(-4px) scale(1.02)"
             : "scale(1.04)"
@@ -265,15 +290,17 @@ export function TrendingCard({
 
         transition: "transform 0.2s ease, box-shadow 0.2s ease",
 
-        boxShadow: hovered
+        boxShadow: hovered && !unavailable
           ? "-10px 8px 28px rgba(0,0,0,0.58)"
           : posterStyle
             ? "-10px 0 24px rgba(0,0,0,0.45)"
             : "none",
       }}
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={() => {
+        if (!unavailable) setHovered(true)
+      }}
       onMouseLeave={() => setHovered(false)}
-      onClick={() => onInfo?.(show)}
+      onClick={unavailable ? undefined : () => onInfo?.(show)}
     >
       {/* thumbnail */}
       <div
@@ -321,6 +348,9 @@ export function TrendingCard({
             <span />
           )}
 
+          {unavailable ? (
+            <span className={styles.unavailableBadge}>Unavailable</span>
+          ) : (
           <div className="flex items-center gap-1.5 shrink-0">
             {/* Play */}
             <button
@@ -349,6 +379,7 @@ export function TrendingCard({
               {inList ? "✓" : "+"}
             </button>
           </div>
+          )}
         </div>
       </div>
     </div>
@@ -596,7 +627,9 @@ export function CarouselRow({
           className={`hidden sm:flex absolute left-0 top-0 bottom-0 z-10 w-12 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${styles.scrollFadeLeft}`}
           aria-label="Scroll left"
         >
-          <span className={styles.scrollArrow}>‹</span>
+          <span className={styles.scrollArrow}>
+            <CarouselArrowIcon direction="left" />
+          </span>
         </button>}
 
         <div
@@ -635,7 +668,9 @@ export function CarouselRow({
           className={`hidden sm:flex absolute right-0 top-0 bottom-0 z-10 w-12 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${styles.scrollFadeRight}`}
           aria-label="Scroll right"
         >
-          <span className={styles.scrollArrow}>›</span>
+          <span className={styles.scrollArrow}>
+            <CarouselArrowIcon direction="right" />
+          </span>
         </button>}
       </div>
     </section>
@@ -1023,17 +1058,6 @@ export function Navbar({
                 }
               }}
             />
-            <button
-              type="button"
-              className={`h-8 w-8 rounded-full text-lg ${styles.iconBtn}`}
-              aria-label="Close search"
-              onClick={() => {
-                onSearchQueryChange?.("")
-                setSearchOpen(false)
-              }}
-            >
-              ×
-            </button>
           </div>
         ) : (
           <button

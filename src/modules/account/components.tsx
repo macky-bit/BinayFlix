@@ -1555,12 +1555,44 @@ function MembershipPage({
   setModal,
   account,
   billingHistory,
+  onSubscriptionCancelled,
 }: {
   setModal: (m: Modal) => void
   account: AccountSnapshot | null
   billingHistory: BillingHistoryEntry[]
+  onSubscriptionCancelled: () => void
 }) {
   const [cancelling, setCancelling] = useState(false)
+  const [cancelPending, setCancelPending] = useState(false)
+  const [cancelError, setCancelError] = useState("")
+
+  async function confirmCancellation() {
+    if (cancelPending) return
+    setCancelPending(true)
+    setCancelError("")
+
+    const { error } = await supabase.functions.invoke("cancel-subscription", {
+      body: {},
+    })
+    if (error) {
+      let message = error.message
+      const context = (error as { context?: unknown }).context
+      if (context instanceof Response) {
+        const payload = (await context
+          .clone()
+          .json()
+          .catch(() => null)) as { error?: unknown } | null
+        if (typeof payload?.error === "string" && payload.error.trim()) {
+          message = payload.error.trim()
+        }
+      }
+      setCancelError(message || "We couldn't cancel your subscription.")
+      setCancelPending(false)
+      return
+    }
+
+    onSubscriptionCancelled()
+  }
 
   return (
     <div className="space-y-8 pb-6">
@@ -1774,12 +1806,13 @@ function MembershipPage({
             }}
           >
             <p className="text-sm mb-4" style={{ color: "var(--color-taupe)" }}>
-              Are you sure you want to cancel? You will lose access at the end
-              of your current billing period.
+              Are you sure you want to cancel? Your access will end immediately,
+              and you will need to subscribe again to continue watching.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setCancelling(false)}
+                disabled={cancelPending}
                 className="px-4 py-2 rounded text-sm font-medium transition-colors"
                 style={{
                   border: "1px solid var(--color-stone)",
@@ -1790,15 +1823,23 @@ function MembershipPage({
                 Keep Membership
               </button>
               <button
+                type="button"
+                onClick={() => void confirmCancellation()}
+                disabled={cancelPending}
                 className="px-4 py-2 rounded text-sm font-semibold transition-colors"
                 style={{
                   background: "linear-gradient(135deg, #F5A800, #FF6B00)",
                   color: "#08080F",
                 }}
               >
-                Confirm Cancel
+                {cancelPending ? "Canceling…" : "Confirm Cancel"}
               </button>
             </div>
+            {cancelError && (
+              <p role="alert" className="mt-3 text-sm text-red-300">
+                {cancelError}
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -2713,9 +2754,11 @@ function Sidebar({
 
 export function AccountView({
   onPlanChange,
+  onSubscriptionCancelled,
 }: {
   plan: Plan | null
   onPlanChange: (plan: Plan) => void
+  onSubscriptionCancelled: () => void
 }) {
   const [section, setSection] = useState<Section>("overview")
 
@@ -2926,6 +2969,7 @@ export function AccountView({
                 setModal={setModal}
                 account={account}
                 billingHistory={billingHistory}
+                onSubscriptionCancelled={onSubscriptionCancelled}
               />
             )}
             {section === "security" && (

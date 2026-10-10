@@ -105,26 +105,82 @@ Deno.serve(async (request) => {
 
     const { data: activeMembership } = await serviceClient
       .from("user_subscription")
-      .select("user_subscription_id")
+      .select("user_subscription_id, subscription_id, stripe_subscription_id")
       .eq("user_id", account.user_id)
       .ilike("status", "active")
       .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`)
       .limit(1)
       .maybeSingle()
-    if (activeMembership) {
-      throw new Error(
-        "An active subscription already exists. Manage it from your account page.",
-      )
-    }
-
     const stripe = new Stripe(stripeKey)
+    const selectedPrice = priceForPlan(plan.stripe_price_id)
     const metadata = {
       streamflix_user_id: String(account.user_id),
       streamflix_plan_id: String(plan.subscription_id),
     }
+
+    if (activeMembership) {
+      const stripeSubscriptionId = String(
+        activeMembership.stripe_subscription_id ?? "",
+      ).trim()
+      if (!stripeSubscriptionId.startsWith("sub_")) {
+        throw new Error(
+          "This subscription cannot be changed online. Contact support for assistance.",
+        )
+      }
+
+      const subscription = await stripe.subscriptions.retrieve(
+        stripeSubscriptionId,
+      )
+      if (
+        subscription.status !== "canceled" &&
+        Number(activeMembership.subscription_id) === planId
+      ) {
+        return response(
+          { updated: true, unchanged: true, planId },
+          200,
+          origin,
+        )
+      }
+      if (
+        subscription.status !== "canceled" &&
+        subscription.items.data.length !== 1
+      ) {
+        throw new Error(
+          "This subscription has an unsupported billing configuration. Contact support for assistance.",
+        )
+      }
+
+      if (subscription.status !== "canceled") {
+        await stripe.subscriptions.update(stripeSubscriptionId, {
+          items: [
+            {
+              id: subscription.items.data[0].id,
+              price: selectedPrice,
+              quantity: 1,
+            },
+          ],
+          metadata,
+          cancel_at_period_end: false,
+          payment_behavior: "error_if_incomplete",
+          proration_behavior: "none",
+        })
+
+        const { error: syncError } = await serviceClient.rpc(
+          "sync_stripe_subscription_plan",
+          {
+            selected_stripe_subscription_id: stripeSubscriptionId,
+            selected_plan_id: planId,
+          },
+        )
+        if (syncError) throw syncError
+
+        return response({ updated: true, planId }, 200, origin)
+      }
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      line_items: [{ price: priceForPlan(plan.stripe_price_id), quantity: 1 }],
+      line_items: [{ price: selectedPrice, quantity: 1 }],
       client_reference_id: String(account.user_id),
       customer: account.stripe_customer_id || undefined,
       customer_email: account.stripe_customer_id

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { supabase } from "../../../lib/supabase"
 
@@ -21,6 +21,13 @@ import { fetchTVEpisodes, type TMDBEpisode } from "../tmdb"
 import { loadSoundtracks, type SoundtrackTrack } from "../soundtrack"
 
 import { loadTrackLyrics, type TrackLyricsResult } from "../lyrics"
+
+import {
+  loadWikipediaRefresher,
+  type WikipediaRefresher,
+} from "../refresher"
+
+import { createRefresherVideoUrl } from "../refresherVideo"
 
 import {
   PLAYBACK_QUALITIES,
@@ -69,20 +76,16 @@ interface WatchProps {
 
 type ActivePanel = "music" | "refresher" | "comments" | "episodes" | null
 
-interface PlaceholderRefresher {
-  summary: string
-
-  events: string[]
-
-  characters: string[]
-
-  keyDetails: string[]
-}
-
 type LyricsLookupState = { status: "loading" } | {
   status: "ready"
   result: TrackLyricsResult
 } | { status: "not-found" } | { status: "error" }
+
+type RefresherLookupState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; result: WikipediaRefresher }
+  | { status: "error"; message: string }
 
 const MOVIE_FALLBACK_SECONDS = 2 * 60 * 60
 
@@ -178,19 +181,8 @@ function MusicIcon() {
   )
 }
 
-function TrackPlayIcon({ playing }: { playing: boolean }) {
-  return playing ? (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <rect x="6" y="5" width="4" height="14" rx="1" />
-      <rect x="14" y="5" width="4" height="14" rx="1" />
-    </svg>
-  ) : (
+function TrackPlayIcon() {
+  return (
     <svg
       width="18"
       height="18"
@@ -201,6 +193,21 @@ function TrackPlayIcon({ playing }: { playing: boolean }) {
       <polygon points="7,4 20,12 7,20" />
     </svg>
   )
+}
+
+function youtubeWatchUrl(value: string) {
+  if (!value) return ""
+  try {
+    const url = new URL(value)
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, "")
+    return hostname === "youtube.com" ||
+      hostname === "music.youtube.com" ||
+      hostname === "youtu.be"
+      ? url.toString()
+      : ""
+  } catch {
+    return ""
+  }
 }
 
 function LyricsIcon() {
@@ -382,6 +389,19 @@ export default function WatchScreen({
 
   const [spoilersRevealed, setSpoilersRevealed] = useState(false)
 
+  const [refresherState, setRefresherState] =
+    useState<RefresherLookupState>({ status: "idle" })
+
+  const [refresherVideoUrl, setRefresherVideoUrl] = useState("")
+
+  const [refresherVideoLoading, setRefresherVideoLoading] = useState(false)
+
+  const [refresherVideoPlaying, setRefresherVideoPlaying] = useState(false)
+
+  const [refresherVideoError, setRefresherVideoError] = useState<string | null>(
+    null,
+  )
+
   const [progress, setProgress] = useState<Record<string, number>>(loadProgress)
 
   const [myReaction, setMyReaction] = useState<ReactionKey | null>(null)
@@ -420,16 +440,10 @@ export default function WatchScreen({
 
   const [soundtracksError, setSoundtracksError] = useState<string | null>(null)
 
-  const [activeTrackId, setActiveTrackId] = useState<string | null>(null)
-
   const [lyricsTrackId, setLyricsTrackId] = useState<string | null>(null)
 
   const [lyricsLookups, setLyricsLookups] =
     useState<Record<string, LyricsLookupState>>({})
-
-  const [audioPlaying, setAudioPlaying] = useState(false)
-
-  const [audioError, setAudioError] = useState<string | null>(null)
 
   const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -444,8 +458,6 @@ export default function WatchScreen({
 
   const panelCloseRef = useRef<HTMLButtonElement>(null)
 
-  const soundtrackAudioRef = useRef<HTMLAudioElement>(null)
-
   const playerVideoRef = useRef<HTMLVideoElement>(null)
 
   const pendingVideoTimeRef = useRef(0)
@@ -453,6 +465,8 @@ export default function WatchScreen({
   const lyricsRequestRef = useRef<AbortController | null>(null)
 
   const lyricsRequestVersion = useRef(0)
+
+  const refresherRequestVersion = useRef(0)
 
   useEffect(() => {
     let active = true
@@ -577,6 +591,11 @@ export default function WatchScreen({
 
   const videoSource = PLAYBACK_SOURCE_BY_QUALITY[selectedQuality]
 
+  const activeVideoSource =
+    refresherVideoPlaying && refresherVideoUrl
+      ? refresherVideoUrl
+      : videoSource
+
   useEffect(() => {
     const video = playerVideoRef.current
 
@@ -587,6 +606,14 @@ export default function WatchScreen({
     setClipEnded(false)
 
     setVideoError(null)
+
+    setRefresherVideoUrl("")
+
+    setRefresherVideoLoading(false)
+
+    setRefresherVideoPlaying(false)
+
+    setRefresherVideoError(null)
 
     setSettingsOpen(false)
 
@@ -631,7 +658,13 @@ export default function WatchScreen({
 
       setVideoError("Playback could not start. Select Play to try again.")
     })
-  }, [clipEnded, playing, selectedQuality])
+  }, [
+    clipEnded,
+    playing,
+    selectedQuality,
+    refresherVideoPlaying,
+    refresherVideoUrl,
+  ])
 
   useEffect(() => {
     const requestId = ++engagementRequest.current
@@ -708,20 +741,6 @@ export default function WatchScreen({
   useEffect(() => {
     let active = true
 
-    const audio = soundtrackAudioRef.current
-
-    audio?.pause()
-
-    if (audio) {
-      audio.removeAttribute("src")
-
-      audio.load()
-    }
-
-    setAudioPlaying(false)
-
-    setActiveTrackId(null)
-
     setLyricsTrackId(null)
 
     setLyricsLookups({})
@@ -731,8 +750,6 @@ export default function WatchScreen({
     lyricsRequestRef.current?.abort()
 
     lyricsRequestRef.current = null
-
-    setAudioError(null)
 
     setSoundtracksError(null)
 
@@ -777,31 +794,50 @@ export default function WatchScreen({
     }
   }, [internalContentId])
 
-  // TODO: replace the refresher placeholder with a verified recap source.
+  const loadRefresher = useCallback(async () => {
+    const requestVersion = ++refresherRequestVersion.current
+    setSpoilersRevealed(false)
 
-  const placeholderFeatures = useMemo<{
-    refresher: PlaceholderRefresher
-  }>(
-    () => ({
-      refresher: {
-        summary: `A detailed refresher for ${contentLabel} will appear here when a verified recap source is connected.`,
+    if (internalContentId === null) {
+      setRefresherState({
+        status: "error",
+        message: "This title is not connected to the StreamFlix catalog.",
+      })
+      return
+    }
 
-        events: ["Key events are waiting for a verified refresher source."],
-
-        characters: [
-          "Important character details are waiting for a verified refresher source.",
-        ],
-
-        keyDetails: [
-          "Story details are waiting for a verified refresher source.",
-        ],
-      },
-    }),
-    [contentLabel],
-  )
+    setRefresherState({ status: "loading" })
+    try {
+      const result = await loadWikipediaRefresher(
+        supabase,
+        internalContentId,
+      )
+      if (requestVersion !== refresherRequestVersion.current) return
+      setRefresherState({ status: "ready", result })
+    } catch (reason) {
+      if (requestVersion !== refresherRequestVersion.current) return
+      setRefresherState({
+        status: "error",
+        message:
+          reason instanceof Error
+            ? reason.message
+            : "Unable to load the Wikipedia refresher.",
+      })
+    }
+  }, [internalContentId])
 
   useEffect(() => {
-    if (!playing) return
+    if (activePanel === "refresher") {
+      void loadRefresher()
+      return
+    }
+    refresherRequestVersion.current += 1
+    setRefresherState({ status: "idle" })
+    setSpoilersRevealed(false)
+  }, [activePanel, loadRefresher, selectedEpisode?.ep])
+
+  useEffect(() => {
+    if (!playing || refresherVideoPlaying) return
 
     const timer = window.setInterval(() => {
       setProgress((previous) => {
@@ -822,10 +858,16 @@ export default function WatchScreen({
     }, 1000)
 
     return () => window.clearInterval(timer)
-  }, [contentId, duration, playing])
+  }, [contentId, duration, playing, refresherVideoPlaying])
 
   useEffect(() => {
-    if (!playing || internalContentId === null || current <= 0) return
+    if (
+      !playing ||
+      refresherVideoPlaying ||
+      internalContentId === null ||
+      current <= 0
+    )
+      return
 
     const playbackSeconds = Math.floor(current)
     const previousSync = watchHistorySyncRef.current
@@ -853,19 +895,19 @@ export default function WatchScreen({
       }
       console.error("Unable to record watch history", error)
     })
-  }, [current, duration, internalContentId, onProgress, playing])
+  }, [
+    current,
+    duration,
+    internalContentId,
+    onProgress,
+    playing,
+    refresherVideoPlaying,
+  ])
 
   useEffect(() => {
-    if (playing && current >= duration) setPlaying(false)
-  }, [current, duration, playing])
-
-  useEffect(() => {
-    if (activePanel === "music") return
-
-    soundtrackAudioRef.current?.pause()
-
-    setAudioPlaying(false)
-  }, [activePanel])
+    if (!refresherVideoPlaying && playing && current >= duration)
+      setPlaying(false)
+  }, [current, duration, playing, refresherVideoPlaying])
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -973,42 +1015,52 @@ export default function WatchScreen({
     setSpoilersRevealed(false)
   }
 
-  const toggleSoundtrack = async (track: SoundtrackTrack) => {
-    const audio = soundtrackAudioRef.current
+  const finishRefresherVideo = useCallback((notice?: string) => {
+    const video = playerVideoRef.current
+    video?.pause()
+    if (video) video.currentTime = 0
 
-    setAudioError(null)
+    pendingVideoTimeRef.current = 0
+    setRefresherVideoPlaying(false)
+    setRefresherVideoUrl("")
+    setRefresherVideoLoading(false)
+    setClipStarted(false)
+    setClipEnded(false)
+    setSettingsOpen(false)
+    setActivePanel(null)
+    setShowControls(true)
+    setPlaying(true)
+    setVideoError(notice ?? null)
+  }, [])
 
-    if (!audio || !track.audioUrl) {
-      setAudioError("This track does not have a playable audio file yet.")
+  const startRefresherVideo = async () => {
+    if (refresherVideoLoading || refresherVideoPlaying) return
 
-      return
-    }
-
-    if (activeTrackId === track.id && !audio.paused) {
-      audio.pause()
-
-      setAudioPlaying(false)
-
-      return
-    }
-
-    if (activeTrackId !== track.id) {
-      audio.src = track.audioUrl
-
-      audio.load()
-
-      setActiveTrackId(track.id)
-    }
-
+    setRefresherVideoLoading(true)
+    setRefresherVideoError(null)
     try {
-      await audio.play()
+      const signedUrl = await createRefresherVideoUrl(supabase)
+      const video = playerVideoRef.current
+      video?.pause()
+      if (video) video.currentTime = 0
 
-      setAudioPlaying(true)
-    } catch {
-      setAudioPlaying(false)
-
-      setAudioError(
-        "This audio could not be played. Add a direct MP3, AAC, OGG, WAV, or WebM audio URL in Content Manager.",
+      pendingVideoTimeRef.current = 0
+      setRefresherVideoUrl(signedUrl)
+      setRefresherVideoPlaying(true)
+      setRefresherVideoLoading(false)
+      setClipStarted(false)
+      setClipEnded(false)
+      setVideoError(null)
+      setSettingsOpen(false)
+      setActivePanel(null)
+      setShowControls(true)
+      setPlaying(true)
+    } catch (reason) {
+      setRefresherVideoLoading(false)
+      setRefresherVideoError(
+        reason instanceof Error
+          ? reason.message
+          : "The refresher video could not be loaded.",
       )
     }
   }
@@ -1026,6 +1078,7 @@ export default function WatchScreen({
 
     if (
       track.lyrics ||
+      track.instrumental ||
       previousLookup?.status === "loading" ||
       previousLookup?.status === "ready" ||
       previousLookup?.status === "not-found"
@@ -1275,21 +1328,6 @@ export default function WatchScreen({
 
   return (
     <div className={styles.page} ref={pageRef}>
-      <audio
-        ref={soundtrackAudioRef}
-        className={styles.soundtrackAudio}
-        preload="none"
-        onPlay={() => setAudioPlaying(true)}
-        onPause={() => setAudioPlaying(false)}
-        onEnded={() => setAudioPlaying(false)}
-        onError={() => {
-          setAudioPlaying(false)
-
-          setAudioError(
-            "This track's audio file is unavailable or unsupported.",
-          )
-        }}
-      />
       <nav className={styles.nav}>
         <div className={styles.navInner}>
           <button type="button" className={styles.backButton} onClick={onBack}>
@@ -1312,13 +1350,18 @@ export default function WatchScreen({
           onMouseLeave={() =>
             playing && !activePanel && !settingsOpen && setShowControls(false)
           }
-          onClick={() => setPlaying((value) => !value)}
+          onClick={() => {
+            if (!refresherVideoPlaying) setPlaying((value) => !value)
+          }}
           tabIndex={0}
           aria-label={`${contentLabel} player`}
           onKeyDown={(event) => {
             if (event.target !== event.currentTarget) return
 
-            if (event.key === " " || event.key === "Enter") {
+            if (
+              !refresherVideoPlaying &&
+              (event.key === " " || event.key === "Enter")
+            ) {
               event.preventDefault()
 
               setPlaying((value) => !value)
@@ -1335,21 +1378,28 @@ export default function WatchScreen({
             className={`${styles.playerVideo} ${
               !clipStarted || clipEnded ? styles.playerVideoHidden : ""
             }`}
-            src={videoSource}
+            src={activeVideoSource}
             playsInline
             preload="metadata"
             onPlay={() => setClipStarted(true)}
             onLoadedMetadata={(event) => {
-              const resumeAt = Math.min(
-                pendingVideoTimeRef.current,
-                event.currentTarget.duration || 0,
-              )
+              const resumeAt = refresherVideoPlaying
+                ? 0
+                : Math.min(
+                    pendingVideoTimeRef.current,
+                    event.currentTarget.duration || 0,
+                  )
 
               if (resumeAt > 0) event.currentTarget.currentTime = resumeAt
 
               pendingVideoTimeRef.current = 0
             }}
             onEnded={() => {
+              if (refresherVideoPlaying) {
+                finishRefresherVideo()
+                return
+              }
+
               setClipEnded(true)
 
               setPlaying(true)
@@ -1357,34 +1407,58 @@ export default function WatchScreen({
               setVideoError(null)
             }}
             onError={() => {
+              if (refresherVideoPlaying) {
+                finishRefresherVideo(
+                  `The refresher video could not be played. The ${selectedQuality}p studio presentation has started.`,
+                )
+                return
+              }
+
               setClipEnded(true)
 
               setVideoError(
                 `${selectedQuality}p video is unavailable. Playback will continue with the title image.`,
               )
             }}
-            aria-label={`${contentLabel} studio presentation at ${selectedQuality}p`}
+            aria-label={
+              refresherVideoPlaying
+                ? `${contentLabel} refresher video`
+                : `${contentLabel} studio presentation at ${selectedQuality}p`
+            }
           />
           <div className={styles.playerGradient} />
+          {refresherVideoPlaying && (
+            <button
+              type="button"
+              className={styles.skipRefresherButton}
+              onClick={(event) => {
+                event.stopPropagation()
+                finishRefresherVideo()
+              }}
+            >
+              Skip Refresher
+            </button>
+          )}
           {videoError && (
             <p className={styles.videoNotice} role="status">
               {videoError}
             </p>
           )}
-          {current > 30 && !playing && (
+          {current > 30 && !playing && !refresherVideoPlaying && (
             <span className={styles.continueBadge}>
               {watched ? "✓ Watched" : `Continue from ${formatTime(current)}`}
             </span>
           )}
 
-          <div
-            className={`${styles.controls} ${
-              showControls || activePanel || settingsOpen
-                ? styles.controlsVisible
-                : ""
-            }`}
-            aria-hidden={!showControls && !activePanel && !settingsOpen}
-          >
+          {!refresherVideoPlaying && (
+            <div
+              className={`${styles.controls} ${
+                showControls || activePanel || settingsOpen
+                  ? styles.controlsVisible
+                  : ""
+              }`}
+              aria-hidden={!showControls && !activePanel && !settingsOpen}
+            >
             <div className={styles.centerControls}>
               <button
                 type="button"
@@ -1572,7 +1646,8 @@ export default function WatchScreen({
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+          )}
         </section>
 
         <section className={styles.contentInfo}>
@@ -1686,15 +1761,13 @@ export default function WatchScreen({
             ) : (
               <div className={styles.trackList}>
                 {soundtracks.map((track) => {
-                  const isPlaying = activeTrackId === track.id && audioPlaying
-
                   const lyricsOpen = lyricsTrackId === track.id
+                  const youtubeUrl = youtubeWatchUrl(track.referenceUrl)
 
                   return (
                     <article
                       className={styles.trackRow}
                       key={track.id}
-                      data-playing={isPlaying ? "true" : "false"}
                     >
                       <span className={styles.musicTile}>
                         <MusicIcon />
@@ -1714,28 +1787,30 @@ export default function WatchScreen({
                       >
                         <LyricsIcon /> Lyrics
                       </button>
-                      <button
-                        type="button"
-                        className={styles.trackPlayButton}
-                        disabled={!track.audioUrl}
-                        aria-label={
-                          isPlaying
-                            ? `Pause ${track.title}`
-                            : `Play ${track.title}`
-                        }
-                        onClick={() => void toggleSoundtrack(track)}
-                      >
-                        <TrackPlayIcon playing={isPlaying} />
-                      </button>
+                      {youtubeUrl ? (
+                        <a
+                          className={styles.trackPlayButton}
+                          href={youtubeUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Open ${track.title} on YouTube`}
+                        >
+                          <TrackPlayIcon />
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.trackPlayButton}
+                          disabled
+                          aria-label={`YouTube link unavailable for ${track.title}`}
+                        >
+                          <TrackPlayIcon />
+                        </button>
+                      )}
                     </article>
                   )
                 })}
               </div>
-            )}
-            {audioError && (
-              <p className={styles.audioError} role="alert">
-                {audioError}
-              </p>
             )}
             {lyricsTrack && (
               <section
@@ -1753,7 +1828,23 @@ export default function WatchScreen({
                 </div>
                 <div className={styles.lyricsRule} />
                 {lyricsTrack.lyrics ? (
-                  <p className={styles.lyricsText}>{lyricsTrack.lyrics}</p>
+                  <>
+                    <p className={styles.lyricsText}>{lyricsTrack.lyrics}</p>
+                    {lyricsTrack.lyricsSourceUrl && (
+                      <a
+                        className={styles.lyricsSource}
+                        href={lyricsTrack.lyricsSourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Lyrics source
+                      </a>
+                    )}
+                  </>
+                ) : lyricsTrack.instrumental ? (
+                  <p className={styles.lyricsUnavailable}>
+                    Instrumental track — no lyrics.
+                  </p>
                 ) : lyricsLookup?.status === "loading" ? (
                   <p className={styles.lyricsUnavailable} role="status">
                     Searching for verified lyrics…
@@ -1810,32 +1901,97 @@ export default function WatchScreen({
                 ×
               </button>
             </div>
-            <p className={styles.refresherSummary}>
-              {placeholderFeatures.refresher.summary}
-            </p>
-            {!spoilersRevealed ? (
+            {refresherState.status === "loading" && (
+              <p className={styles.refresherStatus} role="status">
+                Finding a verified Wikipedia article…
+              </p>
+            )}
+            {refresherState.status === "error" && (
+              <div className={styles.refresherError} role="alert">
+                <p>{refresherState.message}</p>
+                <button type="button" onClick={() => void loadRefresher()}>
+                  Try Again
+                </button>
+              </div>
+            )}
+            {refresherState.status === "ready" && (
+              <>
+                <p className={styles.refresherSummary}>
+                  {refresherState.result.summary}
+                </p>
+                {isSeries && selectedEpisode && (
+                  <p className={styles.refresherScopeNote}>
+                    Wikipedia provides a series-level refresher for this title;
+                    episode-specific details may be limited.
+                  </p>
+                )}
+                <p className={styles.refresherSource}>
+                  Source: {refresherState.result.sourceName} ·{" "}
+                  <a
+                    href={refresherState.result.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    {refresherState.result.sourceTitle}
+                  </a>
+                </p>
+              </>
+            )}
+            <div className={styles.refresherVideoAction}>
               <button
                 type="button"
-                className={styles.spoilerButton}
-                onClick={() => setSpoilersRevealed(true)}
+                onClick={() => void startRefresherVideo()}
+                disabled={refresherVideoLoading}
               >
-                ⚠ Reveal All
+                <PlayerIcon playing={false} />
+                {refresherVideoLoading
+                  ? "Preparing Refresher…"
+                  : "Play Refresher"}
               </button>
-            ) : (
-              <div className={styles.refresherGrid}>
+              {refresherVideoError && (
+                <p role="alert">{refresherVideoError}</p>
+              )}
+            </div>
+            {refresherState.status === "ready" && (
+              !spoilersRevealed ? (
+                <button
+                  type="button"
+                  className={styles.spoilerButton}
+                  onClick={() => setSpoilersRevealed(true)}
+                >
+                  ⚠ Reveal All
+                </button>
+              ) : (
+                <div className={styles.refresherGrid}>
                 <RefresherSection
                   title="Key Events"
-                  items={placeholderFeatures.refresher.events}
+                  items={
+                    refresherState.status === "ready" &&
+                    refresherState.result.events.length
+                      ? refresherState.result.events
+                      : ["Wikipedia does not provide a structured plot section for this title."]
+                  }
                 />
                 <RefresherSection
                   title="Important Characters"
-                  items={placeholderFeatures.refresher.characters}
+                  items={
+                    refresherState.status === "ready" &&
+                    refresherState.result.characters.length
+                      ? refresherState.result.characters
+                      : ["Wikipedia does not provide a structured character list for this title."]
+                  }
                 />
                 <RefresherSection
                   title="Key Details to Remember"
-                  items={placeholderFeatures.refresher.keyDetails}
+                  items={
+                    refresherState.status === "ready" &&
+                    refresherState.result.keyDetails.length
+                      ? refresherState.result.keyDetails
+                      : ["No additional verified story details were found."]
+                  }
                 />
-              </div>
+                </div>
+              )
             )}
           </section>
         )}

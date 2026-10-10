@@ -103,6 +103,22 @@
 	transform: translateY(-4px);
 }
 
+.cardDisabled,
+.cardDisabled:hover {
+	cursor: not-allowed;
+	transform: none;
+	opacity: 0.46;
+	filter: grayscale(1);
+}
+
+.cardDisabled .avatarWrap {
+	border-color: rgba(156, 163, 175, 0.38);
+}
+
+.cardDisabled .editIcon {
+	color: #6b7280;
+}
+
 .card:focus-visible .avatarWrap {
 	outline: 2px solid #7C3AED;
 	outline-offset: 4px;

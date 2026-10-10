@@ -625,6 +625,12 @@ export default function SubscriptionPage({
 
       throw new Error(message)
     }
+    const subscriptionUpdated =
+      data &&
+      typeof data === "object" &&
+      (data as { updated?: unknown }).updated === true
+    if (subscriptionUpdated) return
+
     const checkoutUrl =
       data && typeof data === "object"
         ? String((data as { url?: unknown }).url ?? "")

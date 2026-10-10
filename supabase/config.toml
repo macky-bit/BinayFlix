@@ -11,5 +11,11 @@ enable_confirmations = false
 [functions.create-checkout-session]
 verify_jwt = true
 
+[functions.cancel-subscription]
+verify_jwt = true
+
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.wikipedia-refresher]
+verify_jwt = true

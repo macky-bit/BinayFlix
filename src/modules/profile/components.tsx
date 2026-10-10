@@ -23,6 +23,7 @@ type MemberProfileRow = {
   is_kids: boolean
   has_pin: boolean
   display_order: number
+  is_entitled: boolean
 }
 
 const isExternalAvatar = (value: string) =>
@@ -1122,46 +1123,50 @@ function WatchHistoryPanel({ onClose }: { onClose: () => void }) {
 
 // ── ManageProfilesModal ────────────────────────────────────────────────────
 
-const PROFILES: {
-  id: number
-  initials: string
-  name: string
-}[] = []
+function ManageProfilesModal({
+  activeProfileId,
+  onClose,
+  onActiveProfileDeleted,
+}: {
+  activeProfileId: number | null
+  onClose: () => void
+  onActiveProfileDeleted: () => void
+}) {
+  const [profiles, setProfiles] = useState<MemberProfileRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [profileToDelete, setProfileToDelete] =
+    useState<ProfileIdentity | null>(null)
 
-function ManageProfilesModal({ onClose }: { onClose: () => void }) {
-  const [profiles, setProfiles] = useState(PROFILES)
+  const loadProfiles = useCallback(async () => {
+    setLoading(true)
+    setError("")
+    const { data, error: profilesError } = await supabase.rpc(
+      "get_my_member_profiles",
+    )
+    if (profilesError) {
+      setError(profilesError.message || "Profiles could not be loaded.")
+      setLoading(false)
+      return
+    }
+    setProfiles((data ?? []) as MemberProfileRow[])
+    setLoading(false)
+  }, [])
 
-  const [adding, setAdding] = useState(false)
+  useEffect(() => {
+    void loadProfiles()
+  }, [loadProfiles])
 
-  const [newName, setNewName] = useState("")
-
-  function addProfile() {
-    if (!newName.trim()) return
-
-    const initials = newName
-
-      .trim()
-
-      .split(" ")
-
-      .map((w) => w[0])
-
-      .join("")
-
-      .toUpperCase()
-
-      .slice(0, 2)
-
-    setProfiles((prev) => [
-      ...prev,
-
-      { id: Date.now(), initials, name: newName.trim() },
-    ])
-
-    setNewName("")
-
-    setAdding(false)
-  }
+  const identityFor = (profile: MemberProfileRow): ProfileIdentity => ({
+    id: Number(profile.member_profile_id),
+    name: profile.profile_name,
+    avatarPath: profile.avatar_image?.trim() ?? "",
+    avatarUrl: "",
+    isKids: profile.is_kids,
+    hasPin: profile.has_pin,
+    displayOrder: profile.display_order,
+    joinedAt: null,
+  })
 
   return (
     <div
@@ -1191,76 +1196,61 @@ function ManageProfilesModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="space-y-1 mb-4">
+        <p className="mb-5 text-sm leading-relaxed text-[var(--color-taupe)]">
+          Profiles outside your current plan limit cannot be selected. You can
+          delete them here to bring the account within its new limit.
+        </p>
+
+        {error && (
+          <p role="alert" className="mb-4 text-sm text-red-300">
+            {error}
+          </p>
+        )}
+
+        <div className="mb-5 max-h-[50vh] space-y-1 overflow-y-auto pr-1">
+          {loading && (
+            <p className="py-4 text-sm text-[var(--color-taupe)]">
+              Loading profiles…
+            </p>
+          )}
           {profiles.map((p) => (
             <div
-              key={p.id}
-              className="flex items-center gap-3 py-2.5 rounded-sm px-2 hover:bg-[var(--color-wine)] transition-colors cursor-pointer"
+              key={p.member_profile_id}
+              className="flex items-center gap-3 rounded-sm px-2 py-2.5"
               style={{ borderBottom: "1px solid var(--color-stone)" }}
             >
               <div
-                className="w-9 h-9 bg-[var(--color-wine)] text-[var(--color-cream)] font-bold flex items-center justify-center rounded-sm text-sm flex-shrink-0"
+                className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-sm bg-[var(--color-wine)] text-sm font-bold text-[var(--color-cream)] ${p.is_entitled ? "" : "grayscale opacity-50"}`}
                 style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
               >
-                {p.initials}
+                {initialsFor(p.profile_name)}
               </div>
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <p
-                  className="text-[var(--color-cream)] text-sm"
+                  className="truncate text-sm text-[var(--color-cream)]"
                   style={{ fontFamily: "'Barlow', sans-serif" }}
                 >
-                  {p.name}
+                  {p.profile_name}
+                </p>
+                <p className="text-xs text-[var(--color-taupe)]">
+                  {p.is_entitled
+                    ? Number(p.member_profile_id) === activeProfileId
+                      ? "Current profile"
+                      : "Available"
+                    : "Disabled by current plan"}
                 </p>
               </div>
               <button
-                className="text-[var(--color-stone)] hover:text-[var(--color-taupe)] transition-colors p-1"
-                aria-label={`Edit ${p.name}`}
+                type="button"
+                onClick={() => setProfileToDelete(identityFor(p))}
+                className="rounded-sm p-2 text-red-300 transition-colors hover:bg-red-950/40 hover:text-red-200"
+                aria-label={`Delete ${p.profile_name}`}
               >
-                <EditIcon />
+                <TrashIcon size={17} />
               </button>
             </div>
           ))}
         </div>
-
-        {adding ? (
-          <div className="flex gap-2 mb-4">
-            <input
-              autoFocus
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") addProfile()
-
-                if (e.key === "Escape") setAdding(false)
-              }}
-              placeholder="Profile name"
-              className="flex-1 bg-transparent border border-[var(--color-stone)] text-[var(--color-cream)] px-3 py-2 rounded-sm text-sm focus:outline-none focus:border-[var(--color-wine)]"
-              style={{ fontFamily: "'Barlow', sans-serif" }}
-            />
-            <button
-              onClick={addProfile}
-              className="px-4 py-2 bg-[var(--color-wine)] text-[var(--color-cream)] text-sm rounded-sm hover:bg-[var(--color-ink-soft)] transition-colors"
-              style={{ fontFamily: "'Barlow', sans-serif" }}
-            >
-              Add
-            </button>
-            <button
-              onClick={() => setAdding(false)}
-              className="px-4 py-2 border border-[var(--color-stone)] text-[var(--color-cream)] text-sm rounded-sm hover:border-[var(--color-taupe)] transition-colors"
-              style={{ fontFamily: "'Barlow', sans-serif" }}
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setAdding(true)}
-            className="flex items-center gap-2 text-[var(--color-taupe)] hover:text-[var(--color-cream)] text-sm transition-colors mb-4"
-            style={{ fontFamily: "'Barlow', sans-serif" }}
-          >
-            <PlusIcon size={16} /> Add Profile
-          </button>
-        )}
 
         <button
           onClick={onClose}
@@ -1270,6 +1260,23 @@ function ManageProfilesModal({ onClose }: { onClose: () => void }) {
           Done
         </button>
       </div>
+
+      {profileToDelete && (
+        <DeleteProfileModal
+          profile={profileToDelete}
+          onClose={() => setProfileToDelete(null)}
+          onDeleted={() => {
+            const deletedActiveProfile =
+              profileToDelete.id === activeProfileId
+            setProfileToDelete(null)
+            if (deletedActiveProfile) {
+              onActiveProfileDeleted()
+              return
+            }
+            void loadProfiles()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -1679,7 +1686,11 @@ export function ProfileView({
         <WatchHistoryPanel onClose={() => setHistoryOpen(false)} />
       )}
       {manageOpen && (
-        <ManageProfilesModal onClose={() => setManageOpen(false)} />
+        <ManageProfilesModal
+          activeProfileId={activeProfileId}
+          onClose={() => setManageOpen(false)}
+          onActiveProfileDeleted={onProfileDeleted}
+        />
       )}
       {deleteOpen && profileIdentity && (
         <DeleteProfileModal
@@ -1904,6 +1915,24 @@ export function ProfileView({
                 >
                   Profile Management
                 </h3>
+                <button
+                  type="button"
+                  onClick={() => setManageOpen(true)}
+                  className="flex min-h-16 w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[var(--color-cream)] transition-colors hover:bg-[var(--color-wine)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-wine)]"
+                >
+                  <span className="shrink-0 text-[var(--color-taupe)]">
+                    <EditIcon size={20} />
+                  </span>
+                  <span className="flex-1">
+                    <span className="block text-sm font-medium">
+                      Manage Profiles
+                    </span>
+                    <span className="mt-0.5 block text-xs leading-relaxed text-[var(--color-taupe)]">
+                      Review or delete profiles disabled by your current plan.
+                    </span>
+                  </span>
+                  <ChevronRightIcon size={16} />
+                </button>
                 <button
                   type="button"
                   onClick={() => setDeleteOpen(true)}

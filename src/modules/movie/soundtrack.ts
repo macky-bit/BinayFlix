@@ -9,6 +9,8 @@ export interface SoundtrackTrack {
   referenceUrl: string
   timestamp: string
   lyrics: string
+  instrumental: boolean
+  lyricsSourceUrl: string
 }
 
 interface SoundtrackRow {
@@ -20,6 +22,8 @@ interface SoundtrackRow {
   external_url: string | null
   timestamp_label: string | null
   lyrics: string | null
+  lyrics_instrumental: boolean | null
+  lyrics_source_url: string | null
 }
 
 export async function loadSoundtracks(
@@ -29,7 +33,7 @@ export async function loadSoundtracks(
   const { data, error } = await client
     .from("soundtrack")
     .select(
-      "soundtrack_id, song_title, track_title, artist, stream_link, external_url, timestamp_label, lyrics",
+      "soundtrack_id, song_title, track_title, artist, stream_link, external_url, timestamp_label, lyrics, lyrics_instrumental, lyrics_source_url",
     )
     .eq("content_id", contentId)
     .order("soundtrack_id", { ascending: true })
@@ -45,5 +49,7 @@ export async function loadSoundtracks(
     referenceUrl: row.external_url?.trim() || "",
     timestamp: row.timestamp_label?.trim() || "",
     lyrics: row.lyrics?.trim() || "",
+    instrumental: row.lyrics_instrumental === true,
+    lyricsSourceUrl: row.lyrics_source_url?.trim() || "",
   }))
 }

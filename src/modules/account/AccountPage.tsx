@@ -8,9 +8,15 @@ interface Props {
   onBack: () => void
   plan: Plan | null
   onPlanChange: (plan: Plan) => void
+  onSubscriptionCancelled: () => void
 }
 
-export default function AccountPage({ onBack, plan, onPlanChange }: Props) {
+export default function AccountPage({
+  onBack,
+  plan,
+  onPlanChange,
+  onSubscriptionCancelled,
+}: Props) {
   return (
     <div className={styles.moduleShell}>
       <div className={styles.backRow}>
@@ -30,7 +36,11 @@ export default function AccountPage({ onBack, plan, onPlanChange }: Props) {
           Back to StreamFlix
         </button>
       </div>
-      <AccountView plan={plan} onPlanChange={onPlanChange} />
+      <AccountView
+        plan={plan}
+        onPlanChange={onPlanChange}
+        onSubscriptionCancelled={onSubscriptionCancelled}
+      />
     </div>
   )
 }

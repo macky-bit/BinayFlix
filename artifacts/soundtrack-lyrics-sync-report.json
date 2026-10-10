@@ -1,0 +1,103 @@
+{
+  "generatedAt": "2026-10-10T06:08:47.817Z",
+  "stored": [
+    {
+      "soundtrackId": 25,
+      "contentId": 40,
+      "source": "existing"
+    },
+    {
+      "soundtrackId": 26,
+      "contentId": 45,
+      "source": "existing"
+    },
+    {
+      "soundtrackId": 29,
+      "contentId": 49,
+      "source": "existing"
+    },
+    {
+      "soundtrackId": 33,
+      "contentId": 59,
+      "source": "existing"
+    },
+    {
+      "soundtrackId": 34,
+      "contentId": 60,
+      "source": "existing"
+    },
+    {
+      "soundtrackId": 37,
+      "contentId": 71,
+      "source": "existing"
+    },
+    {
+      "soundtrackId": 38,
+      "contentId": 83,
+      "source": "existing"
+    },
+    {
+      "soundtrackId": 39,
+      "contentId": 84,
+      "source": "existing"
+    },
+    {
+      "soundtrackId": 41,
+      "contentId": 90,
+      "source": "existing"
+    },
+    {
+      "soundtrackId": 42,
+      "contentId": 92,
+      "source": "existing"
+    }
+  ],
+  "instrumental": [],
+  "unavailable": [
+    {
+      "soundtrackId": 20,
+      "contentId": 1
+    },
+    {
+      "soundtrackId": 21,
+      "contentId": 5
+    },
+    {
+      "soundtrackId": 22,
+      "contentId": 6
+    },
+    {
+      "soundtrackId": 19,
+      "contentId": 17
+    },
+    {
+      "soundtrackId": 23,
+      "contentId": 19
+    },
+    {
+      "soundtrackId": 24,
+      "contentId": 23
+    },
+    {
+      "soundtrackId": 28,
+      "contentId": 47
+    },
+    {
+      "soundtrackId": 31,
+      "contentId": 53
+    },
+    {
+      "soundtrackId": 35,
+      "contentId": 62
+    },
+    {
+      "soundtrackId": 40,
+      "contentId": 86
+    },
+    {
+      "soundtrackId": 44,
+      "contentId": 100
+    }
+  ],
+  "errors": []
+}

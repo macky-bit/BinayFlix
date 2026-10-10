@@ -3,6 +3,13 @@ CREATE TABLE "public"."previous_film_refresher" (
   "refresher_title"        character varying(255),
   "refresher_video_url"    text,
   "refresher_text_summary" text,
+  "source_name"            character varying(50),
+  "source_title"           text,
+  "source_url"             text,
+  "key_events"             jsonb                  NOT NULL DEFAULT '[]'::jsonb,
+  "important_characters"   jsonb                  NOT NULL DEFAULT '[]'::jsonb,
+  "key_details"            jsonb                  NOT NULL DEFAULT '[]'::jsonb,
+  "source_updated_at"      timestamp with time zone,
   CONSTRAINT "previous_film_refresher_content_id_fkey" FOREIGN KEY (content_id) REFERENCES public.content(content_id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 

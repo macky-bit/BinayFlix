@@ -148,6 +148,27 @@ Deno.serve(async (request) => {
     )
     if (error) throw error
 
+    if (event.type === "customer.subscription.updated") {
+      const stripeSubscriptionId = String(
+        payload.stripe_subscription_id ?? "",
+      ).trim()
+      const selectedPlanId = Number(payload.plan_id)
+      if (
+        stripeSubscriptionId.startsWith("sub_") &&
+        Number.isSafeInteger(selectedPlanId) &&
+        selectedPlanId > 0
+      ) {
+        const { error: planSyncError } = await serviceClient.rpc(
+          "sync_stripe_subscription_plan",
+          {
+            selected_stripe_subscription_id: stripeSubscriptionId,
+            selected_plan_id: selectedPlanId,
+          },
+        )
+        if (planSyncError) throw planSyncError
+      }
+    }
+
     return Response.json({ received: true, processed: data === true })
   } catch (error) {
     console.error(

@@ -261,7 +261,17 @@ export default function App() {
         <AccountPage
           onBack={() => setPage("dashboard")}
           plan={plan}
-          onPlanChange={(p) => setPlan(p)}
+          onPlanChange={(p) => {
+            setPlan(p)
+            activeProfileIdRef.current = null
+            setActiveProfileId(null)
+            setActiveProfile(null)
+            setPage("profileSelect")
+          }}
+          onSubscriptionCancelled={() => {
+            setPlan(null)
+            setPage("subscription")
+          }}
         />
       )}
 

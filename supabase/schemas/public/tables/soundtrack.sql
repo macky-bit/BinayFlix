@@ -6,7 +6,17 @@ CREATE TABLE "public"."soundtrack" (
   "stream_link"   text,
   "track_title"   text,
   "external_url"  text,
+  "lyrics"        text,
+  "timestamp_label" character varying(30),
+  "synced_lyrics" text,
+  "lyrics_storage_path" text,
+  "synced_lyrics_storage_path" text,
+  "lyrics_source_id" bigint,
+  "lyrics_source_url" text,
+  "lyrics_instrumental" boolean NOT NULL DEFAULT false,
+  "lyrics_updated_at" timestamptz,
   CONSTRAINT "soundtrack_content_id_fkey" FOREIGN KEY (content_id) REFERENCES public.content(content_id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT "soundtrack_lyrics_source_id_positive" CHECK (lyrics_source_id IS NULL OR lyrics_source_id > 0),
   CONSTRAINT "soundtrack_pkey" PRIMARY KEY (soundtrack_id)
 );
 

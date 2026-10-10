@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { supabase } from "../../lib/supabase"
 import type { Show } from "../movie/types"
 import { searchShows } from "../movie/tmdb"
 import { Footer, TrendingCard } from "./components"
@@ -11,6 +12,56 @@ interface Props {
   onNavigateHelp: () => void
 }
 
+type SearchResult = Show & { available: boolean }
+
+type ContentAvailabilityRow = {
+  tmdb_id: number | string | null
+  category:
+    | { category_name: string }
+    | { category_name: string }[]
+    | null
+}
+
+function categoryName(row: ContentAvailabilityRow) {
+  const category = Array.isArray(row.category) ? row.category[0] : row.category
+  return category?.category_name?.toLowerCase() ?? ""
+}
+
+function availabilityKey(id: number | string, mediaType: "movie" | "tv") {
+  return `${mediaType}-${id}`
+}
+
+async function attachCatalogAvailability(
+  shows: Show[],
+): Promise<SearchResult[]> {
+  if (!shows.length) return []
+
+  const tmdbIds = [...new Set(shows.map((show) => show.id))]
+  const { data, error } = await supabase
+    .from("content")
+    .select("tmdb_id, category(category_name)")
+    .eq("availability_status", "available")
+    .in("tmdb_id", tmdbIds)
+
+  if (error) throw error
+
+  const availableKeys = new Set(
+    ((data ?? []) as unknown as ContentAvailabilityRow[]).flatMap((row) => {
+      if (row.tmdb_id === null) return []
+      const name = categoryName(row)
+      const mediaType = name.includes("tv") ? "tv" : "movie"
+      return [availabilityKey(row.tmdb_id, mediaType)]
+    }),
+  )
+
+  return shows.map((show) => ({
+    ...show,
+    available: availableKeys.has(
+      availabilityKey(show.id, show.mediaType ?? "movie"),
+    ),
+  }))
+}
+
 export default function SearchResultsPage({
   query,
   onWatch,
@@ -18,7 +69,7 @@ export default function SearchResultsPage({
   onNavigateHelp,
 }: Props) {
   const normalizedQuery = normalizeSearchQuery(query)
-  const [results, setResults] = useState<Show[]>([])
+  const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -35,7 +86,10 @@ export default function SearchResultsPage({
     setError("")
     const timeout = window.setTimeout(() => {
       void searchShows(normalizedQuery, controller.signal)
-        .then(setResults)
+        .then(attachCatalogAvailability)
+        .then((nextResults) => {
+          if (!controller.signal.aborted) setResults(nextResults)
+        })
         .catch((reason) => {
           if (reason instanceof DOMException && reason.name === "AbortError")
             return
@@ -113,6 +167,7 @@ export default function SearchResultsPage({
               show={show}
               onPlay={onWatch}
               onInfo={onInfo}
+              unavailable={!show.available}
             />
           ))}
         </section>

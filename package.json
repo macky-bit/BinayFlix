@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "format": "oxfmt",
     "test": "node --experimental-strip-types --test tests/community-engagement.test.ts",
-    "soundtrack:youtube": "node scripts/sync-youtube-soundtracks.mjs"
+    "soundtrack:youtube": "node scripts/sync-youtube-soundtracks.mjs",
+    "soundtrack:lyrics": "node --experimental-strip-types scripts/sync-soundtrack-lyrics.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

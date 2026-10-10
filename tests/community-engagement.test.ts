@@ -610,6 +610,60 @@ test("Checkout sessions use server-owned recurring prices and authenticated user
   assert.doesNotMatch(source, /selected_subscription_id/)
 })
 
+test("active Stripe subscriptions can replace their plan without a duplicate checkout", () => {
+  const checkoutSource = readFileSync(
+    new URL(
+      "../supabase/functions/create-checkout-session/index.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const webhookSource = readFileSync(
+    new URL("../supabase/functions/stripe-webhook/index.ts", import.meta.url),
+    "utf8",
+  )
+  const syncSql = readFileSync(
+    new URL(
+      "../supabase/migrations/20261010220000_manage_stripe_subscription.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.match(checkoutSource, /stripe\.subscriptions\.update/)
+  assert.match(checkoutSource, /id: subscription\.items\.data\[0\]\.id/)
+  assert.match(checkoutSource, /price: selectedPrice/)
+  assert.match(checkoutSource, /proration_behavior: "none"/)
+  assert.match(checkoutSource, /cancel_at_period_end: false/)
+  assert.doesNotMatch(checkoutSource, /An active subscription already exists/)
+  assert.match(webhookSource, /sync_stripe_subscription_plan/)
+  assert.match(syncSql, /SET subscription_id = selected_plan_id/i)
+  assert.match(syncSql, /FROM PUBLIC, anon, authenticated/i)
+})
+
+test("membership cancellation is authenticated, immediate, and returns to subscribe", () => {
+  const cancelSource = readFileSync(
+    new URL(
+      "../supabase/functions/cancel-subscription/index.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const accountSource = readFileSync(
+    new URL("../src/modules/account/components.tsx", import.meta.url),
+    "utf8",
+  )
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8")
+
+  assert.match(cancelSource, /serviceClient\.auth\.getUser/)
+  assert.match(cancelSource, /stripe\.subscriptions\.cancel/)
+  assert.match(cancelSource, /invoice_now: false, prorate: false/)
+  assert.match(accountSource, /functions\.invoke\("cancel-subscription"/)
+  assert.match(accountSource, /onSubscriptionCancelled\(\)/)
+  assert.match(appSource, /setPlan\(null\)/)
+  assert.match(appSource, /setPage\("subscription"\)/)
+})
+
 test("movie soundtrack uses database audio and lyrics instead of placeholders", () => {
   const playerSource = readFileSync(
     new URL("../src/modules/movie/fixedscreen/movie.tsx", import.meta.url),
@@ -623,9 +677,10 @@ test("movie soundtrack uses database audio and lyrics instead of placeholders", 
     "utf8",
   )
 
-  assert.match(playerSource, /<audio[\s\S]*soundtrackAudioRef/)
-
-  assert.match(playerSource, /toggleSoundtrack\(track\)/)
+  assert.match(playerSource, /youtubeWatchUrl\(track\.referenceUrl\)/)
+  assert.match(playerSource, /target="_blank"/)
+  assert.match(playerSource, /Open \$\{track\.title\} on YouTube/)
+  assert.doesNotMatch(playerSource, /soundtrackAudioRef/)
 
   assert.match(playerSource, /lyricsTrack\.lyrics/)
 
@@ -638,6 +693,102 @@ test("movie soundtrack uses database audio and lyrics instead of placeholders", 
   assert.match(soundtrackSource, /\.from\("soundtrack"\)/)
 
   assert.match(soundtrackSource, /stream_link/)
+  assert.match(soundtrackSource, /lyrics_instrumental/)
+  assert.match(soundtrackSource, /lyrics_source_url/)
+  assert.match(playerSource, /track\.instrumental/)
+})
+
+test("soundtrack lyrics are cached in a private provenance-aware bucket", () => {
+  const migration = readFileSync(
+    new URL(
+      "../supabase/migrations/20261010231500_store_soundtrack_lyrics.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const syncSource = readFileSync(
+    new URL("../scripts/sync-soundtrack-lyrics.mjs", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(migration, /'soundtrack-lyrics'/)
+  assert.match(migration, /false,\s*524288/)
+  assert.match(migration, /TO authenticated[\s\S]*FOR SELECT|FOR SELECT[\s\S]*TO authenticated/i)
+  assert.match(migration, /lyrics_source_url text/i)
+  assert.match(syncSource, /loadTrackLyrics/)
+  assert.match(syncSource, /lyrics\.txt/)
+  assert.match(syncSource, /lyrics\.lrc/)
+  assert.match(syncSource, /\$\{rangeStart\}-\$\{rangeEnd\}_content/)
+  assert.match(syncSource, /\$\{contentId\}-\$\{slugify\(title\)\}/)
+  assert.match(syncSource, /SUPABASE_SERVICE_ROLE_KEY/)
+  assert.doesNotMatch(syncSource, /VITE_SUPABASE_SERVICE/)
+})
+
+test("movie refresher resolves and caches verified Wikipedia content", () => {
+  const movieSource = readFileSync(
+    new URL("../src/modules/movie/fixedscreen/movie.tsx", import.meta.url),
+    "utf8",
+  )
+  const clientSource = readFileSync(
+    new URL("../src/modules/movie/refresher.ts", import.meta.url),
+    "utf8",
+  )
+  const functionSource = readFileSync(
+    new URL(
+      "../supabase/functions/wikipedia-refresher/index.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const migration = readFileSync(
+    new URL(
+      "../supabase/migrations/20261010224500_add_wikipedia_refresher_cache.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.match(clientSource, /wikipedia-refresher/)
+  assert.match(movieSource, /loadWikipediaRefresher/)
+  assert.match(movieSource, /Source: \{refresherState\.result\.sourceName\}/)
+  assert.doesNotMatch(movieSource, /waiting for a verified refresher source/i)
+  assert.match(functionSource, /\.from\("content"\)/)
+  assert.match(functionSource, /en\.wikipedia\.org\/w\/rest\.php\/v1\/search\/page/)
+  assert.match(functionSource, /previous_film_refresher/)
+  assert.match(migration, /source_url text/i)
+  assert.match(migration, /key_events jsonb/i)
+})
+
+test("refresher video hands off to the selected studio clip without advancing movie progress", () => {
+  const movieSource = readFileSync(
+    new URL("../src/modules/movie/fixedscreen/movie.tsx", import.meta.url),
+    "utf8",
+  )
+  const videoSource = readFileSync(
+    new URL("../src/modules/movie/refresherVideo.ts", import.meta.url),
+    "utf8",
+  )
+  const storagePolicy = readFileSync(
+    new URL(
+      "../supabase/migrations/20261010230000_allow_authenticated_refresher_video_read.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.match(videoSource, /refresher_video_url/)
+  assert.match(videoSource, /refresher_all\.mp4/)
+  assert.match(videoSource, /createSignedUrl/)
+  assert.match(movieSource, /Play Refresher/)
+  assert.match(movieSource, />\s*Skip Refresher\s*</)
+  assert.match(movieSource, /if \(!playing \|\| refresherVideoPlaying\) return/)
+  assert.match(movieSource, /finishRefresherVideo\(\)/)
+  assert.match(
+    movieSource,
+    /const finishRefresherVideo[\s\S]*setRefresherVideoPlaying\(false\)[\s\S]*setClipEnded\(false\)[\s\S]*setPlaying\(true\)/,
+  )
+  assert.match(storagePolicy, /TO authenticated/i)
+  assert.match(storagePolicy, /bucket_id = 'refresher_video_url'/i)
 })
 
 test("lyrics lookup accepts an exact title and artist match", () => {
@@ -933,6 +1084,36 @@ test("kids profiles require Standard or Premium subscriptions", () => {
   assert.match(profileSelectSource, /allowsKidsProfiles &&/)
 })
 
+test("subscription downgrades disable overflow profiles without deleting them", () => {
+  const profileSelectSource = readFileSync(
+    new URL(
+      "../src/modules/profileSelect/ProfileSelectPage.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const profileSettingsSource = readFileSync(
+    new URL("../src/modules/profile/components.tsx", import.meta.url),
+    "utf8",
+  )
+  const sql = readFileSync(
+    new URL(
+      "../supabase/migrations/20261010223000_disable_profiles_beyond_plan_limit.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.match(sql, /row_number\(\) OVER/i)
+  assert.match(sql, /ORDER BY profile\.display_order, profile\.member_profile_id/i)
+  assert.match(sql, /<= COALESCE\(entitlement\.max_user, 0\) AS is_entitled/i)
+  assert.match(sql, /AND profile\.is_active/i)
+  assert.match(profileSelectSource, /disabled=\{!profile\.isEntitled\}/)
+  assert.match(profileSelectSource, /Unavailable on this plan/)
+  assert.match(profileSettingsSource, /Disabled by current plan/)
+  assert.match(profileSettingsSource, /delete_my_member_profile/)
+})
+
 test("dashboard footer keeps only support and legal links", () => {
   const componentsSource = readFileSync(
     new URL("../src/modules/dashboard/components.tsx", import.meta.url),
@@ -966,4 +1147,48 @@ test("dashboard footer keeps only support and legal links", () => {
 
   assert.match(componentsSource, /onNavigateHelp/)
   assert.match(dashboardSource, /onNavigateHelp=\{\(\) => onNavigate\("help"\)\}/)
+})
+
+test("TMDB search disables titles outside the available Supabase catalog", () => {
+  const searchSource = readFileSync(
+    new URL("../src/modules/dashboard/SearchResultsPage.tsx", import.meta.url),
+    "utf8",
+  )
+  const cardSource = readFileSync(
+    new URL("../src/modules/dashboard/components.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(searchSource, /\.from\("content"\)/)
+  assert.match(searchSource, /\.eq\("availability_status", "available"\)/)
+  assert.match(searchSource, /\.in\("tmdb_id", tmdbIds\)/)
+  assert.match(searchSource, /availabilityKey\(show\.id, show\.mediaType/)
+  assert.match(searchSource, /unavailable=\{!show\.available\}/)
+  assert.match(cardSource, /aria-disabled=\{unavailable \|\| undefined\}/)
+  assert.match(cardSource, /onClick=\{unavailable \? undefined/)
+  assert.match(cardSource, />Unavailable</)
+})
+
+test("dashboard search does not render a close button", () => {
+  const dashboardSource = readFileSync(
+    new URL("../src/modules/dashboard/components.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.doesNotMatch(dashboardSource, /aria-label="Close search"/)
+  assert.match(dashboardSource, /if \(event\.key === "Escape"\)/)
+})
+
+test("movie carousels use mirrored arrowhead SVG controls", () => {
+  const dashboardSource = readFileSync(
+    new URL("../src/modules/dashboard/components.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(dashboardSource, /function CarouselArrowIcon/)
+  assert.match(dashboardSource, /direction="left"/)
+  assert.match(dashboardSource, /direction="right"/)
+  assert.match(dashboardSource, /translate\(512 0\) scale\(-1 1\)/)
+  assert.doesNotMatch(dashboardSource, /styles\.scrollArrow\}>‹/)
+  assert.doesNotMatch(dashboardSource, /styles\.scrollArrow\}>›/)
 })
