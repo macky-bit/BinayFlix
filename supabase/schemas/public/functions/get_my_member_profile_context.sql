@@ -14,7 +14,7 @@ CREATE OR REPLACE FUNCTION public.get_my_member_profile_context()
   select
     plan.plan_name,
     plan.max_user,
-    lower(plan.plan_name) in ('basic', 'premium'),
+    lower(plan.plan_name) in ('standard', 'premium'),
     count(profile.member_profile_id)::integer,
     count(profile.member_profile_id) < plan.max_user
   from public."user" as account

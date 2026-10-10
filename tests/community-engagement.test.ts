@@ -813,3 +813,120 @@ test("watch history RPCs are authenticated and owner scoped", () => {
     /grant execute on function public\.delete_my_watch_history_entry/i,
   )
 })
+
+test("profile menu routes every account action through one handler", () => {
+  const dashboardSource = readFileSync(
+    new URL("../src/modules/dashboard/components.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(dashboardSource, /label: "Profile", page: "profile"/)
+  assert.match(dashboardSource, /label: "Account", page: "account"/)
+  assert.match(dashboardSource, /label: "Settings", page: "settings"/)
+  assert.match(dashboardSource, /label: "Help Center", page: "help"/)
+  assert.match(
+    dashboardSource,
+    /onClick=\{\(\) => navigateFromAccountMenu\(item\.page\)\}/,
+  )
+  assert.match(
+    dashboardSource,
+    /onClick=\{\(\) => navigateFromAccountMenu\("account"\)\}/,
+  )
+})
+
+test("Account and Settings share the Settings-style toggle switch", () => {
+  const accountSource = readFileSync(
+    new URL("../src/modules/account/components.tsx", import.meta.url),
+    "utf8",
+  )
+  const settingsSource = readFileSync(
+    new URL("../src/modules/settings/SettingsPage.tsx", import.meta.url),
+    "utf8",
+  )
+  const toggleSource = readFileSync(
+    new URL("../src/components/ToggleSwitch.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(accountSource, /ToggleSwitch/)
+  assert.match(settingsSource, /ToggleSwitch/)
+  assert.doesNotMatch(accountSource, /className="relative w-10 h-5/)
+  assert.match(toggleSource, /role="switch"/)
+  assert.match(toggleSource, /styles\.toggleThumbOn/)
+})
+
+test("Profile no longer duplicates autoplay settings", () => {
+  const profileSource = readFileSync(
+    new URL("../src/modules/profile/components.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.doesNotMatch(profileSource, /Autoplay Next Episode/)
+  assert.doesNotMatch(profileSource, /Autoplay Previews/)
+  assert.doesNotMatch(profileSource, /function Toggle\(/)
+})
+
+test("kids profiles do not render maturity rating controls", () => {
+  const profileSource = readFileSync(
+    new URL("../src/modules/profile/components.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(profileSource, /!profile\.isKids &&/)
+  assert.match(
+    profileSource,
+    /profileIdentity && !profileIdentity\.isKids &&/,
+  )
+})
+
+test("profile settings delete the selected owned profile safely", () => {
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8")
+  const profileSource = readFileSync(
+    new URL("../src/modules/profile/components.tsx", import.meta.url),
+    "utf8",
+  )
+  const sql = readFileSync(
+    new URL(
+      "../supabase/migrations/20261010213000_delete_my_member_profile.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.match(profileSource, /delete_my_member_profile/)
+  assert.match(profileSource, /Type \{profile\.name\} to confirm/)
+  assert.match(appSource, /onProfileDeleted=\{\(\) => \{/)
+  assert.match(appSource, /setPage\("profileSelect"\)/)
+  assert.match(sql, /account\.auth_user_id = auth\.uid\(\)/i)
+  assert.match(sql, /profile\.user_id = current_user_id/i)
+  assert.match(sql, /active_profile_count <= 1/i)
+  assert.match(sql, /is_active = false/i)
+  assert.match(sql, /revoke all on function public\.delete_my_member_profile/i)
+})
+
+test("kids profiles require Standard or Premium subscriptions", () => {
+  const profileSelectSource = readFileSync(
+    new URL(
+      "../src/modules/profileSelect/ProfileSelectPage.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const sql = readFileSync(
+    new URL(
+      "../supabase/migrations/20261010214500_standard_premium_kids_profiles.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.match(sql, /lower\(plan\.plan_name\) IN \('standard', 'premium'\)/i)
+  assert.match(
+    sql,
+    /lower\(plan_row\.plan_name\) NOT IN \('standard', 'premium'\)/i,
+  )
+  assert.match(sql, /Kids profiles require a Standard or Premium plan/i)
+  assert.doesNotMatch(sql, /\('basic', 'premium'\)/i)
+  assert.match(profileSelectSource, /context\?\.allows_kids \?\? false/)
+  assert.match(profileSelectSource, /allowsKidsProfiles &&/)
+})

@@ -122,48 +122,6 @@ function MoreVertIcon({ size = 16 }: { size?: number }) {
   )
 }
 
-function PlayCircleIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <polygon
-        points="10 8 16 12 10 16 10 8"
-        fill="currentColor"
-        stroke="none"
-      />
-    </svg>
-  )
-}
-
-function FilmIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    >
-      <rect x="2" y="2" width="20" height="20" rx="2" />
-      <line x1="7" y1="2" x2="7" y2="22" />
-      <line x1="17" y1="2" x2="17" y2="22" />
-      <line x1="2" y1="12" x2="22" y2="12" />
-      <line x1="2" y1="7" x2="7" y2="7" />
-      <line x1="2" y1="17" x2="7" y2="17" />
-      <line x1="17" y1="17" x2="22" y2="17" />
-      <line x1="17" y1="7" x2="22" y2="7" />
-    </svg>
-  )
-}
-
 function SubtitleIcon({ size = 20 }: { size?: number }) {
   return (
     <svg
@@ -314,26 +272,6 @@ function PlusIcon({ size = 18 }: { size?: number }) {
 }
 
 // ── Toggle ─────────────────────────────────────────────────────────────────
-
-function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
-  return (
-    <button
-      role="switch"
-      aria-checked={on}
-      onClick={onChange}
-      className={`${styles.toggleTrack} ${
-        on ? styles.toggleOn : styles.toggleOff
-      } w-11 h-6 rounded-full shrink-0 focus:outline-none focus:ring-2 focus:ring-[var(--color-wine)] focus:ring-offset-2 focus:ring-offset-[var(--color-ink)]`}
-    >
-      <div
-        className={`${styles.toggleHandle} ${
-          on ? styles.toggleHandleOn : styles.toggleHandleOff
-        } w-[18px] h-[18px] rounded-full top-[3px]`}
-      />
-      <span className="sr-only">{on ? "On" : "Off"}</span>
-    </button>
-  )
-}
 
 // ── SelectDropdown ─────────────────────────────────────────────────────────
 
@@ -544,33 +482,35 @@ function EditProfileModal({
             />
           </div>
 
-          <div>
-            <label
-              className="block text-xs text-[var(--color-taupe)] mb-1.5 uppercase tracking-wider"
-              style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
-            >
-              Maturity Rating
-            </label>
-            <StreamFlixSelect
-              value={maturity}
-              onChange={setMaturity}
-              ariaLabel="Maturity rating"
-              fullWidth
-              options={[
-                "All Maturity Ratings",
+          {!profile.isKids && (
+            <div>
+              <label
+                className="block text-xs text-[var(--color-taupe)] mb-1.5 uppercase tracking-wider"
+                style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+              >
+                Maturity Rating
+              </label>
+              <StreamFlixSelect
+                value={maturity}
+                onChange={setMaturity}
+                ariaLabel="Maturity rating"
+                fullWidth
+                options={[
+                  "All Maturity Ratings",
 
-                "18+",
+                  "18+",
 
-                "16+",
+                  "16+",
 
-                "13+",
+                  "13+",
 
-                "7+",
+                  "7+",
 
-                "All Ages",
-              ]}
-            />
-          </div>
+                  "All Ages",
+                ]}
+              />
+            </div>
+          )}
         </div>
 
         {saveError && (
@@ -793,6 +733,143 @@ function PINModal({
 }
 
 // ── WatchHistoryPanel ──────────────────────────────────────────────────────
+
+function DeleteProfileModal({
+  profile,
+  onClose,
+  onDeleted,
+}: {
+  profile: ProfileIdentity
+  onClose: () => void
+  onDeleted: () => void
+}) {
+  const [confirmation, setConfirmation] = useState("")
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState("")
+  const canDelete = confirmation.trim() === profile.name
+
+  const handleDelete = async () => {
+    if (!canDelete || deleting) return
+
+    setDeleting(true)
+    setError("")
+    const { error: deleteError } = await supabase.rpc(
+      "delete_my_member_profile",
+      { selected_profile_id: profile.id },
+    )
+
+    if (deleteError) {
+      setError(
+        deleteError.message.includes("At least one profile is required")
+          ? "You cannot delete the only profile on your account. Create another profile first."
+          : deleteError.message || "The profile could not be deleted.",
+      )
+      setDeleting(false)
+      return
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("streamflix:profile-deleted", {
+        detail: { profileId: profile.id },
+      }),
+    )
+    onDeleted()
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      style={{ background: "rgba(8, 5, 16, 0.92)" }}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !deleting) onClose()
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-profile-title"
+        aria-describedby="delete-profile-description"
+        className="w-full max-w-md rounded-sm p-7"
+        style={{
+          background: "var(--color-ink-soft)",
+          border: "1px solid rgba(248, 113, 113, 0.55)",
+        }}
+      >
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <h2
+            id="delete-profile-title"
+            className="text-xl font-bold uppercase tracking-wide text-[var(--color-cream)]"
+            style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+          >
+            Delete Profile
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={deleting}
+            aria-label="Close delete profile confirmation"
+            className="p-1 text-[var(--color-taupe)] transition-colors hover:text-[var(--color-cream)] disabled:opacity-40"
+          >
+            <XIcon />
+          </button>
+        </div>
+
+        <p
+          id="delete-profile-description"
+          className="text-sm leading-relaxed text-[var(--color-taupe)]"
+        >
+          This removes{" "}
+          <strong className="text-[var(--color-cream)]">{profile.name}</strong>{" "}
+          from your profile picker. Watch history and profile preferences will no longer be available.
+        </p>
+        <label
+          htmlFor="delete-profile-confirmation"
+          className="mt-5 block text-xs uppercase tracking-wider text-[var(--color-taupe)]"
+          style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+        >
+          Type {profile.name} to confirm
+        </label>
+        <input
+          id="delete-profile-confirmation"
+          autoFocus
+          value={confirmation}
+          disabled={deleting}
+          onChange={(event) => {
+            setConfirmation(event.target.value)
+            setError("")
+          }}
+          className="mt-2 w-full rounded-sm border border-[var(--color-stone)] bg-transparent px-3 py-2 text-sm text-[var(--color-cream)] outline-none focus:border-red-400"
+        />
+
+        {error && (
+          <p role="alert" className="mt-3 text-sm text-red-300">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-7 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={deleting}
+            className="flex-1 rounded-sm border border-[var(--color-stone)] py-2.5 text-sm text-[var(--color-cream)] transition-colors hover:border-[var(--color-taupe)] disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={!canDelete || deleting}
+            className="flex-1 rounded-sm border border-red-500 bg-red-950/40 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-900/50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {deleting ? "Deleting…" : "Delete Profile"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 type WatchHistoryRow = {
   content_id: number | string
@@ -1461,8 +1538,10 @@ const INITIAL_CARDS: CardData[] = []
 
 export function ProfileView({
   activeProfileId,
+  onProfileDeleted,
 }: {
   activeProfileId: number | null
+  onProfileDeleted: () => void
 }) {
   const [profileIdentity, setProfileIdentity] =
     useState<ProfileIdentity | null>(null)
@@ -1538,10 +1617,6 @@ export function ProfileView({
   }, [loadProfileIdentity])
 
   // Settings state
-  const [autoplayNext, setAutoplayNext] = useState(true)
-
-  const [autoplayPreviews, setAutoplayPreviews] = useState(false)
-
   const [subtitle, setSubtitle] = useState("Medium")
 
   const [maturity, setMaturity] = useState("All Maturity Ratings")
@@ -1561,6 +1636,8 @@ export function ProfileView({
   const [historyOpen, setHistoryOpen] = useState(false)
 
   const [manageOpen, setManageOpen] = useState(false)
+
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   // Cards
 
@@ -1624,6 +1701,13 @@ export function ProfileView({
       )}
       {manageOpen && (
         <ManageProfilesModal onClose={() => setManageOpen(false)} />
+      )}
+      {deleteOpen && profileIdentity && (
+        <DeleteProfileModal
+          profile={profileIdentity}
+          onClose={() => setDeleteOpen(false)}
+          onDeleted={onProfileDeleted}
+        />
       )}
 
       {/* Page content */}
@@ -1708,36 +1792,6 @@ export function ProfileView({
               </h3>
 
               <SettingRow
-                icon={<PlayCircleIcon />}
-                label="Autoplay Next Episode"
-                description="Automatically play the next episode of a series."
-                control={
-                  <Toggle
-                    on={autoplayNext}
-                    onChange={() => {
-                      setAutoplayNext((v) => !v)
-
-                      markDirty()
-                    }}
-                  />
-                }
-              />
-              <SettingRow
-                icon={<FilmIcon />}
-                label="Autoplay Previews"
-                description="Automatically play previews while browsing."
-                control={
-                  <Toggle
-                    on={autoplayPreviews}
-                    onChange={() => {
-                      setAutoplayPreviews((v) => !v)
-
-                      markDirty()
-                    }}
-                  />
-                }
-              />
-              <SettingRow
                 icon={<SubtitleIcon />}
                 label="Subtitle Appearance"
                 description="Customize the appearance of subtitles."
@@ -1754,35 +1808,37 @@ export function ProfileView({
                   />
                 }
               />
-              <SettingRow
-                icon={<ShieldIcon />}
-                label="Maturity Rating"
-                description="Show titles of all maturity ratings for this profile."
-                control={
-                  <SelectDropdown
-                    value={maturity}
-                    ariaLabel="Maturity rating"
-                    options={[
-                      "All Maturity Ratings",
+              {profileIdentity && !profileIdentity.isKids && (
+                <SettingRow
+                  icon={<ShieldIcon />}
+                  label="Maturity Rating"
+                  description="Show titles of all maturity ratings for this profile."
+                  control={
+                    <SelectDropdown
+                      value={maturity}
+                      ariaLabel="Maturity rating"
+                      options={[
+                        "All Maturity Ratings",
 
-                      "18+",
+                        "18+",
 
-                      "16+",
+                        "16+",
 
-                      "13+",
+                        "13+",
 
-                      "7+",
+                        "7+",
 
-                      "All Ages",
-                    ]}
-                    onChange={(v) => {
-                      setMaturity(v)
+                        "All Ages",
+                      ]}
+                      onChange={(v) => {
+                        setMaturity(v)
 
-                      markDirty()
-                    }}
-                  />
-                }
-              />
+                        markDirty()
+                      }}
+                    />
+                  }
+                />
+              )}
               <SettingRow
                 icon={<GlobeIcon />}
                 label="Default Language"
@@ -1877,6 +1933,34 @@ export function ProfileView({
                   onClick={() => setPinOpen(true)}
                   last
                 />
+              </div>
+
+              <div className="mt-8">
+                <h3
+                  className="mb-2 text-xl font-semibold uppercase tracking-wide text-[var(--color-cream)]"
+                  style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+                >
+                  Profile Management
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setDeleteOpen(true)}
+                  disabled={!profileIdentity || identityLoading}
+                  className="flex min-h-16 w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-red-300 transition-colors hover:bg-red-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span className="shrink-0">
+                    <TrashIcon size={20} />
+                  </span>
+                  <span className="flex-1">
+                    <span className="block text-sm font-medium">
+                      Delete Profile
+                    </span>
+                    <span className="mt-0.5 block text-xs leading-relaxed text-[var(--color-taupe)]">
+                      Permanently remove this profile from your account.
+                    </span>
+                  </span>
+                  <ChevronRightIcon size={16} />
+                </button>
               </div>
             </div>
           </div>

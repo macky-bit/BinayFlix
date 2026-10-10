@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import StreamFlixSelect from "../../components/StreamFlixSelect"
+import ToggleSwitch from "../../components/ToggleSwitch"
 import styles from "./account.module.css"
 
 import SubscriptionPage from "../subscription/SubscriptionPage"
@@ -1893,26 +1894,11 @@ function SecurityPage({
                 : "Add an extra layer of security to your account."}
             </p>
           </div>
-          <button
-            onClick={() => setTwoStep((x) => !x)}
-            className="relative w-10 h-5 rounded-full transition-colors flex-shrink-0"
-            style={{
-              backgroundColor: twoStep
-                ? "var(--color-wine)"
-                : "var(--color-stone)",
-            }}
-            role="switch"
-            aria-checked={twoStep}
-            aria-label="Toggle two-step verification"
-          >
-            <span
-              className="absolute top-0.5 w-4 h-4 rounded-full transition-transform"
-              style={{
-                backgroundColor: "var(--color-cream)",
-                transform: twoStep ? "translateX(20px)" : "translateX(2px)",
-              }}
-            />
-          </button>
+          <ToggleSwitch
+            checked={twoStep}
+            onChange={() => setTwoStep((x) => !x)}
+            ariaLabel="Toggle two-step verification"
+          />
         </div>
       </div>
 
@@ -2559,30 +2545,14 @@ function PrivacyPage() {
                     {item.desc}
                   </p>
                 </div>
-                <button
-                  onClick={() =>
+                <ToggleSwitch
+                  onChange={() =>
                     setPrefs((p) => ({ ...p, [item.key]: !p[item.key] }))
                   }
-                  className="relative w-10 h-5 rounded-full transition-colors flex-shrink-0 mt-0.5"
-                  style={{
-                    backgroundColor: prefs[item.key]
-                      ? "var(--color-wine)"
-                      : "var(--color-stone)",
-                  }}
-                  role="switch"
-                  aria-checked={prefs[item.key]}
-                  aria-label={`Toggle ${item.label}`}
-                >
-                  <span
-                    className="absolute top-0.5 w-4 h-4 rounded-full transition-transform"
-                    style={{
-                      backgroundColor: "var(--color-cream)",
-                      transform: prefs[item.key]
-                        ? "translateX(20px)"
-                        : "translateX(2px)",
-                    }}
-                  />
-                </button>
+                  checked={prefs[item.key]}
+                  ariaLabel={`Toggle ${item.label}`}
+                  className="mt-0.5"
+                />
               </div>
               {i < arr.length - 1 && <Divider />}
             </div>

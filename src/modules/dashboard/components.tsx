@@ -122,6 +122,19 @@ function ChevronDown() {
 
 type AccountMenuIconName = "profile" | "account" | "settings" | "help" | "signout"
 
+type AccountMenuPage = "account" | "profile" | "help" | "settings"
+
+const ACCOUNT_MENU_ITEMS: ReadonlyArray<{
+  label: string
+  page: AccountMenuPage
+  icon: AccountMenuIconName
+}> = [
+  { label: "Profile", page: "profile", icon: "profile" },
+  { label: "Account", page: "account", icon: "account" },
+  { label: "Settings", page: "settings", icon: "settings" },
+  { label: "Help Center", page: "help", icon: "help" },
+]
+
 function AccountMenuIcon({ name }: { name: AccountMenuIconName }) {
   const paths: Record<AccountMenuIconName, React.ReactNode> = {
     profile: (
@@ -840,6 +853,13 @@ export function Navbar({
   const currentProfileInitial =
     currentProfile?.name.trim().charAt(0).toUpperCase() || "A"
 
+  const navigateFromAccountMenu = (page: AccountMenuPage) => {
+    setProfileOpen(false)
+    setNotifOpen(false)
+    setMobileNavOpen(false)
+    onNavigatePage?.(page)
+  }
+
   const visibleNavLinks = showAdminLink
     ? NAV_LINKS
     : NAV_LINKS.filter((link) => link !== "Admin")
@@ -1027,6 +1047,7 @@ export function Navbar({
 
         <div className="relative" ref={notificationMenuRef}>
           <button
+            type="button"
             onClick={() => {
               setNotifOpen((n) => !n)
 
@@ -1054,6 +1075,7 @@ export function Navbar({
 
         <div className="relative" ref={profileMenuRef}>
           <button
+            type="button"
             onClick={() => {
               setProfileOpen((p) => !p)
 
@@ -1121,7 +1143,7 @@ export function Navbar({
                   <div className={`border-t ${styles.dropdownDivider}`} />
                   <button
                     type="button"
-                    onClick={() => setProfileOpen(false)}
+                    onClick={() => navigateFromAccountMenu("account")}
                     className={styles.profileMenuItem}
                     role="menuitem"
                   >
@@ -1130,42 +1152,24 @@ export function Navbar({
                   </button>
                 </>
               ) : (
-                ["Profile", "Account", "Settings", "Help Center"].map(
+                ACCOUNT_MENU_ITEMS.map(
                   (item) => (
                     <button
-                      key={item}
-                      onClick={() => {
-                        setProfileOpen(false)
-
-                        if (item === "Profile") onNavigatePage?.("profile")
-
-                        if (item === "Account") onNavigatePage?.("account")
-
-                        if (item === "Settings") onNavigatePage?.("settings")
-
-                        if (item === "Help Center") onNavigatePage?.("help")
-                      }}
+                      key={item.page}
+                      type="button"
+                      onClick={() => navigateFromAccountMenu(item.page)}
                       className={styles.profileMenuItem}
                       role="menuitem"
                     >
-                      <AccountMenuIcon
-                        name={
-                          item === "Profile"
-                            ? "profile"
-                            : item === "Account"
-                              ? "account"
-                              : item === "Settings"
-                                ? "settings"
-                                : "help"
-                        }
-                      />
-                      {item}
+                      <AccountMenuIcon name={item.icon} />
+                      {item.label}
                     </button>
                   ),
                 )
               )}
               <div className={styles.profileMenuDivider} />
               <button
+                type="button"
                 onClick={() => {
                   setProfileOpen(false)
 

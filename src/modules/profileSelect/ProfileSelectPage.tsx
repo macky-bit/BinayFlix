@@ -25,6 +25,7 @@ interface MemberProfileRow {
 interface ProfileContextRow {
 	max_profiles: number;
 	can_add_profile: boolean;
+	allows_kids: boolean;
 }
 
 interface AvatarOption {
@@ -155,12 +156,14 @@ function AddProfileCard({ onClick }: { onClick: () => void }) {
 
 function AddProfileDialog({
 	avatars,
+	allowsKidsProfiles,
 	creating,
 	error,
 	onCancel,
 	onCreate,
 }: {
 	avatars: AvatarOption[];
+	allowsKidsProfiles: boolean;
 	creating: boolean;
 	error: string;
 	onCancel: () => void;
@@ -220,10 +223,12 @@ function AddProfileDialog({
 						<p className={styles.inlineError}>No profile avatars are available.</p>
 					)}
 
-					<label className={styles.checkboxLabel}>
-						<input type="checkbox" checked={isKids} onChange={(event) => setIsKids(event.target.checked)} />
-						Kids profile
-					</label>
+					{allowsKidsProfiles && (
+						<label className={styles.checkboxLabel}>
+							<input type="checkbox" checked={isKids} onChange={(event) => setIsKids(event.target.checked)} />
+							Kids profile
+						</label>
+					)}
 
 					{error && <p className={styles.inlineError} role="alert">{error}</p>}
 
@@ -357,6 +362,7 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 	const [profiles, setProfiles] = useState<Profile[]>([]);
 	const [profileLimit, setProfileLimit] = useState(Math.max(1, maxProfiles));
 	const [canAddProfile, setCanAddProfile] = useState(false);
+	const [allowsKidsProfiles, setAllowsKidsProfiles] = useState(false);
 	const [avatars, setAvatars] = useState<AvatarOption[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState("");
@@ -411,6 +417,7 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 			setCanAddProfile(
 				context?.can_add_profile ?? loadedProfiles.length < Math.max(1, maxProfiles),
 			);
+			setAllowsKidsProfiles(context?.allows_kids ?? false);
 			setAvatars(
 				avatarFiles
 					.map((file) => ({ path: file.name, url: signedUrls.get(file.name) ?? "" }))
@@ -429,6 +436,10 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 	}, [loadProfiles]);
 
 	const createProfile = async (name: string, avatarPath: string, isKids: boolean) => {
+		if (isKids && !allowsKidsProfiles) {
+			setCreateError("Kids profiles require a Standard or Premium plan.");
+			return;
+		}
 		setCreating(true);
 		setCreateError("");
 
@@ -514,6 +525,7 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 			{showAddProfile && (
 				<AddProfileDialog
 					avatars={avatars}
+					allowsKidsProfiles={allowsKidsProfiles}
 					creating={creating}
 					error={createError}
 					onCancel={() => !creating && setShowAddProfile(false)}

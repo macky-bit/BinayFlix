@@ -61,8 +61,8 @@ begin
   end if;
 
   if selected_is_kids
-    and lower(plan_row.plan_name) not in ('basic', 'premium') then
-    raise exception 'Kids profiles require a Basic or Premium plan'
+    and lower(plan_row.plan_name) not in ('standard', 'premium') then
+    raise exception 'Kids profiles require a Standard or Premium plan'
       using errcode = 'P0001';
   end if;
 

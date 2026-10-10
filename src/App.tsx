@@ -269,6 +269,12 @@ export default function App() {
         <ProfilePage
           onBack={() => setPage("dashboard")}
           activeProfileId={activeProfileId}
+          onProfileDeleted={() => {
+            activeProfileIdRef.current = null
+            setActiveProfileId(null)
+            setActiveProfile(null)
+            setPage("profileSelect")
+          }}
         />
       )}
 

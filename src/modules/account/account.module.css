@@ -294,38 +294,3 @@
 }
 
 /* Toggle */
-.toggle {
-	position: relative;
-	width: 44px;
-	height: 24px;
-	border-radius: 9999px;
-	border: none;
-	cursor: pointer;
-	transition: background 0.2s ease;
-}
-
-.toggleOn {
-	background: var(--color-wine);
-}
-
-.toggleOff {
-	background: var(--color-stone);
-}
-
-.toggleDot {
-	position: absolute;
-	top: 3px;
-	width: 18px;
-	height: 18px;
-	border-radius: 50%;
-	background: var(--color-cream);
-	transition: left 0.2s ease;
-}
-
-.toggleDotOn {
-	left: 23px;
-}
-
-.toggleDotOff {
-	left: 3px;
-}

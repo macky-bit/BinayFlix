@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from "react"
 import StreamFlixSelect from "../../components/StreamFlixSelect"
+import ToggleSwitch from "../../components/ToggleSwitch"
 import styles from "./settings.module.css"
 
 interface Props {
@@ -17,31 +18,6 @@ const TABS: { id: Tab; label: string }[] = [
 
   { id: "appearance", label: "Appearance" },
 ]
-
-function Toggle({
-  checked,
-  onChange,
-}: {
-  checked: boolean
-  onChange: () => void
-}) {
-  return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      onClick={onChange}
-      className={`${styles.toggle} ${
-        checked ? styles.toggleOn : styles.toggleOff
-      }`}
-    >
-      <span
-        className={`${styles.toggleThumb} ${
-          checked ? styles.toggleThumbOn : ""
-        }`}
-      />
-    </button>
-  )
-}
 
 function Select({
   value,
@@ -86,9 +62,10 @@ function PlaybackTab() {
               Automatically play the next episode in a series.
             </p>
           </div>
-          <Toggle
+          <ToggleSwitch
             checked={autoNextEp}
             onChange={() => setAutoNextEp((v) => !v)}
+            ariaLabel="Toggle auto-play next episode"
           />
         </div>
         <div className={styles.settingRow}>
@@ -96,7 +73,11 @@ function PlaybackTab() {
             <p className={styles.settingLabel}>Auto-play previews</p>
             <p className={styles.settingDesc}>Play previews while browsing.</p>
           </div>
-          <Toggle checked={autoPlay} onChange={() => setAutoPlay((v) => !v)} />
+          <ToggleSwitch
+            checked={autoPlay}
+            onChange={() => setAutoPlay((v) => !v)}
+            ariaLabel="Toggle auto-play previews"
+          />
         </div>
         <div className={styles.settingRow}>
           <div>
@@ -105,9 +86,10 @@ function PlaybackTab() {
               Play audio during title previews.
             </p>
           </div>
-          <Toggle
+          <ToggleSwitch
             checked={previewSounds}
             onChange={() => setPreviewSounds((v) => !v)}
+            ariaLabel="Toggle preview sounds"
           />
         </div>
       </div>
@@ -196,9 +178,10 @@ function NotificationsTab() {
               <p className={styles.settingLabel}>{r.label}</p>
               <p className={styles.settingDesc}>{r.desc}</p>
             </div>
-            <Toggle
+            <ToggleSwitch
               checked={r.val}
               onChange={() => r.set((v: boolean) => !v)}
+              ariaLabel={`Toggle ${r.label}`}
             />
           </div>
         ))}
@@ -225,9 +208,10 @@ function PrivacyTab() {
               Allow StreamFlix to track what you watch.
             </p>
           </div>
-          <Toggle
+          <ToggleSwitch
             checked={watchHistory}
             onChange={() => setWatchHistory((v) => !v)}
+            ariaLabel="Toggle watch history"
           />
         </div>
         <div className={styles.settingRow}>
@@ -237,9 +221,10 @@ function PrivacyTab() {
               Save your recent searches for quick access.
             </p>
           </div>
-          <Toggle
+          <ToggleSwitch
             checked={searchHistory}
             onChange={() => setSearchHistory((v) => !v)}
+            ariaLabel="Toggle search history"
           />
         </div>
         <div className={styles.settingRow}>
@@ -249,9 +234,10 @@ function PrivacyTab() {
               Use your activity to suggest titles.
             </p>
           </div>
-          <Toggle
+          <ToggleSwitch
             checked={personalised}
             onChange={() => setPersonalised((v) => !v)}
+            ariaLabel="Toggle personalised recommendations"
           />
         </div>
       </div>
