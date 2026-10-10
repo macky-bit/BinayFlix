@@ -1371,14 +1371,14 @@ export function Hero({
   }, [muted, trailerVisible])
 
   const trailerUrl = trailerKey
-    ? `https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&controls=0&playsinline=1&rel=0&disablekb=1&fs=0&iv_load_policy=3&enablejsapi=1`
+    ? `https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&controls=0&playsinline=1&loop=1&playlist=${trailerKey}&rel=0&disablekb=1&fs=0&iv_load_policy=3&enablejsapi=1`
     : null
 
   return (
     <section
       ref={heroRef}
       className={`relative w-full ${styles.heroRoot} ${slides.length > 1 ? styles.heroDraggable : ""}`}
-      style={{ height: "53vh", minHeight: 280 }}
+      style={{ height: "56vh", minHeight: 340 }}
       role="region"
       aria-roledescription="carousel"
       aria-label="Top 5 featured titles"
@@ -1413,7 +1413,7 @@ export function Hero({
             }
             startupTimerRef.current = window.setTimeout(
               () => setStartupOverlayCleared(true),
-              2_500,
+              4_000,
             )
           }}
         />
@@ -1422,7 +1422,34 @@ export function Hero({
       <div className={`absolute inset-0 ${styles.heroGradientRight}`} />
       <div className={`absolute inset-0 ${styles.heroGradientTop}`} />
 
-      <div className="absolute bottom-16 sm:bottom-20 left-4 sm:left-10 xl:left-12 right-4 sm:right-auto max-w-[540px]">
+      {slides.length > 1 && (
+        <>
+          <button
+            type="button"
+            className={`${styles.heroCarouselArrow} ${styles.heroCarouselArrowLeft}`}
+            onClick={(event) => {
+              event.stopPropagation()
+              selectSlide(activeIndex - 1)
+            }}
+            aria-label="Show previous featured title"
+          >
+            <CarouselArrowIcon direction="left" />
+          </button>
+          <button
+            type="button"
+            className={`${styles.heroCarouselArrow} ${styles.heroCarouselArrowRight}`}
+            onClick={(event) => {
+              event.stopPropagation()
+              selectSlide(activeIndex + 1)
+            }}
+            aria-label="Show next featured title"
+          >
+            <CarouselArrowIcon direction="right" />
+          </button>
+        </>
+      )}
+
+      <div className="absolute z-[4] bottom-16 sm:bottom-20 left-4 sm:left-10 xl:left-12 right-4 sm:right-auto max-w-[540px]">
         {/* Genre tag replaces "StreamFlix Original" */}
         <p className={`text-[11px] font-semibold mb-3 ${styles.heroEyebrow}`}>
           Top {activeIndex + 1} of {slides.length} · {genreTag}
@@ -1432,17 +1459,14 @@ export function Hero({
         >
           {show.title}
         </h1>
-        <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
           {typeof show.match === "number" && (
-            <span className={`text-sm font-bold ${styles.heroMatch}`}>
+            <span className={`text-[11px] font-bold ${styles.heroMatch}`}>
               {show.match}% Match
             </span>
           )}
-          <span className={`text-sm ${styles.heroMeta}`}>{show.year}</span>
-          <span
-            className={`text-xs px-1.5 py-0.5 border rounded ${styles.heroBadge}`}
-          >
-            {show.rating}
+          <span className="text-[11px]" style={{ color: "#9CA3AF" }}>
+            • {show.year}
           </span>
         </div>
         <p
@@ -1468,17 +1492,20 @@ export function Hero({
         </div>
       </div>
 
-      <div className="absolute bottom-20 right-4 sm:right-10 xl:right-12 flex flex-col items-end gap-3">
-        <button
-          onClick={() => {
-            setMuted((m) => !m)
-          }}
-          className={`w-9 h-9 flex items-center justify-center transition-colors ${styles.heroMuteBtn}`}
-          aria-label={muted ? "Unmute" : "Mute"}
-          disabled={!trailerVisible || !trailerKey}
-        >
-          <MuteIcon muted={muted} />
-        </button>
+      <div className="absolute z-[4] bottom-20 right-4 sm:right-10 xl:right-12 flex flex-col items-end gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setMuted((m) => !m)
+            }}
+            className={`w-9 h-9 flex items-center justify-center transition-colors ${styles.heroMuteBtn}`}
+            aria-label={muted ? "Unmute" : "Mute"}
+            disabled={!trailerVisible || !trailerKey}
+          >
+            <MuteIcon muted={muted} />
+          </button>
+        </div>
         <span
           className={`px-2 py-0.5 text-xs font-bold ${styles.heroRatingBadge}`}
         >
@@ -1506,7 +1533,24 @@ export function Hero({
 
 // ─── Genre Filters ────────────────────────────────────────────────────────────
 
-export const GENRES = ["All", "Action", "Drama", "Sci-Fi", "Horror", "Comedy"]
+export const GENRES = [
+  "All",
+  "Action",
+  "Adventure",
+  "Animation",
+  "Comedy",
+  "Crime",
+  "Documentary",
+  "Drama",
+  "Family",
+  "Fantasy",
+  "History",
+  "Horror",
+  "Music",
+  "Mystery",
+  "Romance",
+  "Sci-Fi",
+]
 
 export function GenreFilters({
   active,
@@ -1557,16 +1601,29 @@ export function ContinueWatchingRow({
   onPlay,
 
   onInfo,
+
+  genre = "All",
 }: {
   onPlay?: (show: Show) => void
 
   onInfo?: (show: Show) => void
+
+  genre?: string
 }) {
   const { entries } = useContinueWatching()
+  const normalizedGenre = genre.trim().toLowerCase()
+  const filteredEntries =
+    normalizedGenre === "all"
+      ? entries
+      : entries.filter((entry) =>
+          entry.show.genres.some(
+            (showGenre) => showGenre.trim().toLowerCase() === normalizedGenre,
+          ),
+        )
 
-  if (entries.length === 0) return null
+  if (filteredEntries.length === 0) return null
 
-  const showsWithProgress = entries.map((e) => ({
+  const showsWithProgress = filteredEntries.map((e) => ({
     ...e.show,
 
     progress: e.progress,

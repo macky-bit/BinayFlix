@@ -2,7 +2,11 @@ import { useState, useMemo, useRef, useEffect } from "react"
 
 import type { Manager, ManagerRole, AccountStatus } from "../types"
 
-import { useAdminCollection, useAdminRepository } from "../../data"
+import {
+  useAdminCollection,
+  useAdminRepository,
+  waitForAdminEditDelay,
+} from "../../data"
 
 import { supabase } from "../../../../lib/supabase"
 
@@ -755,7 +759,7 @@ function EditManagerModal({
 
   managers: Manager[]
 
-  onSave: (m: Manager) => void
+  onSave: (m: Manager) => Promise<void>
 
   onClose: () => void
 
@@ -801,7 +805,7 @@ function EditManagerModal({
     return e
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
     const errs = validate()
@@ -812,16 +816,16 @@ function EditManagerModal({
     }
 
     setLoading(true)
-
-    setTimeout(() => {
-      onSave({
+    try {
+      await onSave({
         ...manager,
         name: form.name.trim(),
         email: form.email.trim(),
         username: form.username.trim(),
       })
+    } finally {
       setLoading(false)
-    }, 600)
+    }
   }
 
   useEffect(() => {
@@ -1015,7 +1019,7 @@ function AssignRoleModal({
 }: {
   manager: Manager
 
-  onAssign: (role: ManagerRole) => void
+  onAssign: (role: ManagerRole) => Promise<void>
 
   onClose: () => void
 }) {
@@ -1029,14 +1033,13 @@ function AssignRoleModal({
 
   const canAssign = selectedRole && selectedRole !== manager.role
 
-  function handleConfirm() {
+  async function handleConfirm() {
     setLoading(true)
-
-    setTimeout(() => {
-      onAssign(selectedRole as ManagerRole)
-
+    try {
+      await onAssign(selectedRole as ManagerRole)
+    } finally {
       setLoading(false)
-    }, 700)
+    }
   }
 
   useEffect(() => {
@@ -1666,6 +1669,8 @@ export default function AdminManagement() {
 
     if (!previous) return
 
+    await waitForAdminEditDelay()
+
     const { error: profileError } = await supabase.rpc("update_admin_profile", {
       target_admin_id: updated.id,
 
@@ -1713,6 +1718,7 @@ export default function AdminManagement() {
 
   async function handleAssignRole(role: ManagerRole) {
     if (!actionTargetId) return
+    await waitForAdminEditDelay()
     const { error } = await supabase.rpc("set_admin_access_role", {
       target_admin_id: actionTargetId,
       assigned_role: role,
@@ -1732,6 +1738,7 @@ export default function AdminManagement() {
     setActionPending(true)
 
     try {
+      await waitForAdminEditDelay()
       const { error } = await supabase.rpc("set_admin_access_status", {
         target_admin_id: id,
         new_status: status,
@@ -1769,24 +1776,34 @@ export default function AdminManagement() {
   }
 
   async function handleRemoveAdmin(id: string) {
-    const { error } = await supabase.rpc("remove_admin_access", {
-      target_admin_id: id,
-    })
+    if (actionPending) return
+    setActionPending(true)
 
-    if (error) {
-      showToast(error.message, "error")
-      return
+    try {
+      const { error } = await supabase.rpc("remove_admin_access", {
+        target_admin_id: id,
+      })
+
+      if (error) throw error
+
+      await managerState.reload()
+
+      setSelectedId(null)
+
+      setConfirmType(null)
+
+      setConfirmTargetId(null)
+
+      showToast("Administrator role removed. The user account remains active.")
+    } catch (reason) {
+      const message =
+        reason && typeof reason === "object" && "message" in reason
+          ? String(reason.message)
+          : "Unable to remove this administrator."
+      showToast(message, "error")
+    } finally {
+      setActionPending(false)
     }
-
-    await managerState.reload()
-
-    setSelectedId(null)
-
-    setConfirmType(null)
-
-    setConfirmTargetId(null)
-
-    showToast("Administrator role removed. The user account remains active.")
   }
 
   function handleResetPassword() {
@@ -2136,7 +2153,7 @@ export default function AdminManagement() {
                     ].map((col) => (
                       <th
                         key={col}
-                        className="px-2 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                        className={`px-2 py-3 text-left text-xs font-semibold uppercase tracking-wider${col === "Actions" ? " admin-table-head--actions" : ""}`}
                         style={{ color: "var(--taupe)" }}
                       >
                         {col}

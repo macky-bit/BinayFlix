@@ -5,7 +5,6 @@ import {
   CarouselRow,
   ContinueWatchingRow,
   Footer,
-  GENRES,
   GenreFilters,
   Hero,
 } from "./components"
@@ -30,7 +29,7 @@ function LoadingCatalog({ showHero }: { showHero: boolean }) {
     <div>
       {showHero && (
         <div
-          style={{ height: "53vh", minHeight: 280, background: "#150D2A" }}
+          style={{ height: "56vh", minHeight: 340, background: "#150D2A" }}
         />
       )}
       <div className="pt-6 px-4 sm:px-10 xl:px-12 space-y-8">
@@ -60,7 +59,7 @@ function CatalogView({
   onNavigateHelp,
 }: CatalogViewProps) {
   const [genre, setGenre] = useState("All")
-  const { rows, featured, loading } = data
+  const { rows, featured, genres, loading } = data
 
   if (loading) return <LoadingCatalog showHero={showHero} />
 
@@ -69,7 +68,11 @@ function CatalogView({
     shows:
       genre === "All"
         ? row.shows
-        : row.shows.filter((show) => show.genres.includes(genre)),
+        : row.shows.filter((show) =>
+            show.genres.some(
+              (showGenre) => showGenre.toLowerCase() === genre.toLowerCase(),
+            ),
+          ),
   }))
   const heroShows =
     rows.find((row) => row.title === "Trending Now")?.shows.slice(0, 5) ??
@@ -81,8 +84,12 @@ function CatalogView({
         <Hero shows={heroShows} onWatch={onWatch} onInfo={onInfo} />
       )}
       <div className="space-y-8 pb-10">
-        <GenreFilters active={genre} setActive={setGenre} genres={GENRES} />
-        <ContinueWatchingRow onPlay={onWatch} onInfo={onInfo} />
+        <GenreFilters
+          active={genre}
+          setActive={setGenre}
+          genres={["All", ...genres.slice(0, 15)]}
+        />
+        <ContinueWatchingRow genre={genre} onPlay={onWatch} onInfo={onInfo} />
         {filteredRows.map((row) => (
           <CarouselRow
             key={row.title}

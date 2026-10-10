@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { useDeleteConfirmationDelay } from "../components/useDeleteConfirmationDelay"
 
 interface CommunityDeleteDialogProps {
   open: boolean
@@ -17,6 +18,9 @@ export default function CommunityDeleteDialog({
   onCancel,
   onConfirm,
 }: CommunityDeleteDialogProps) {
+  const { beginConfirmation, secondsRemaining, waiting } =
+    useDeleteConfirmationDelay(onConfirm)
+
   useEffect(() => {
     if (!open) return
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -68,11 +72,15 @@ export default function CommunityDeleteDialog({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
-            disabled={busy}
+            onClick={beginConfirmation}
+            disabled={busy || waiting}
             className="min-h-10 rounded-lg border border-red-700/60 bg-red-950/30 px-4 text-sm font-semibold text-red-300 transition-colors hover:bg-red-900/40 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? "Deleting…" : `Delete ${itemLabel}`}
+            {busy
+              ? "Deleting…"
+              : waiting
+                ? `Delete ${itemLabel} in ${secondsRemaining}s`
+                : `Delete ${itemLabel}`}
           </button>
         </div>
       </section>

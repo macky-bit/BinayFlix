@@ -16,12 +16,13 @@ import AdminDetailsPanel, {
   AdminDetailGrid,
   AdminDetailsSection,
 } from "../components/AdminDetailsPanel"
+import { useDeleteConfirmationDelay } from "../components/useDeleteConfirmationDelay"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type AccountStatus = "Active" | "Suspended" | "Inactive"
 
-type SubStatus = "Active" | "Expired" | "Cancelled"
+type SubStatus = "Active" | "Inactive" | "Expired" | "Cancelled"
 
 type PayStatus = "Paid" | "Pending" | "Failed"
 
@@ -117,6 +118,16 @@ interface Payment {
   paymentDate: string
 
   status: PayStatus
+}
+
+const pesoFormatter = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+  maximumFractionDigits: 0,
+})
+
+function formatPeso(amount: number) {
+  return pesoFormatter.format(amount)
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -306,14 +317,18 @@ function GoldBtn({
   children,
   onClick,
   style,
+  disabled = false,
 }: {
   children: React.ReactNode
   onClick?: () => void
   style?: React.CSSProperties
+  disabled?: boolean
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
+      aria-busy={disabled || undefined}
       style={{
         padding: "6px 16px",
         border: "none",
@@ -322,7 +337,8 @@ function GoldBtn({
         color: "#fff",
         fontSize: 13,
         fontWeight: 600,
-        cursor: "pointer",
+        cursor: disabled ? "wait" : "pointer",
+        opacity: disabled ? 0.68 : 1,
         whiteSpace: "nowrap",
         fontFamily: "inherit",
         transition: "all 0.15s",
@@ -346,14 +362,17 @@ function DangerBtn({
   children,
   onClick,
   style,
+  disabled = false,
 }: {
   children: React.ReactNode
   onClick?: () => void
   style?: React.CSSProperties
+  disabled?: boolean
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         padding: "6px 14px",
         border: "1px solid #EF4444",
@@ -362,7 +381,8 @@ function DangerBtn({
         color: "#EF4444",
         fontSize: 13,
         fontWeight: 500,
-        cursor: "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.68 : 1,
         whiteSpace: "nowrap",
         fontFamily: "inherit",
         transition: "all 0.15s",
@@ -690,6 +710,10 @@ function ConfirmDialog({
   confirmLabel?: string
   danger?: boolean
 }) {
+  const isDeleteAction = /^(delete|remove)\b/i.test(confirmLabel)
+  const { beginConfirmation, secondsRemaining, waiting } =
+    useDeleteConfirmationDelay(onConfirm, isDeleteAction)
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCancel()
@@ -747,9 +771,13 @@ function ConfirmDialog({
         <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
           <VioletBtn onClick={onCancel}>Cancel</VioletBtn>
           {danger ? (
-            <DangerBtn onClick={onConfirm}>{confirmLabel}</DangerBtn>
+            <DangerBtn onClick={beginConfirmation} disabled={waiting}>
+              {waiting ? `${confirmLabel} in ${secondsRemaining}s` : confirmLabel}
+            </DangerBtn>
           ) : (
-            <GoldBtn onClick={onConfirm}>{confirmLabel}</GoldBtn>
+            <GoldBtn onClick={beginConfirmation} disabled={waiting}>
+              {waiting ? `${confirmLabel} in ${secondsRemaining}s` : confirmLabel}
+            </GoldBtn>
           )}
         </div>
       </div>
@@ -778,6 +806,7 @@ function TableShell({
               {headers.map((h, i) => (
                 <th
                   key={i}
+                  className={typeof h === "string" && ["Joined", "Status", "Subscribers"].includes(h) ? "admin-table-head--emphasis" : undefined}
                   style={{
                     padding: "12px 14px",
                     textAlign: "left",
@@ -1211,19 +1240,18 @@ function SubscribersTab({
       return
     }
 
-    applyEdit(editData)
+    void applyEdit(editData)
   }
 
-  function applyEdit(data: Subscriber) {
-    void subscriberState
-      .update(data.id, data)
-      .catch((error: Error) => onToast(error.message))
-
-    setViewMode("details")
-
-    setConfirm(null)
-
-    onToast("Subscriber updated successfully.")
+  async function applyEdit(data: Subscriber) {
+    try {
+      await subscriberState.update(data.id, data)
+      setViewMode("details")
+      setConfirm(null)
+      onToast("Subscriber updated successfully.")
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Update failed")
+    }
   }
 
   return (
@@ -1645,8 +1673,8 @@ function SubscribersTab({
             >
               Cancel
             </VioletBtn>
-            <GoldBtn onClick={saveEdit} style={{ flex: 1 }}>
-              Save Changes
+            <GoldBtn onClick={saveEdit} disabled={subscriberState.mutating} style={{ flex: 1 }}>
+              {subscriberState.mutating ? "Saving…" : "Save Changes"}
             </GoldBtn>
           </div>
         </Panel>
@@ -2037,8 +2065,75 @@ function SubscriptionsTab({ focusId }: { focusId?: string | null }) {
 
   const selected = subscriptions.find((s) => s.id === selectedId) ?? null
 
+  const subscriptionTotals = subscriptions.reduce(
+    (totals, subscription) => {
+      if (subscription.status in totals) totals[subscription.status] += 1
+      return totals
+    },
+    {
+      Active: 0,
+      Inactive: 0,
+      Expired: 0,
+      Cancelled: 0,
+    } as Record<SubStatus, number>,
+  )
+
+  function showSubscriptionStatus(status: SubStatus | "All") {
+    setStatusFilter(
+      status === "All" ? "All Subscription Statuses" : status,
+    )
+    setPage(1)
+  }
+
   return (
     <div>
+      <AdminStats>
+        <AdminStatCard
+          label="Total subscriptions"
+          value={subscriptions.length.toLocaleString()}
+          hint="All subscription records"
+          tone="purple"
+          active={statusFilter === "All Subscription Statuses"}
+          onClick={() => showSubscriptionStatus("All")}
+          actionLabel="Show all subscriptions"
+        />
+        <AdminStatCard
+          label="Active"
+          value={subscriptionTotals.Active.toLocaleString()}
+          hint="Currently subscribed"
+          tone="green"
+          active={statusFilter === "Active"}
+          onClick={() => showSubscriptionStatus("Active")}
+          actionLabel="Filter to active subscriptions"
+        />
+        <AdminStatCard
+          label="Inactive"
+          value={subscriptionTotals.Inactive.toLocaleString()}
+          hint="Not currently renewing"
+          tone="blue"
+          active={statusFilter === "Inactive"}
+          onClick={() => showSubscriptionStatus("Inactive")}
+          actionLabel="Filter to inactive subscriptions"
+        />
+        <AdminStatCard
+          label="Expired"
+          value={subscriptionTotals.Expired.toLocaleString()}
+          hint="Reached their end date"
+          tone="gold"
+          active={statusFilter === "Expired"}
+          onClick={() => showSubscriptionStatus("Expired")}
+          actionLabel="Filter to expired subscriptions"
+        />
+        <AdminStatCard
+          label="Cancelled"
+          value={subscriptionTotals.Cancelled.toLocaleString()}
+          hint="Ended before renewal"
+          tone="red"
+          active={statusFilter === "Cancelled"}
+          onClick={() => showSubscriptionStatus("Cancelled")}
+          actionLabel="Filter to cancelled subscriptions"
+        />
+      </AdminStats>
       <div
         style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}
       >
@@ -2067,6 +2162,7 @@ function SubscriptionsTab({ focusId }: { focusId?: string | null }) {
           options={[
             "All Subscription Statuses",
             "Active",
+            "Inactive",
             "Expired",
             "Cancelled",
           ]}
@@ -2287,6 +2383,24 @@ function PlansTab({ onToast }: { onToast: (m: string) => void }) {
 
   const selected = plans.find((p) => p.id === selectedId) ?? null
 
+  const activePlanSubscriptions = subscriptions.filter(
+    (subscription) => subscription.status === "Active",
+  )
+  const averagePlanPrice = plans.length
+    ? plans.reduce((sum, plan) => sum + plan.price, 0) / plans.length
+    : 0
+  const estimatedMonthlyRevenue = activePlanSubscriptions.reduce(
+    (sum, subscription) => {
+      const plan = plans.find(
+        (candidate) =>
+          candidate.id === subscription.planId ||
+          candidate.name === subscription.plan,
+      )
+      return sum + (plan?.price ?? 0)
+    },
+    0,
+  )
+
   function validate(data: Partial<Plan>): boolean {
     const errs: typeof errors = {}
 
@@ -2349,16 +2463,16 @@ function PlansTab({ onToast }: { onToast: (m: string) => void }) {
     onToast("Plan added successfully.")
   }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (!validate(formData)) return
 
-    void planState
-      .update(formData.id!, formData)
-      .catch((error: Error) => onToast(error.message))
-
-    setViewMode(null)
-
-    onToast("Plan updated successfully.")
+    try {
+      await planState.update(formData.id!, formData)
+      setViewMode(null)
+      onToast("Plan updated successfully.")
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Update failed")
+    }
   }
 
   function tryDelete(planId: string) {
@@ -2396,6 +2510,32 @@ function PlansTab({ onToast }: { onToast: (m: string) => void }) {
 
   return (
     <div>
+      <AdminStats>
+        <AdminStatCard
+          label="Plans available"
+          value={plans.length.toLocaleString()}
+          hint="Subscription options"
+          tone="purple"
+        />
+        <AdminStatCard
+          label="Active subscriptions"
+          value={activePlanSubscriptions.length.toLocaleString()}
+          hint="Across all plans"
+          tone="green"
+        />
+        <AdminStatCard
+          label="Average plan price"
+          value={formatPeso(averagePlanPrice)}
+          hint="Monthly catalog average"
+          tone="blue"
+        />
+        <AdminStatCard
+          label="Estimated monthly revenue"
+          value={formatPeso(estimatedMonthlyRevenue)}
+          hint="From active subscriptions"
+          tone="gold"
+        />
+      </AdminStats>
       <div
         style={{
           display: "flex",
@@ -2631,8 +2771,8 @@ function PlansTab({ onToast }: { onToast: (m: string) => void }) {
             <DangerBtn onClick={() => tryDelete(selected.id)}>
               Delete Plan
             </DangerBtn>
-            <GoldBtn onClick={saveEdit} style={{ flex: 1 }}>
-              Save Changes
+            <GoldBtn onClick={() => void saveEdit()} disabled={planState.mutating} style={{ flex: 1 }}>
+              {planState.mutating ? "Saving…" : "Save Changes"}
             </GoldBtn>
           </div>
         </Panel>
@@ -2728,6 +2868,27 @@ function PaymentsTab({ onToast }: { onToast: (m: string) => void }) {
 
   const selected = payments.find((p) => p.id === selectedId) ?? null
 
+  const paidPayments = payments.filter((payment) => payment.status === "Paid")
+  const pendingPayments = payments.filter(
+    (payment) => payment.status === "Pending",
+  )
+  const failedPayments = payments.filter(
+    (payment) => payment.status === "Failed",
+  )
+  const collectedRevenue = paidPayments.reduce(
+    (sum, payment) => sum + payment.amount,
+    0,
+  )
+  const pendingAmount = pendingPayments.reduce(
+    (sum, payment) => sum + payment.amount,
+    0,
+  )
+
+  function showPaymentStatus(status: PayStatus | "All") {
+    setStatusFilter(status === "All" ? "All Payment Statuses" : status)
+    setPage(1)
+  }
+
   function openVerify(p: Payment) {
     setSelectedId(p.id)
 
@@ -2760,6 +2921,44 @@ function PaymentsTab({ onToast }: { onToast: (m: string) => void }) {
 
   return (
     <div>
+      <AdminStats>
+        <AdminStatCard
+          label="Total payments"
+          value={payments.length.toLocaleString()}
+          hint="All payment records"
+          tone="purple"
+          active={statusFilter === "All Payment Statuses"}
+          onClick={() => showPaymentStatus("All")}
+          actionLabel="Show all payments"
+        />
+        <AdminStatCard
+          label="Collected revenue"
+          value={formatPeso(collectedRevenue)}
+          hint={`${paidPayments.length.toLocaleString()} paid transactions`}
+          tone="green"
+          active={statusFilter === "Paid"}
+          onClick={() => showPaymentStatus("Paid")}
+          actionLabel="Filter to paid transactions"
+        />
+        <AdminStatCard
+          label="Pending amount"
+          value={formatPeso(pendingAmount)}
+          hint={`${pendingPayments.length.toLocaleString()} awaiting verification`}
+          tone="gold"
+          active={statusFilter === "Pending"}
+          onClick={() => showPaymentStatus("Pending")}
+          actionLabel="Filter to pending payments"
+        />
+        <AdminStatCard
+          label="Failed payments"
+          value={failedPayments.length.toLocaleString()}
+          hint="Require follow-up"
+          tone="red"
+          active={statusFilter === "Failed"}
+          onClick={() => showPaymentStatus("Failed")}
+          actionLabel="Filter to failed payments"
+        />
+      </AdminStats>
       <div style={{ marginBottom: 12 }}>
         <h2 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 700 }}>
           Payments

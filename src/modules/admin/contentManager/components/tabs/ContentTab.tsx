@@ -4,7 +4,10 @@ import type { Content, Category, Genre, Toast } from "../../types"
 import AdminDetailsPanel, {
   AdminDetailsSection,
 } from "../../../components/AdminDetailsPanel"
-import { AdminTablePagination } from "../../../components/AdminUI"
+import {
+  AdminRowAction,
+  AdminTablePagination,
+} from "../../../components/AdminUI"
 
 import ConfirmDialog from "../shared/ConfirmDialog"
 
@@ -18,7 +21,7 @@ interface ContentTabProps {
   genres: Genre[]
 
   onAdd: (item: Omit<Content, "id" | "totalStreams" | "syncedAt">) => void
-  onEdit: (item: Content) => void
+  onEdit: (item: Content) => Promise<void>
 
   onDelete: (id: string) => void
   addToast: (msg: string, type: Toast["type"]) => void
@@ -58,6 +61,10 @@ function formatRuntime(mins: number) {
   }
 
   return `${mins} min`
+}
+
+function ratingClass(rating: string) {
+  return `content-table__rating-badge--${rating.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`
 }
 
 const inputClass = `w-full px-3 py-2 rounded-lg text-sm text-white placeholder-[#9CA3AF] outline-none transition-colors duration-150 focus:ring-1`
@@ -100,6 +107,56 @@ function Label({
         </span>
       )}
     </label>
+  )
+}
+
+function ContentFilePicker({
+  id,
+  accept,
+  filename,
+  hint,
+  onSelect,
+}: {
+  id: string
+  accept: string
+  filename: string
+  hint: string
+  onSelect: (file: File) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        id={id}
+        type="file"
+        accept={accept}
+        className="admin-content-file-picker__input sr-only"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0]
+          if (file) onSelect(file)
+          event.currentTarget.value = ""
+        }}
+      />
+      <div className="admin-content-file-picker">
+        <button
+          type="button"
+          className="admin-content-file-picker__button"
+          onClick={() => inputRef.current?.click()}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
+            <path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+          </svg>
+          Choose file
+        </button>
+        <span className="admin-content-file-picker__copy">
+          <strong>{filename || "No file selected"}</strong>
+          <small>{hint}</small>
+        </span>
+      </div>
+    </>
   )
 }
 
@@ -172,7 +229,7 @@ function ContentForm({
 
   genres: Genre[]
 
-  onSubmit: (data: FormData) => void
+  onSubmit: (data: FormData) => void | Promise<void>
 
   onCancel: () => void
 
@@ -192,13 +249,17 @@ function ContentForm({
 
   const [thumbPreview, setThumbPreview] = useState(initial.thumbnailUrl)
 
+  const [saving, setSaving] = useState(false)
+
+  const [fileErrors, setFileErrors] = useState<Partial<Record<"thumbnail" | "video" | "subtitle", string>>>({})
+
   function set<K extends keyof FormData>(key: K, val: FormData[K]) {
     setForm((f) => ({ ...f, [key]: val }))
 
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }))
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
     const errs = validate(form)
@@ -208,7 +269,12 @@ function ContentForm({
       return
     }
 
-    onSubmit(form)
+    setSaving(true)
+    try {
+      await onSubmit(form)
+    } finally {
+      setSaving(false)
+    }
   }
 
   function toggleGenre(gid: string) {
@@ -219,16 +285,54 @@ function ContentForm({
     set("genreIds", ids)
   }
 
-  function handleThumbUrl(val: string) {
-    set("thumbnailUrl", val)
+  function handleThumbnailFile(file?: File) {
+    if (!file) return
 
-    set("thumbnailFilename", val ? val.split("/").pop() || "thumbnail.jpg" : "")
+    if (!/\.(?:jpe?g|png|webp|avif|gif)$/i.test(file.name)) {
+      setFileErrors((current) => ({ ...current, thumbnail: "Choose a JPG, PNG, WebP, AVIF, or GIF image." }))
+      return
+    }
 
-    setThumbPreview(val)
+    setFileErrors((current) => ({ ...current, thumbnail: undefined }))
+
+    const reader = new FileReader()
+    reader.addEventListener("load", () => {
+      if (typeof reader.result !== "string") return
+      set("thumbnailUrl", reader.result)
+      set("thumbnailFilename", file.name)
+      setThumbPreview(reader.result)
+    })
+    reader.readAsDataURL(file)
+  }
+
+  function handleNamedFile(
+    key: "videoFilename" | "subtitleFilename",
+    file?: File,
+  ) {
+    if (!file) return
+
+    const isVideo = key === "videoFilename"
+    const valid = isVideo
+      ? /\.(?:mp4|webm|og[gv]|mkv|mov|m4v)$/i.test(file.name)
+      : /\.(?:srt|vtt|ass|ssa)$/i.test(file.name)
+    const errorKey = isVideo ? "video" : "subtitle"
+
+    if (!valid) {
+      setFileErrors((current) => ({
+        ...current,
+        [errorKey]: isVideo
+          ? "Choose an MP4, WebM, OGV, MKV, MOV, or M4V video."
+          : "Choose an SRT, VTT, ASS, or SSA subtitle file.",
+      }))
+      return
+    }
+
+    setFileErrors((current) => ({ ...current, [errorKey]: undefined }))
+    set(key, file.name)
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="w-full min-w-0">
+    <form onSubmit={handleSubmit} noValidate className="admin-content-form w-full min-w-0">
       {readOnlyId && (
         <div
           className="mb-4 flex flex-wrap items-center gap-3 rounded-lg p-3"
@@ -268,6 +372,15 @@ function ContentForm({
           )}
         </div>
       )}
+
+      <div className="admin-content-form__layout">
+        <section className="admin-content-form__section" aria-labelledby="content-details-heading">
+          <div className="admin-content-form__section-heading">
+            <div>
+              <h3 id="content-details-heading">Content details</h3>
+              <p>Core information viewers use to identify and discover this title.</p>
+            </div>
+          </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         {/* Title */}
@@ -456,68 +569,79 @@ function ContentForm({
         <FieldError msg={errors.synopsis} />
       </div>
 
-      {/* Thumbnail */}
-      <div className="mb-4">
-        <Label htmlFor="cnt-thumb">Thumbnail URL</Label>
-        <input
-          id="cnt-thumb"
-          type="url"
-          value={form.thumbnailUrl}
-          onChange={(e) => handleThumbUrl(e.target.value)}
-          placeholder="https://..."
-          className={inputClass}
-          style={inputStyle}
-        />
-        {thumbPreview && (
-          <div className="mt-2">
-            <img
-              src={thumbPreview}
-              alt="Thumbnail preview"
-              className="h-20 rounded-lg object-cover"
-              style={{ border: "1px solid #374151" }}
-              onError={() => setThumbPreview("")}
-            />
-          </div>
-        )}
-      </div>
+        </section>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        {/* Video File */}
-        <div>
-          <Label htmlFor="cnt-video">Video Filename</Label>
-          <input
-            id="cnt-video"
-            type="text"
-            value={form.videoFilename}
-            onChange={(e) => set("videoFilename", e.target.value)}
-            placeholder="filename.mp4"
-            className={inputClass}
-            style={inputStyle}
-          />
+        <div className="admin-content-form__secondary">
+
+      <section className="admin-content-media-fields" aria-labelledby="content-media-heading">
+        <div className="admin-content-media-fields__heading">
+          <div>
+            <h3 id="content-media-heading">Media files</h3>
+            <p>Choose the artwork, video, and optional subtitle file for this title.</p>
+          </div>
         </div>
-        {/* Subtitle File */}
-        <div>
-          <Label htmlFor="cnt-sub">Subtitle Filename</Label>
-          <input
-            id="cnt-sub"
-            type="text"
-            value={form.subtitleFilename}
-            onChange={(e) => set("subtitleFilename", e.target.value)}
-            placeholder="filename.srt"
-            className={inputClass}
-            style={inputStyle}
-          />
+
+        <div className="admin-content-media-fields__grid">
+          <div className="admin-content-media-fields__thumbnail">
+            <Label htmlFor="cnt-thumb">Thumbnail File</Label>
+            <ContentFilePicker
+              id="cnt-thumb"
+              accept=".jpg,.jpeg,.png,.webp,.avif,.gif"
+              filename={form.thumbnailFilename}
+              hint="JPG, PNG, WebP, AVIF, or GIF"
+              onSelect={handleThumbnailFile}
+            />
+            <FieldError msg={fileErrors.thumbnail} />
+            {thumbPreview && (
+              <div className="admin-content-thumbnail-preview">
+                <img
+                  src={thumbPreview}
+                  alt="Thumbnail preview"
+                  onError={() => setThumbPreview("")}
+                />
+                <span>Thumbnail preview</span>
+              </div>
+            )}
+          </div>
+
+          <div className="admin-content-media-fields__secondary">
+            <div className="admin-content-media-fields__upload">
+              <Label htmlFor="cnt-video">Video File</Label>
+              <ContentFilePicker
+                id="cnt-video"
+                accept=".mp4,.webm,.ogv,.mkv,.mov,.m4v"
+                filename={form.videoFilename}
+                hint="MP4, WebM, OGV, MKV, MOV, or M4V"
+                onSelect={(file) => handleNamedFile("videoFilename", file)}
+              />
+              <FieldError msg={fileErrors.video} />
+            </div>
+            <div className="admin-content-media-fields__upload">
+              <Label htmlFor="cnt-sub">Subtitle File</Label>
+              <ContentFilePicker
+                id="cnt-sub"
+                accept=".srt,.vtt,.ass,.ssa"
+                filename={form.subtitleFilename}
+                hint="SRT, VTT, ASS, or SSA"
+                onSelect={(file) => handleNamedFile("subtitleFilename", file)}
+              />
+              <FieldError msg={fileErrors.subtitle} />
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Availability */}
-      <div className="mb-6">
-        <Label htmlFor="cnt-avail" required>
-          Availability
-        </Label>
-        <div className="flex flex-wrap gap-3">
+      <section className="admin-content-availability" aria-labelledby="content-availability-heading">
+        <div className="admin-content-form__section-heading admin-content-form__section-heading--compact">
+          <div>
+            <h3 id="content-availability-heading">Availability</h3>
+            <p>Control whether viewers can find and play this title.</p>
+          </div>
+        </div>
+        <div className="admin-content-availability__options" role="radiogroup" aria-labelledby="content-availability-heading">
           {(["available", "unavailable"] as const).map((v) => (
-            <label key={v} className="flex items-center gap-2 cursor-pointer">
+            <label key={v} className="admin-content-availability__option">
               <input
                 type="radio"
                 name="availability"
@@ -540,7 +664,7 @@ function ContentForm({
                 )}
               </div>
               <span
-                className="text-sm capitalize"
+                className="text-sm font-medium capitalize"
                 style={{ color: form.availability === v ? "#fff" : "#9CA3AF" }}
               >
                 {v}
@@ -548,12 +672,13 @@ function ContentForm({
             </label>
           ))}
         </div>
+      </section>
+        </div>
       </div>
 
       {/* Actions */}
       <div
-        className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between"
-        style={{ borderTop: "1px solid #374151", paddingTop: "1.25rem" }}
+        className="admin-content-form__actions flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <div className="w-full sm:w-auto">
           {onDelete && (
@@ -600,14 +725,17 @@ function ContentForm({
           </button>
           <button
             type="submit"
-            className="btn-primary flex w-full items-center justify-center gap-2 px-5 py-2.5 sm:w-auto"
+            className="admin-details-button admin-details-button--primary flex w-full items-center justify-center gap-2 sm:w-auto"
+            disabled={saving}
+            aria-busy={saving || undefined}
+            style={{ flex: "0 0 auto" }}
           >
             {submitLabel.startsWith("Add ") && (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
               </svg>
             )}
-            {submitLabel}
+            {saving ? "Saving…" : submitLabel}
           </button>
         </div>
       </div>
@@ -1356,21 +1484,21 @@ export default function ContentTab({
                   <th scope="col" className="content-table__head-cell">
                     Genres
                   </th>
-                  <th scope="col" className="content-table__head-cell">
+                  <th scope="col" className="content-table__head-cell admin-table-head--emphasis">
                     Year
                   </th>
-                  <th scope="col" className="content-table__head-cell">
+                  <th scope="col" className="content-table__head-cell admin-table-head--emphasis">
                     Runtime
                   </th>
                   <th
                     scope="col"
-                    className="content-table__head-cell content-table__head-cell--center"
+                    className="content-table__head-cell content-table__head-cell--center admin-table-head--emphasis"
                   >
                     Rating
                   </th>
                   <th
                     scope="col"
-                    className="content-table__head-cell content-table__head-cell--right"
+                    className="content-table__head-cell content-table__head-cell--right admin-table-head--emphasis"
                   >
                     Streams
                   </th>
@@ -1521,7 +1649,7 @@ export default function ContentTab({
                       </td>
                       {/* Rating */}
                       <td className="content-table__center">
-                        <span className="content-table__rating-badge">
+                        <span className={`content-table__rating-badge ${ratingClass(item.ageRating)}`}>
                           {item.ageRating}
                         </span>
                       </td>
@@ -1545,21 +1673,20 @@ export default function ContentTab({
                           className="content-table__actions"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <ActionBtn
-                            label="View"
-                            aria-label={`View ${item.title}`}
+                          <AdminRowAction
+                            action="view"
+                            name={item.title}
                             onClick={() => setDetailId(item.id)}
                           />
-                          <ActionBtn
-                            label="Edit"
-                            aria-label={`Edit ${item.title}`}
+                          <AdminRowAction
+                            action="edit"
+                            name={item.title}
                             onClick={() => setEditId(item.id)}
                           />
-                          <ActionBtn
-                            label="Delete"
-                            aria-label={`Delete ${item.title}`}
+                          <AdminRowAction
+                            action="delete"
+                            name={item.title}
                             onClick={() => setDeleteId(item.id)}
-                            danger
                           />
                         </div>
                       </td>
@@ -1724,21 +1851,20 @@ export default function ContentTab({
                     <div className="content-card__footer">
                       <AvailBadge status={item.availability} />
                       <div className="content-table__actions">
-                        <ActionBtn
-                          label="View"
-                          aria-label={`View ${item.title}`}
+                        <AdminRowAction
+                          action="view"
+                          name={item.title}
                           onClick={() => setDetailId(item.id)}
                         />
-                        <ActionBtn
-                          label="Edit"
-                          aria-label={`Edit ${item.title}`}
+                        <AdminRowAction
+                          action="edit"
+                          name={item.title}
                           onClick={() => setEditId(item.id)}
                         />
-                        <ActionBtn
-                          label="Delete"
-                          aria-label={`Delete ${item.title}`}
+                        <AdminRowAction
+                          action="delete"
+                          name={item.title}
                           onClick={() => setDeleteId(item.id)}
-                          danger
                         />
                       </div>
                     </div>
@@ -1906,8 +2032,8 @@ export default function ContentTab({
             readOnlyId={editItem.id}
             readOnlyStreams={editItem.totalStreams}
             onCancel={() => setEditId(null)}
-            onSubmit={(data) => {
-              onEdit({ ...editItem, ...data })
+            onSubmit={async (data) => {
+              await onEdit({ ...editItem, ...data })
 
               setEditId(null)
 
@@ -1938,71 +2064,6 @@ export default function ContentTab({
         />
       )}
     </div>
-  )
-}
-
-function ActionBtn({
-  label,
-  onClick,
-  danger,
-  children,
-  "aria-label": ariaLabel,
-}: {
-  label?: string
-  onClick: () => void
-  danger?: boolean
-  children?: React.ReactNode
-
-  "aria-label"?: string
-  disabled?: boolean
-  active?: boolean
-  "aria-current"?: string
-}) {
-  const icon =
-    label === "View" ? (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.8}
-        d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
-      />
-    ) : label === "Edit" ? (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.8}
-        d="m4 16-.75 4.75L8 20l10.8-10.8a2.12 2.12 0 0 0-3-3L5 17v3h3 M14.5 7.5l3 3"
-      />
-    ) : (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.8}
-        d="M4 7h16 M9 7V4h6v3 M7 7l1 13h8l1-13 M10 11v5 M14 11v5"
-      />
-    )
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel ?? label}
-      title={label}
-      className={`content-table__action ${
-        danger ? "content-table__action--danger" : ""
-      }`}
-    >
-      {children ?? (
-        <svg
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          {icon}
-        </svg>
-      )}
-    </button>
   )
 }
 

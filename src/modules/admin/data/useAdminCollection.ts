@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
+import { waitForAdminEditDelay } from "./adminEditDelay"
 import type { AdminEntity, AdminListQuery, AdminRepository } from "./contracts"
 
 export interface UseAdminCollectionOptions<T> {
@@ -31,6 +32,7 @@ export function useAdminCollection<T extends AdminEntity>(
   const [loading, setLoading] = useState(enabled)
   const [mutating, setMutating] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const pendingDeleteIds = useRef(new Set<string>())
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -85,6 +87,7 @@ export function useAdminCollection<T extends AdminEntity>(
       setMutating(true)
       setError(null)
       try {
+        await waitForAdminEditDelay()
         const updated = await repository.update(id, input)
         setItems((current) =>
           current.map((item) => (item.id === id ? updated : item)),
@@ -104,6 +107,9 @@ export function useAdminCollection<T extends AdminEntity>(
 
   const remove = useCallback(
     async (id: string) => {
+      if (pendingDeleteIds.current.has(id)) return
+
+      pendingDeleteIds.current.add(id)
       setMutating(true)
       setError(null)
       try {
@@ -116,7 +122,8 @@ export function useAdminCollection<T extends AdminEntity>(
         setError(requestError)
         throw requestError
       } finally {
-        setMutating(false)
+        pendingDeleteIds.current.delete(id)
+        setMutating(pendingDeleteIds.current.size > 0)
       }
     },
     [repository],

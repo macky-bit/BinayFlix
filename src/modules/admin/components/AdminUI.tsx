@@ -103,11 +103,7 @@ export function AdminStatCard({
   actionLabel?: string
 }) {
   const toneClass =
-    tone === "purple"
-      ? "is-purple"
-      : tone === "red"
-        ? "is-red"
-        : `is-${tone}`
+    tone === "purple" ? "is-purple" : tone === "red" ? "is-red" : `is-${tone}`
   const className = `content-overview__metric admin-kpi-card ${toneClass}${
     onClick ? " is-interactive" : ""
   }${active ? " is-active" : ""}`
@@ -139,22 +135,25 @@ export function AdminStats({ children }: { children: ReactNode }) {
 
   if (count === 5) {
     return (
-      <div className="content-overview admin-kpi-overview" data-count={count}>
+      <section
+        className="content-overview admin-kpi-overview"
+        data-count={count}
+        aria-label="Workspace summary"
+      >
         <div className="admin-kpi-overview__primary">{items[0]}</div>
-        <div className="content-overview__metadata">
-          {items.slice(1)}
-        </div>
-      </div>
+        <div className="content-overview__metadata">{items.slice(1)}</div>
+      </section>
     )
   }
 
   return (
-    <div
+    <section
       className="content-overview__metadata admin-kpi-overview__metadata"
       data-count={count}
+      aria-label="Workspace summary"
     >
       {items}
-    </div>
+    </section>
   )
 }
 
@@ -184,10 +183,22 @@ export function AdminRowAction({
       disabled={disabled}
       aria-label={`${verb} ${name}`}
       title={verb}
-      className={`content-table__action${action === "delete" ? " content-table__action--danger" : ""}`}
+      className={`content-table__action${
+        action === "delete" ? " content-table__action--danger" : ""
+      }`}
     >
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={path} />
+      <svg
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.8}
+          d={path}
+        />
       </svg>
     </button>
   )
@@ -245,9 +256,11 @@ export function AdminTablePagination({
   })()
 
   return (
-    <div className="admin-table-pagination" aria-label={`${label} pagination`}>
+    <nav className="admin-table-pagination" aria-label={`${label} pagination`}>
       <div className="admin-pagination-summary">
-        <span>Showing {first}–{last} of {total} {label}</span>
+        <span>
+          Showing {first}–{last} of {total} {label}
+        </span>
         {onPerPage && (
           <select
             className="admin-select"
@@ -270,13 +283,30 @@ export function AdminTablePagination({
           disabled={safePage === 1}
           aria-label="Previous page"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
         {visiblePages.map((pageNumber, index) =>
           pageNumber === "ellipsis" ? (
-            <span className="admin-pagination-ellipsis" aria-hidden="true" key={`ellipsis-${index}`}>…</span>
+            <span
+              className="admin-pagination-ellipsis"
+              aria-hidden="true"
+              key={`ellipsis-${index}`}
+            >
+              …
+            </span>
           ) : (
             <button
               type="button"
@@ -296,11 +326,22 @@ export function AdminTablePagination({
           disabled={safePage === totalPages}
           aria-label="Next page"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
           </svg>
         </button>
       </div>
-    </div>
+    </nav>
   )
 }

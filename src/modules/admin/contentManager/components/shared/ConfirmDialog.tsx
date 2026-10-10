@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useDeleteConfirmationDelay } from '../../../components/useDeleteConfirmationDelay';
 
 interface ConfirmDialogProps {
   title: string;
@@ -21,6 +22,10 @@ export default function ConfirmDialog({
   loading = false,
   variant = 'danger',
 }: ConfirmDialogProps) {
+  const isDeleteAction = /^(delete|remove)\b/i.test(confirmLabel);
+  const { beginConfirmation, secondsRemaining, waiting } =
+    useDeleteConfirmationDelay(onConfirm, isDeleteAction);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
     document.addEventListener('keydown', handleKey);
@@ -89,8 +94,8 @@ export default function ConfirmDialog({
             {cancelLabel}
           </button>
           <button
-            onClick={onConfirm}
-            disabled={loading}
+            onClick={beginConfirmation}
+            disabled={loading || waiting}
             className="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 disabled:opacity-50 flex items-center gap-2"
             style={{
               backgroundColor: variant === 'danger' ? '#DC2626' : '#F5A800',
@@ -106,7 +111,7 @@ export default function ConfirmDialog({
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
             )}
-            {confirmLabel}
+            {waiting ? `${confirmLabel} in ${secondsRemaining}s` : confirmLabel}
           </button>
         </div>
       </div>

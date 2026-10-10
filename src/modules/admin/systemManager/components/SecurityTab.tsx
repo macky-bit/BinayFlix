@@ -240,7 +240,7 @@ export default function SecurityTab() {
             <thead>
               <tr className="border-b border-stone-700/60">
                 {SECURITY_COLUMNS.map((column) => (
-                  <th key={column.label} className={`${column.className} text-left text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider`} scope="col">{column.label}</th>
+                  <th key={column.label} className={`${column.className} text-left text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider${column.label === "User / Source" ? " admin-table-head--emphasis" : ""}`} scope="col">{column.label}</th>
                 ))}
               </tr>
             </thead>

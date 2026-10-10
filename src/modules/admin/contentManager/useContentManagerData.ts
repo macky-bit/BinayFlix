@@ -30,12 +30,14 @@ export function useContentManagerData(onError: (message: string) => void) {
   )
 
   const run = useCallback(
-    (operation: Promise<unknown>) => {
-      void operation.catch((reason) => {
+    async (operation: Promise<unknown>) => {
+      try {
+        await operation
+      } catch (reason) {
         onError(
           reason instanceof Error ? reason.message : "Database request failed",
         )
-      })
+      }
     },
 
     [onError],

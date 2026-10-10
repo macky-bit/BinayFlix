@@ -5,6 +5,7 @@ import {
 } from "../data";
 import { AdminPageHeader, AdminRowAction, AdminStatCard, AdminStats, AdminWorkspaceTabs } from "../components/AdminUI";
 import AdminDetailsPanel from "../components/AdminDetailsPanel";
+import { useDeleteConfirmationDelay } from "../components/useDeleteConfirmationDelay";
 import { REACTION_DEFINITIONS } from "../../../shared/reactions";
 import ContentCommentsWorkspace from "./ContentCommentsWorkspace";
 import ReactionsWorkspace from "./ReactionsWorkspace";
@@ -128,6 +129,7 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
 }
 
 function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel }: { title: string; message: string; confirmLabel: string; onConfirm: () => void; onCancel: () => void }) {
+  const { beginConfirmation, secondsRemaining, waiting } = useDeleteConfirmationDelay(onConfirm);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
     window.addEventListener("keydown", handler);
@@ -144,11 +146,11 @@ function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel }: { 
             onMouseLeave={e => { (e.target as HTMLElement).style.color = "#9CA3AF"; }}>
             Cancel
           </button>
-          <button onClick={onConfirm} className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-fast"
+          <button onClick={beginConfirmation} disabled={waiting} className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-fast disabled:opacity-70"
             style={{ background: "rgba(185,28,28,0.15)", border: "1px solid #991B1B", color: "#FCA5A5" }}
             onMouseEnter={e => { (e.target as HTMLElement).style.background = "rgba(185,28,28,0.3)"; }}
             onMouseLeave={e => { (e.target as HTMLElement).style.background = "rgba(185,28,28,0.15)"; }}>
-            {confirmLabel}
+            {waiting ? `${confirmLabel} in ${secondsRemaining}s` : confirmLabel}
           </button>
         </div>
       </div>

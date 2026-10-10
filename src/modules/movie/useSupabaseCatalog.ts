@@ -15,6 +15,14 @@ interface ContentRow {
   popularity_rank: number | null
   category: { category_name: string } | { category_name: string }[] | null
   genre: { genre_name: string } | { genre_name: string }[] | null
+  content_genre?: Array<{
+    genre: { genre_name: string } | { genre_name: string }[] | null
+  }> | null
+}
+
+interface GenreRow {
+  genre_name: string
+  content_genre: { count: number } | { count: number }[] | null
 }
 
 interface CatalogShow extends Show {
@@ -38,7 +46,17 @@ function formatRuntime(minutes: number | null) {
 
 function mapContent(row: ContentRow): CatalogShow {
   const category = relationName(row.category, "category_name").toLowerCase()
-  const genre = relationName(row.genre, "genre_name")
+  const legacyGenre = relationName(row.genre, "genre_name")
+  const genres = Array.from(
+    new Set(
+      [
+        legacyGenre,
+        ...(row.content_genre ?? []).map((item) =>
+          relationName(item.genre, "genre_name"),
+        ),
+      ].filter(Boolean),
+    ),
+  )
 
   return {
     id: row.tmdb_id ?? row.content_id,
@@ -49,7 +67,7 @@ function mapContent(row: ContentRow): CatalogShow {
     rating: row.age_rating ?? "",
     image: row.thumbnail ?? "",
     hero: row.thumbnail ?? undefined,
-    genres: genre ? [genre] : [],
+    genres,
     mediaType: category.includes("tv") ? "tv" : "movie",
     popularityRank: row.popularity_rank ?? Number.MAX_SAFE_INTEGER,
   }
@@ -81,8 +99,20 @@ function recommendations(items: CatalogShow[]) {
 export function buildCatalog(
   kind: CatalogKind,
   records: ContentRow[],
-): Pick<TMDBCatalogData, "featured" | "rows"> {
+): Pick<TMDBCatalogData, "featured" | "rows" | "genres"> {
   const all = records.map(mapContent).filter((show) => show.image)
+  const genreCounts = new Map<string, number>()
+  all.forEach((show) => {
+    show.genres.forEach((genre) => {
+      genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1)
+    })
+  })
+  const genres = [...genreCounts.entries()]
+    .sort(([leftName, leftCount], [rightName, rightCount]) =>
+      rightCount - leftCount || leftName.localeCompare(rightName),
+    )
+    .slice(0, 15)
+    .map(([name]) => name)
   const movies = all.filter((show) => show.mediaType === "movie").sort(byPopularity)
   const tv = all.filter((show) => show.mediaType === "tv").sort(byPopularity)
   const trending = interleave(movies, tv)
@@ -124,11 +154,12 @@ export function buildCatalog(
   }
 
   const candidates = kind === "movies" ? movies : kind === "tvShows" ? tv : trending
-  return { featured: candidates[0] ?? null, rows }
+  return { featured: candidates[0] ?? null, rows, genres }
 }
 
 export function useSupabaseCatalog(kind: CatalogKind): TMDBCatalogData {
   const [records, setRecords] = useState<ContentRow[]>([])
+  const [databaseGenres, setDatabaseGenres] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -139,21 +170,43 @@ export function useSupabaseCatalog(kind: CatalogKind): TMDBCatalogData {
       setLoading(true)
       setError(null)
 
-      const { data, error: queryError } = await supabase
-        .from("content")
-        .select(
-          "content_id, tmdb_id, title, synopsis, release_year, runtime, age_rating, thumbnail, total_streams_count, popularity_rank, category(category_name), genre!content_genre_id_fkey(genre_name)",
-        )
-        .eq("availability_status", "available")
-        .not("tmdb_id", "is", null)
-        .order("popularity_rank", { ascending: true, nullsFirst: false })
+      const [contentResult, genreResult] = await Promise.all([
+        supabase
+          .from("content")
+          .select(
+            "content_id, tmdb_id, title, synopsis, release_year, runtime, age_rating, thumbnail, total_streams_count, popularity_rank, category(category_name), genre!content_genre_id_fkey(genre_name), content_genre(genre(genre_name))",
+          )
+          .eq("availability_status", "available")
+          .not("tmdb_id", "is", null)
+          .order("popularity_rank", { ascending: true, nullsFirst: false }),
+        supabase.from("genre").select("genre_name, content_genre(count)"),
+      ])
 
       if (!active) return
+      const { data, error: queryError } = contentResult
       if (queryError) {
         setError(queryError.message)
         setRecords([])
       } else {
         setRecords((data ?? []) as unknown as ContentRow[])
+      }
+      if (!genreResult.error) {
+        const rankedGenres = ((genreResult.data ?? []) as unknown as GenreRow[])
+          .map((row) => ({
+            name: row.genre_name.trim(),
+            count: Number(
+              (Array.isArray(row.content_genre)
+                ? row.content_genre[0]?.count
+                : row.content_genre?.count) ?? 0,
+            ),
+          }))
+          .filter((genre) => genre.name)
+          .sort((left, right) =>
+            right.count - left.count || left.name.localeCompare(right.name),
+          )
+          .slice(0, 15)
+          .map((genre) => genre.name)
+        setDatabaseGenres(rankedGenres)
       }
       setLoading(false)
     }
@@ -165,5 +218,10 @@ export function useSupabaseCatalog(kind: CatalogKind): TMDBCatalogData {
   }, [])
 
   const catalog = useMemo(() => buildCatalog(kind, records), [kind, records])
-  return { ...catalog, loading, error }
+  return {
+    ...catalog,
+    genres: databaseGenres.length > 0 ? databaseGenres : catalog.genres,
+    loading,
+    error,
+  }
 }

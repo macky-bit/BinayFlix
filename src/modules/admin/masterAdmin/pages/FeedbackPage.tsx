@@ -10,21 +10,23 @@ import { AdminRowAction } from '../../components/AdminUI'
 function FeedbackDetailPanel({ item, onClose, onStatusChange }: {
   item: FeedbackItem
   onClose: () => void
-  onStatusChange: (id: string, status: FeedbackStatus) => void
+  onStatusChange: (id: string, status: FeedbackStatus) => Promise<void>
 }) {
   const [status, setStatus] = useState<FeedbackStatus>(item.status)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  function handleSave() {
+  async function handleSave() {
     if (status === item.status) return
     setSaving(true)
-    setTimeout(() => {
-      onStatusChange(item.id, status)
+    try {
+      await onStatusChange(item.id, status)
       setSaving(false)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
-    }, 600)
+    } catch {
+      setSaving(false)
+    }
   }
 
   return (
@@ -122,9 +124,17 @@ export default function FeedbackPage() {
     return list
   }, [feedbackItems, search, typeFilter, statusFilter])
 
-  function handleStatusChange(id: string, status: FeedbackStatus) {
-    void feedbackState.update(id, { status })
-    showToast('Feedback status updated successfully.')
+  async function handleStatusChange(id: string, status: FeedbackStatus) {
+    try {
+      await feedbackState.update(id, { status })
+      showToast('Feedback status updated successfully.')
+    } catch (error) {
+      setToast({
+        message: error instanceof Error ? error.message : 'Update failed',
+        type: 'error',
+      })
+      throw error
+    }
   }
 
   return (

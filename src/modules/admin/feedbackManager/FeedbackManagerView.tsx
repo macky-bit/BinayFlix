@@ -335,7 +335,7 @@ function FeedbackDetailsPanel({
 
   onClose: () => void
 
-  onStatusSaved: (id: string, status: FeedbackStatus) => void
+  onStatusSaved: (id: string, status: FeedbackStatus) => Promise<void>
 }) {
   const [selectedStatus, setSelectedStatus] = useState<FeedbackStatus>(
     item.status,
@@ -375,12 +375,11 @@ function FeedbackDetailsPanel({
 
   const handleSave = async () => {
     setSaving(true)
-
-    await new Promise((r) => setTimeout(r, 700))
-
-    onStatusSaved(item.id, selectedStatus)
-
-    setSaving(false)
+    try {
+      await onStatusSaved(item.id, selectedStatus)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -744,14 +743,13 @@ export default function FeedbackManagerView() {
     setEndDate("")
   }
 
-  const handleStatusSaved = (id: string, status: FeedbackStatus) => {
-    void feedbackState
-
-      .update(id, { status })
-
-      .then(() => setToast("Feedback status updated successfully."))
-
-      .catch((error: Error) => setToast(error.message))
+  const handleStatusSaved = async (id: string, status: FeedbackStatus) => {
+    try {
+      await feedbackState.update(id, { status })
+      setToast("Feedback status updated successfully.")
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Update failed")
+    }
   }
 
   const handleDateFilterChange = (val: string) => {

@@ -67,7 +67,7 @@ function EditSubscriberModal({
 }: {
   sub: Subscriber
   subs: Subscriber[]
-  onSave: (s: Subscriber) => void
+  onSave: (s: Subscriber) => Promise<void>
   onClose: () => void
 }) {
   const [form, setForm] = useState({
@@ -93,7 +93,7 @@ function EditSubscriberModal({
     return e
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length) {
@@ -101,10 +101,11 @@ function EditSubscriberModal({
       return
     }
     setLoading(true)
-    setTimeout(() => {
-      onSave({ ...sub, ...form })
+    try {
+      await onSave({ ...sub, ...form })
+    } finally {
       setLoading(false)
-    }, 600)
+    }
   }
 
   return (
@@ -352,10 +353,17 @@ export default function UsersPage() {
         <EditSubscriberModal
           sub={editSub}
           subs={subscribers}
-          onSave={(updated) => {
-            void subscriberState.update(updated.id, updated)
-            setEditSub(null)
-            showToast("Subscriber updated successfully.")
+          onSave={async (updated) => {
+            try {
+              await subscriberState.update(updated.id, updated)
+              setEditSub(null)
+              showToast("Subscriber updated successfully.")
+            } catch (error) {
+              setToast({
+                message: error instanceof Error ? error.message : "Update failed",
+                type: "error",
+              })
+            }
           }}
           onClose={() => setEditSub(null)}
         />

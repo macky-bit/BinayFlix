@@ -7,7 +7,7 @@ import { AdminRowAction } from '../../../components/AdminUI';
 interface GenresTabProps {
   genres: Genre[];
   onAdd: (name: string, description: string) => void;
-  onEdit: (g: Genre) => void;
+  onEdit: (g: Genre) => Promise<void>;
   onDelete: (id: string) => void;
   addToast: (msg: string, type: Toast['type']) => void;
 }
@@ -19,18 +19,24 @@ function GenreForm({
   initial, onSubmit, onCancel, submitLabel, readOnlyId,
 }: {
   initial: { name: string; description: string };
-  onSubmit: (f: { name: string; description: string }) => void;
+  onSubmit: (f: { name: string; description: string }) => void | Promise<void>;
   onCancel: () => void;
   submitLabel: string;
   readOnlyId?: string;
 }) {
   const [form, setForm] = useState(initial);
   const [nameErr, setNameErr] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) { setNameErr('Genre name is required.'); return; }
-    onSubmit(form);
+    setSaving(true);
+    try {
+      await onSubmit(form);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -51,9 +57,9 @@ function GenreForm({
       </div>
       <div className="flex justify-end gap-3" style={{ borderTop: '1px solid #374151', paddingTop: '1.25rem' }}>
         <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ border: '1px solid #374151', color: '#9CA3AF', backgroundColor: 'transparent' }}>Cancel</button>
-        <button type="submit" className="btn-primary flex items-center gap-2 px-5 py-2.5">
+        <button type="submit" disabled={saving} aria-busy={saving || undefined} className="btn-primary flex items-center gap-2 px-5 py-2.5">
           {submitLabel.startsWith('Add ') && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>}
-          {submitLabel}
+          {saving ? 'Saving…' : submitLabel}
         </button>
       </div>
     </form>
@@ -157,7 +163,7 @@ export default function GenresTab({ genres, onAdd, onEdit, onDelete, addToast }:
       {editItem && (
         <Modal title="Edit Genre" onClose={() => setEditId(null)}>
           <GenreForm initial={{ name: editItem.name, description: editItem.description }} submitLabel="Save Changes" readOnlyId={editItem.id} onCancel={() => setEditId(null)}
-            onSubmit={(f) => { onEdit({ ...editItem, name: f.name, description: f.description }); setEditId(null); addToast('Genre updated.', 'success'); }} />
+            onSubmit={async (f) => { await onEdit({ ...editItem, name: f.name, description: f.description }); setEditId(null); addToast('Genre updated.', 'success'); }} />
         </Modal>
       )}
 

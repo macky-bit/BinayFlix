@@ -1,3 +1,5 @@
+import { useDeleteConfirmationDelay } from "../../components/useDeleteConfirmationDelay"
+
 interface ConfirmDialogProps {
   heading: string
   message: string
@@ -11,6 +13,10 @@ interface ConfirmDialogProps {
 export default function ConfirmDialog({
   heading, message, confirmLabel, onConfirm, onCancel, danger = false, loading = false
 }: ConfirmDialogProps) {
+  const isDeleteAction = /^(delete|remove)\b/i.test(confirmLabel)
+  const { beginConfirmation, secondsRemaining, waiting } =
+    useDeleteConfirmationDelay(onConfirm, isDeleteAction)
+
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-panel" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
@@ -32,15 +38,19 @@ export default function ConfirmDialog({
             Cancel
           </button>
           <button
-            onClick={onConfirm}
-            disabled={loading}
+            onClick={beginConfirmation}
+            disabled={loading || waiting}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               danger
                 ? 'bg-red-600 hover:bg-red-500 text-white disabled:opacity-50'
                 : 'btn-gold'
             }`}
           >
-            {loading ? 'Processing…' : confirmLabel}
+            {loading
+              ? 'Processing…'
+              : waiting
+                ? `${confirmLabel} in ${secondsRemaining}s`
+                : confirmLabel}
           </button>
         </div>
       </div>

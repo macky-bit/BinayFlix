@@ -41,6 +41,56 @@ const SIDEBAR_ICON_BY_ROUTE: Record<AdminRoute, SidebarIconName> = {
   system: "system",
 }
 
+function AdminLoadingState({
+  label,
+  workspace = false,
+}: {
+  label: string
+  workspace?: boolean
+}) {
+  return (
+    <div
+      className={`${workspace ? "" : "manager-module "}admin-loading ${
+        workspace ? "admin-loading--workspace" : "admin-loading--access"
+      }`}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="admin-loading__orb admin-loading__orb--gold" aria-hidden="true" />
+      <div className="admin-loading__orb admin-loading__orb--violet" aria-hidden="true" />
+      <div className="admin-loading__panel">
+        <div className="admin-loading__brand" aria-hidden="true">
+          <img src="/favicon.png" alt="" />
+          <span>STREAMFLIX</span>
+        </div>
+        <p className="admin-loading__eyebrow">Administrator portal</p>
+        <div className="admin-loading__indicator" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path
+              d="M8 10V8a4 4 0 0 1 8 0v2m-9 0h10a1 1 0 0 1 1 1v8H6v-8a1 1 0 0 1 1-1Z"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.7"
+            />
+          </svg>
+        </div>
+        <h1>{label}</h1>
+        <p className="admin-loading__copy">
+          Preparing your secure management workspace…
+        </p>
+        <div className="admin-loading__progress" aria-hidden="true">
+          <span />
+        </div>
+        <div className="admin-loading__skeleton" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function SidebarIcon({ name }: { name: SidebarIconName }) {
   const paths: Record<SidebarIconName, ReactNode> = {
     administrators: (
@@ -214,9 +264,7 @@ export default function AdminPage({ onBack, onSignOut, onNavigate }: Props) {
 
   if (accessState === "checking")
     return (
-      <div className="module-loading min-h-screen">
-        Checking administrator accessâ€¦
-      </div>
+      <AdminLoadingState label="Checking administrator access" />
     )
 
   if (accessState === "inactive") {
@@ -376,9 +424,10 @@ export default function AdminPage({ onBack, onSignOut, onNavigate }: Props) {
           <div className="admin-workspace-content">
             <Suspense
               fallback={
-                <div className="module-loading">
-                  Loading manager workspaceâ€¦
-                </div>
+                <AdminLoadingState
+                  label={`Loading ${workspace.label}`}
+                  workspace
+                />
               }
             >
               <Workspace />

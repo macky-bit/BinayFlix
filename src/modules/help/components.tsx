@@ -27,6 +27,36 @@ const C = {
   surfaceElevated: "var(--color-ink-soft)",
 }
 
+function StreamFlixFooterLogo() {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <img
+        src="/favicon.png"
+        alt=""
+        aria-hidden="true"
+        style={{ width: "auto", height: 28, objectFit: "contain" }}
+      />
+      <svg
+        viewBox="0 0 111.81 30"
+        aria-hidden="true"
+        focusable="false"
+        style={{ width: "auto", height: 24, display: "block" }}
+      >
+        <defs>
+          <linearGradient id="sfGradHelpFooter" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#F5A800" />
+            <stop offset="100%" stopColor="#7C3AED" />
+          </linearGradient>
+        </defs>
+        <path
+          fill="url(#sfGradHelpFooter)"
+          d="M0.66 22.02V20.82H3.78V22.26Q3.78 24.3 5.49 24.3Q6.33 24.3 6.765 23.805Q7.2 23.31 7.2 22.2Q7.2 20.88 6.6 19.875Q6.0 18.87 4.38 17.46Q2.34 15.66 1.53 14.205Q0.72 12.75 0.72 10.92Q0.72 8.43 1.98 7.065Q3.24 5.7 5.64 5.7Q8.01 5.7 9.225 7.065Q10.44 8.43 10.44 10.98V11.85H7.32V10.77Q7.32 9.69 6.9 9.195Q6.48 8.7 5.67 8.7Q4.02 8.7 4.02 10.71Q4.02 11.85 4.635 12.84Q5.25 13.83 6.87 15.24Q8.94 17.04 9.72 18.51Q10.5 19.98 10.5 21.96Q10.5 24.54 9.225 25.92Q7.95 27.3 5.52 27.3Q3.12 27.3 1.89 25.935Q0.66 24.57 0.66 22.02Z M14.97 9.0H11.52V6.0H21.72V9.0H18.27V27.0H14.97Z M23.31 6.0H28.2Q30.75 6.0 31.92 7.185Q33.09 8.37 33.09 10.83V12.12Q33.09 15.39 30.93 16.26V16.32Q32.13 16.68 32.625 17.79Q33.12 18.9 33.12 20.76V24.45Q33.12 25.35 33.18 25.905Q33.24 26.46 33.48 27.0H30.12Q29.94 26.49 29.88 26.04Q29.82 25.59 29.82 24.42V20.58Q29.82 19.14 29.355 18.57Q28.89 18.0 27.75 18.0H26.61V27.0H23.31ZM27.81 15.0Q28.8 15.0 29.295 14.49Q29.79 13.98 29.79 12.78V11.16Q29.79 10.02 29.385 9.51Q28.98 9.0 28.11 9.0H26.61V15.0Z M35.4 6.0H44.4V9.0H38.7V14.55H43.23V17.55H38.7V24.0H44.4V27.0H35.4Z M48.84 6.0H53.31L56.73 27.0H53.43L52.83 22.83V22.89H49.08L48.48 27.0H45.42ZM52.44 20.04 50.97 9.66H50.91L49.47 20.04Z M58.32 6.0H63.03L65.13 21.03H65.19L67.29 6.0H72.0V27.0H68.88V11.1H68.82L66.42 27.0H63.66L61.26 11.1H61.2V27.0H58.32Z M74.46 6.0H83.19V9.0H77.76V14.85H82.02V17.85H77.76V27.0H74.46Z M84.78 6.0H88.08V24.0H93.51V27.0H84.78Z M95.1 6.0H98.4V27.0H95.1Z M103.77 16.26 100.14 6.0H103.62L105.84 12.78H105.9L108.18 6.0H111.3L107.67 16.26L111.48 27.0H108.0L105.6 19.68H105.54L103.08 27.0H99.96Z"
+        />
+      </svg>
+    </span>
+  )
+}
+
 // ─── Help articles data ──────────────────────────────────────────
 
 const MAX_HELP_SEARCH_LENGTH = 50
@@ -1989,21 +2019,13 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
         >
           <button type="button" onClick={onBack} aria-label="Go to StreamFlix home"
             style={{
-              fontFamily: "'Barlow Condensed', sans-serif",
-
-              fontWeight: 800,
-
-              fontSize: 18,
-
-              color: C.wine,
-
-              letterSpacing: "0.04em",
               border: 0,
               background: "transparent",
               cursor: "pointer",
+              padding: 0,
             }}
           >
-            STREAMFLIX
+            <StreamFlixFooterLogo />
           </button>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px" }}>
             {[

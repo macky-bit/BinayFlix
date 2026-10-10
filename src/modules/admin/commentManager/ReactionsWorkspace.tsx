@@ -212,7 +212,7 @@ export default function ReactionsWorkspace({
                 ].map((column) => (
                   <th
                     key={column}
-                    className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                    className={`whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider${["Content ID", "Reactions", "Reactors"].includes(column) ? " admin-table-head--emphasis" : ""}`}
                     style={{ color: "#9CA3AF" }}
                   >
                     {column}

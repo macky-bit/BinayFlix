@@ -22,8 +22,11 @@ export default function Modal({ title, onClose, children, wide = false }: ModalP
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[400] flex items-stretch justify-center p-0 sm:items-center sm:p-4"
-      style={{ backgroundColor: 'rgba(11, 7, 25, 0.85)', backdropFilter: 'blur(4px)' }}
+      className="manager-module admin-content-modal fixed inset-0 z-[400] flex items-stretch justify-center p-0 sm:items-center sm:p-4"
+      style={{
+        backgroundColor: 'rgba(11, 7, 25, 0.85)',
+        backdropFilter: 'blur(4px)',
+      }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       role="dialog"
       aria-modal="true"

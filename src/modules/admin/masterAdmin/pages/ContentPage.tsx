@@ -79,7 +79,7 @@ function ContentViewModal({ item, onClose, onEdit }: { item: ContentItem; onClos
 // Content Edit Modal
 function ContentEditModal({ item, items, onSave, onClose }: {
   item: ContentItem | null; items: ContentItem[]
-  onSave: (updated: ContentItem) => void; onClose: () => void
+  onSave: (updated: ContentItem) => Promise<void>; onClose: () => void
 }) {
   const currentYear = new Date().getFullYear()
   const blank: ContentItem = { id: '', title: '', category: '', genres: [], releaseYear: 0, runtime: 0, ageRating: '', totalStreams: 0, availability: 'Unavailable', thumbnail: '' }
@@ -100,16 +100,17 @@ function ContentEditModal({ item, items, onSave, onClose }: {
     return e
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     setLoading(true)
-    setTimeout(() => {
+    try {
       const id = isNew ? generateId('CNT', items) : form.id
-      onSave({ ...form, id })
+      await onSave({ ...form, id })
+    } finally {
       setLoading(false)
-    }, 700)
+    }
   }
 
   const AGE_RATINGS = ['G', 'PG', 'PG-13', 'R', 'NC-17', 'TV-G', 'TV-PG', 'TV-14', 'TV-MA']
@@ -221,7 +222,7 @@ export default function ContentPage() {
     return list
   }, [contentItems, search, availFilter])
 
-  function handleSaveContent(updated: ContentItem) {
+  async function handleSaveContent(updated: ContentItem) {
     const exists = contentItems.some(c => c.id === updated.id)
     const databaseItem = {
       ...updated,
@@ -229,10 +230,14 @@ export default function ContentPage() {
       genreIds: genres.filter(genre => updated.genres.includes(genre.name)).map(genre => genre.id),
       availability: updated.availability,
     }
-    if (exists) void contentState.update(updated.id, databaseItem)
-    else void contentState.create(databaseItem)
-    setEditItem(undefined)
-    showToast(exists ? 'Content updated successfully.' : 'Content added successfully.')
+    try {
+      if (exists) await contentState.update(updated.id, databaseItem)
+      else await contentState.create(databaseItem)
+      setEditItem(undefined)
+      showToast(exists ? 'Content updated successfully.' : 'Content added successfully.')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Save failed', 'error')
+    }
   }
 
   function handleDeleteContent() {

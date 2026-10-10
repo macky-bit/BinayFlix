@@ -88,6 +88,7 @@ type RefresherLookupState =
   | { status: "error"; message: string }
 
 const MOVIE_FALLBACK_SECONDS = 2 * 60 * 60
+const REFRESHER_SKIP_DELAY_SECONDS = 5
 
 function loadProgress(): Record<string, number> {
   try {
@@ -398,6 +399,10 @@ export default function WatchScreen({
 
   const [refresherVideoPlaying, setRefresherVideoPlaying] = useState(false)
 
+  const [refresherSkipSeconds, setRefresherSkipSeconds] = useState(
+    REFRESHER_SKIP_DELAY_SECONDS,
+  )
+
   const [refresherVideoError, setRefresherVideoError] = useState<string | null>(
     null,
   )
@@ -434,6 +439,8 @@ export default function WatchScreen({
   const [commentActionPending, setCommentActionPending] =
     useState<string | null>(null)
 
+  const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null)
+
   const [soundtracks, setSoundtracks] = useState<SoundtrackTrack[]>([])
 
   const [soundtracksLoading, setSoundtracksLoading] = useState(true)
@@ -467,6 +474,21 @@ export default function WatchScreen({
   const lyricsRequestVersion = useRef(0)
 
   const refresherRequestVersion = useRef(0)
+
+  useEffect(() => {
+    if (!refresherVideoPlaying) {
+      setRefresherSkipSeconds(REFRESHER_SKIP_DELAY_SECONDS)
+      return
+    }
+
+    if (!clipStarted || refresherSkipSeconds === 0) return
+
+    const timer = window.setTimeout(() => {
+      setRefresherSkipSeconds((seconds) => Math.max(0, seconds - 1))
+    }, 1000)
+
+    return () => window.clearTimeout(timer)
+  }, [clipStarted, refresherSkipSeconds, refresherVideoPlaying])
 
   useEffect(() => {
     let active = true
@@ -686,6 +708,8 @@ export default function WatchScreen({
     setEditingCommentText("")
 
     setCommentActionPending(null)
+
+    setDeleteCommentId(null)
 
     setReactionPending(false)
 
@@ -938,13 +962,36 @@ export default function WatchScreen({
     return () => window.removeEventListener("keydown", handleEscape)
   }, [activePanel, settingsOpen])
 
-  useEffect(
-    () => () => {
-      if (controlsTimer.current) clearTimeout(controlsTimer.current)
-    },
+  useEffect(() => {
+    if (!deleteCommentId) return
 
-    [],
-  )
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && commentActionPending !== deleteCommentId) {
+        setDeleteCommentId(null)
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape)
+    return () => window.removeEventListener("keydown", handleEscape)
+  }, [commentActionPending, deleteCommentId])
+
+  useEffect(() => {
+    if (controlsTimer.current) clearTimeout(controlsTimer.current)
+
+    if (!playing || activePanel || settingsOpen) {
+      setShowControls(true)
+      return
+    }
+
+    controlsTimer.current = setTimeout(() => {
+      setShowControls(false)
+      controlsTimer.current = null
+    }, 3000)
+
+    return () => {
+      if (controlsTimer.current) clearTimeout(controlsTimer.current)
+    }
+  }, [activePanel, playing, settingsOpen])
 
   const totalReactions = useMemo(
     () =>
@@ -1292,7 +1339,7 @@ export default function WatchScreen({
   }
 
   const removeOwnComment = async (commentId: string) => {
-    if (commentActionPending || !window.confirm("Delete your comment?")) return
+    if (commentActionPending) return
 
     setCommentActionPending(commentId)
 
@@ -1321,17 +1368,31 @@ export default function WatchScreen({
     }
   }
 
+  const confirmCommentDeletion = async () => {
+    if (!deleteCommentId) return
+    const commentId = deleteCommentId
+    await removeOwnComment(commentId)
+    setDeleteCommentId(null)
+  }
+
   const lyricsTrack =
     soundtracks.find((track) => track.id === lyricsTrackId) ?? null
 
   const lyricsLookup = lyricsTrack ? lyricsLookups[lyricsTrack.id] : undefined
 
+  const playerUiVisible = showControls || !playing || Boolean(activePanel) || settingsOpen
+
   return (
     <div className={styles.page} ref={pageRef}>
       <nav className={styles.nav}>
         <div className={styles.navInner}>
-          <button type="button" className={styles.backButton} onClick={onBack}>
-            <span aria-hidden="true">‹</span> Back
+          <button
+            type="button"
+            className={styles.backButton}
+            onClick={onBack}
+            aria-label="Back"
+          >
+            <span aria-hidden="true">‹</span>
           </button>
           <span className={styles.logo} aria-label="StreamFlix">
             <img src="/favicon.png" alt="" aria-hidden="true" />
@@ -1341,15 +1402,17 @@ export default function WatchScreen({
         </div>
       </nav>
 
-      <main className={styles.main}>
+      <main
+        className={styles.main}
+        onMouseMove={revealControls}
+        onMouseLeave={() =>
+          playing && !activePanel && !settingsOpen && setShowControls(false)
+        }
+      >
         <section
           className={`${styles.player} ${
             showControls || activePanel ? "" : styles.hideCursor
           }`}
-          onMouseMove={revealControls}
-          onMouseLeave={() =>
-            playing && !activePanel && !settingsOpen && setShowControls(false)
-          }
           onClick={() => {
             if (!refresherVideoPlaying) setPlaying((value) => !value)
           }}
@@ -1431,12 +1494,23 @@ export default function WatchScreen({
             <button
               type="button"
               className={styles.skipRefresherButton}
+              disabled={refresherSkipSeconds > 0}
+              aria-label={
+                refresherSkipSeconds > 0
+                  ? `Skip refresher available in ${refresherSkipSeconds} seconds`
+                  : "Skip refresher"
+              }
               onClick={(event) => {
                 event.stopPropagation()
                 finishRefresherVideo()
               }}
             >
-              Skip Refresher
+              {refresherSkipSeconds > 0 && (
+                <span className={styles.skipRefresherCountdown} aria-live="polite">
+                  Skip in {refresherSkipSeconds}
+                </span>
+              )}
+              <span className={styles.skipRefresherLabel}>Skip Refresher</span>
             </button>
           )}
           {videoError && (
@@ -1650,7 +1724,12 @@ export default function WatchScreen({
           )}
         </section>
 
-        <section className={styles.contentInfo}>
+        <section
+          className={`${styles.contentInfo} ${styles.playbackChrome} ${
+            playerUiVisible ? styles.playbackChromeVisible : ""
+          }`}
+          aria-hidden={!playerUiVisible}
+        >
           <h1>{title}</h1>
           {isSeries && selectedEpisode && (
             <p>
@@ -2072,7 +2151,12 @@ export default function WatchScreen({
           </section>
         )}
 
-        <section className={styles.reactions}>
+        <section
+          className={`${styles.reactions} ${styles.playbackChrome} ${
+            playerUiVisible ? styles.playbackChromeVisible : ""
+          }`}
+          aria-hidden={!playerUiVisible}
+        >
           <h2>What did you think of this {isSeries ? "episode" : "movie"}?</h2>
           <p>
             {engagementLoading
@@ -2282,7 +2366,7 @@ export default function WatchScreen({
                           <button
                             type="button"
                             disabled={commentActionPending === comment.id}
-                            onClick={() => void removeOwnComment(comment.id)}
+                            onClick={() => setDeleteCommentId(comment.id)}
                           >
                             {commentActionPending === comment.id
                               ? "Deleting…"
@@ -2298,6 +2382,57 @@ export default function WatchScreen({
           </section>
         )}
       </main>
+
+      {deleteCommentId && (
+        <div
+          className={styles.commentDeleteOverlay}
+          onMouseDown={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              commentActionPending !== deleteCommentId
+            ) {
+              setDeleteCommentId(null)
+            }
+          }}
+        >
+          <section
+            className={styles.commentDeleteDialog}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="comment-delete-title"
+            aria-describedby="comment-delete-description"
+          >
+            <div className={styles.commentDeleteHeading}>
+              <span aria-hidden="true">!</span>
+              <div>
+                <h2 id="comment-delete-title">Delete comment?</h2>
+                <p id="comment-delete-description">
+                  This comment will be permanently deleted and cannot be recovered.
+                </p>
+              </div>
+            </div>
+            <div className={styles.commentDeleteActions}>
+              <button
+                type="button"
+                disabled={commentActionPending === deleteCommentId}
+                onClick={() => setDeleteCommentId(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.commentDeleteConfirm}
+                disabled={commentActionPending === deleteCommentId}
+                onClick={() => void confirmCommentDeletion()}
+              >
+                {commentActionPending === deleteCommentId
+                  ? "Deleting…"
+                  : "Delete Comment"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }

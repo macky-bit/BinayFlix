@@ -155,7 +155,7 @@ export default function SystemLogsTab() {
             <thead>
               <tr className="border-b border-stone-700/60">
                 {["Log ID", "Date & Time", "Event Type", "User / Source", "Description", "IP Address", "Severity", "Status", "Actions"].map((h) => (
-                  <th key={h} className="text-left text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider px-2 py-3" scope="col">
+                  <th key={h} className={`text-left text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider px-2 py-3${h === "User / Source" ? " admin-table-head--emphasis" : ""}`} scope="col">
                     {h}
                   </th>
                 ))}

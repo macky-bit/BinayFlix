@@ -77,6 +77,13 @@ body {
 	zoom: 1.3;
 }
 
+/* Admin workspaces define their own compact, responsive type scale. Keeping
+   them at true 100% avoids compounding the member UI zoom and prevents
+   fractional text-layer shifts at tablet and phone widths. */
+#root:has(.admin-shell) {
+	zoom: 1;
+}
+
 /* ─── Global gold hover ─────────────────────────────────────────────────────── */
 /* Any element tagged .hover-gold turns amber on hover, keeping its resting state */
 .hover-gold {

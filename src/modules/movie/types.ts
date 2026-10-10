@@ -33,6 +33,8 @@ export interface TMDBCatalogData {
 
   rows: CatalogRow[]
 
+  genres: string[]
+
   loading: boolean
 
   error: string | null

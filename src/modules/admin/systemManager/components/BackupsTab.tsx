@@ -261,7 +261,7 @@ export default function BackupsTab() {
             <thead>
               <tr className="border-b border-stone-700/60">
                 {["Backup ID", "Dataset", "Tables", "Started", "Completed", "Size", "Status", "Actions"].map((heading) => (
-                  <th key={heading} className="text-left text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider px-4 py-3 whitespace-nowrap" scope="col">{heading}</th>
+                  <th key={heading} className={`text-left text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider px-4 py-3 whitespace-nowrap${heading === "Tables" ? " admin-table-head--emphasis" : ""}`} scope="col">{heading}</th>
                 ))}
               </tr>
             </thead>
