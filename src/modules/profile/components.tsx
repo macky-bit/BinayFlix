@@ -122,25 +122,6 @@ function MoreVertIcon({ size = 16 }: { size?: number }) {
   )
 }
 
-function SubtitleIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    >
-      <rect x="2" y="5" width="20" height="14" rx="2" />
-      <line x1="6" y1="13" x2="14" y2="13" />
-      <line x1="6" y1="17" x2="10" y2="17" />
-      <line x1="12" y1="17" x2="18" y2="17" />
-      <line x1="16" y1="13" x2="18" y2="13" />
-    </svg>
-  )
-}
-
 function ShieldIcon({ size = 20 }: { size?: number }) {
   return (
     <svg
@@ -1617,8 +1598,6 @@ export function ProfileView({
   }, [loadProfileIdentity])
 
   // Settings state
-  const [subtitle, setSubtitle] = useState("Medium")
-
   const [maturity, setMaturity] = useState("All Maturity Ratings")
 
   const [language, setLanguage] = useState("English")
@@ -1791,23 +1770,6 @@ export function ProfileView({
                 Playback &amp; Display
               </h3>
 
-              <SettingRow
-                icon={<SubtitleIcon />}
-                label="Subtitle Appearance"
-                description="Customize the appearance of subtitles."
-                control={
-                  <SelectDropdown
-                    value={subtitle}
-                    ariaLabel="Subtitle appearance"
-                    options={["Small", "Medium", "Large"]}
-                    onChange={(v) => {
-                      setSubtitle(v)
-
-                      markDirty()
-                    }}
-                  />
-                }
-              />
               {profileIdentity && !profileIdentity.isKids && (
                 <SettingRow
                   icon={<ShieldIcon />}

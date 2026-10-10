@@ -14,6 +14,7 @@ interface CatalogPageProps {
   kind: CatalogKind
   onWatch: (show: Show) => void
   onInfo: (show: Show) => void
+  onNavigateHelp: () => void
 }
 
 interface CatalogViewProps extends Omit<CatalogPageProps, "kind"> {
@@ -56,6 +57,7 @@ function CatalogView({
   showHero = false,
   onWatch,
   onInfo,
+  onNavigateHelp,
 }: CatalogViewProps) {
   const [genre, setGenre] = useState("All")
   const { rows, featured, loading } = data
@@ -91,7 +93,7 @@ function CatalogView({
             onInfo={onInfo}
           />
         ))}
-        <Footer />
+        <Footer onNavigateHelp={onNavigateHelp} />
       </div>
     </div>
   )
@@ -101,6 +103,7 @@ export default function CatalogPage({
   kind,
   onWatch,
   onInfo,
+  onNavigateHelp,
 }: CatalogPageProps) {
   const data = useSupabaseCatalog(kind)
 
@@ -111,6 +114,7 @@ export default function CatalogPage({
         showHero={kind === "home"}
         onWatch={onWatch}
         onInfo={onInfo}
+        onNavigateHelp={onNavigateHelp}
       />
     </div>
   )

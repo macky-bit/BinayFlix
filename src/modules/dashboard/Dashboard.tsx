@@ -75,10 +75,16 @@ export default function Dashboard({
           query={searchQuery}
           onWatch={onWatch}
           onInfo={onInfo}
+          onNavigateHelp={() => onNavigate("help")}
         />
       )}
       {!searchQuery.trim() && view !== "myList" && (
-        <CatalogPage kind={view} onWatch={onWatch} onInfo={onInfo} />
+        <CatalogPage
+          kind={view}
+          onWatch={onWatch}
+          onInfo={onInfo}
+          onNavigateHelp={() => onNavigate("help")}
+        />
       )}
       {!searchQuery.trim() && view === "myList" && (
         <MyListView onBrowse={() => setView("home")} onInfo={onInfo} />

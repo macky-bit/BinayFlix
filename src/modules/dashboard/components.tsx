@@ -1520,26 +1520,10 @@ export function GenreFilters({
 // ─── Footer ───────────────────────────────────────────────────────────────────
 
 const FOOTER_LINKS = [
-  "Audio Description",
-
   "Help Center",
-
-  "Gift Cards",
-
-  "Media Centre",
-
-  "Investor Relations",
-
-  "Jobs",
-
   "Terms of Use",
-
   "Privacy",
-
   "Cookie Preferences",
-
-  "Corporate Information",
-
   "Contact Us",
 ]
 
@@ -1577,13 +1561,19 @@ export function ContinueWatchingRow({
   )
 }
 
-export function Footer() {
+export function Footer({ onNavigateHelp }: { onNavigateHelp?: () => void }) {
   return (
     <footer className={`px-4 sm:px-10 xl:px-12 py-10 mt-8 ${styles.footer}`}>
       <div className="flex flex-wrap gap-x-5 gap-y-2 mb-4">
         {FOOTER_LINKS.map((link) => (
           <button
+            type="button"
             key={link}
+            onClick={
+              link === "Help Center" || link === "Contact Us"
+                ? onNavigateHelp
+                : undefined
+            }
             className={`text-xs transition-colors ${styles.footerLink}`}
           >
             {link}

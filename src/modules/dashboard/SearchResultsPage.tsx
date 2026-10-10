@@ -8,9 +8,15 @@ interface Props {
   query: string
   onWatch: (show: Show) => void
   onInfo: (show: Show) => void
+  onNavigateHelp: () => void
 }
 
-export default function SearchResultsPage({ query, onWatch, onInfo }: Props) {
+export default function SearchResultsPage({
+  query,
+  onWatch,
+  onInfo,
+  onNavigateHelp,
+}: Props) {
   const normalizedQuery = normalizeSearchQuery(query)
   const [results, setResults] = useState<Show[]>([])
   const [loading, setLoading] = useState(false)
@@ -113,7 +119,7 @@ export default function SearchResultsPage({ query, onWatch, onInfo }: Props) {
       )}
 
       <div className="mt-12">
-        <Footer />
+        <Footer onNavigateHelp={onNavigateHelp} />
       </div>
     </main>
   )

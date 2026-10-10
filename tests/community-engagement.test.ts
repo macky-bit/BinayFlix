@@ -864,6 +864,8 @@ test("Profile no longer duplicates autoplay settings", () => {
   assert.doesNotMatch(profileSource, /Autoplay Next Episode/)
   assert.doesNotMatch(profileSource, /Autoplay Previews/)
   assert.doesNotMatch(profileSource, /function Toggle\(/)
+  assert.doesNotMatch(profileSource, /Subtitle Appearance/)
+  assert.doesNotMatch(profileSource, /function SubtitleIcon/)
 })
 
 test("kids profiles do not render maturity rating controls", () => {
@@ -929,4 +931,39 @@ test("kids profiles require Standard or Premium subscriptions", () => {
   assert.doesNotMatch(sql, /\('basic', 'premium'\)/i)
   assert.match(profileSelectSource, /context\?\.allows_kids \?\? false/)
   assert.match(profileSelectSource, /allowsKidsProfiles &&/)
+})
+
+test("dashboard footer keeps only support and legal links", () => {
+  const componentsSource = readFileSync(
+    new URL("../src/modules/dashboard/components.tsx", import.meta.url),
+    "utf8",
+  )
+  const dashboardSource = readFileSync(
+    new URL("../src/modules/dashboard/Dashboard.tsx", import.meta.url),
+    "utf8",
+  )
+
+  for (const label of [
+    "Help Center",
+    "Terms of Use",
+    "Privacy",
+    "Cookie Preferences",
+    "Contact Us",
+  ]) {
+    assert.match(componentsSource, new RegExp(`"${label}"`))
+  }
+
+  for (const removedLabel of [
+    "Audio Description",
+    "Gift Cards",
+    "Media Centre",
+    "Investor Relations",
+    "Jobs",
+    "Corporate Information",
+  ]) {
+    assert.doesNotMatch(componentsSource, new RegExp(`"${removedLabel}"`))
+  }
+
+  assert.match(componentsSource, /onNavigateHelp/)
+  assert.match(dashboardSource, /onNavigateHelp=\{\(\) => onNavigate\("help"\)\}/)
 })
