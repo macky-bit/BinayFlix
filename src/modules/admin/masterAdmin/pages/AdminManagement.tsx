@@ -44,7 +44,7 @@ const ROLE_ACCESS: Record<ManagerRole, string> = {
   "Feedback Manager": "Platform feedback and feedback-status management.",
 
   "User Manager":
-    "Subscribers, Watch History, subscriptions, plans, and payments.",
+    "Subscribers, subscriptions, plans, and payments.",
 
   "System Manager":
     "System security, server maintenance, database maintenance, and backups.",

@@ -1114,6 +1114,62 @@ test("subscription downgrades disable overflow profiles without deleting them", 
   assert.match(profileSettingsSource, /delete_my_member_profile/)
 })
 
+test("admin subscription records are view-only", () => {
+  const userManagerSource = readFileSync(
+    new URL(
+      "../src/modules/admin/userManager/UserManagerView.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const masterAdminSource = readFileSync(
+    new URL(
+      "../src/modules/admin/masterAdmin/pages/UsersPage.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const subscriptionsTab = userManagerSource.slice(
+    userManagerSource.indexOf("function SubscriptionsTab"),
+    userManagerSource.indexOf("function PlansTab"),
+  )
+
+  assert.match(subscriptionsTab, /action="view"/)
+  assert.doesNotMatch(subscriptionsTab, /action="edit"/)
+  assert.doesNotMatch(subscriptionsTab, /Edit Subscription/)
+  assert.doesNotMatch(subscriptionsTab, /subscriptionState\.update/)
+  assert.doesNotMatch(masterAdminSource, /Cancel subscription\?/)
+  assert.doesNotMatch(masterAdminSource, /setCancelSubId/)
+})
+
+test("admin user-management navigation does not expose watch history", () => {
+  const userManagerSource = readFileSync(
+    new URL(
+      "../src/modules/admin/userManager/UserManagerView.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const masterAdminSource = readFileSync(
+    new URL(
+      "../src/modules/admin/masterAdmin/pages/UsersPage.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const userManagerRoot = userManagerSource.slice(
+    userManagerSource.indexOf("export default function UserManagerView"),
+  )
+  const masterTabs = masterAdminSource.slice(
+    masterAdminSource.indexOf("const TABS"),
+    masterAdminSource.indexOf("const paginatedSubscribers"),
+  )
+
+  assert.doesNotMatch(userManagerRoot, /label: "Watch History"/)
+  assert.doesNotMatch(userManagerRoot, /tab === "watch"/)
+  assert.doesNotMatch(masterTabs, /label: "Watch History"/)
+})
+
 test("dashboard footer keeps only support and legal links", () => {
   const componentsSource = readFileSync(
     new URL("../src/modules/dashboard/components.tsx", import.meta.url),

@@ -247,16 +247,15 @@ export default function UsersPage() {
   const paymentState = useAdminCollection(
     useAdminRepository<Payment>("payments"),
   )
-  const subscriptionState = useAdminCollection(
+  const subscriptions = useAdminCollection(
     useAdminRepository<Subscription>("subscriptions"),
-  )
+  ).items
   const watchHistory = useAdminCollection(
     useAdminRepository<WatchHistory>("watch-history"),
   ).items
   const plans = useAdminCollection(useAdminRepository<Plan>("plans")).items
   const subscribers = subscriberState.items
   const payments = paymentState.items
-  const subscriptions = subscriptionState.items
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [toast, setToast] = useState<{
@@ -265,7 +264,6 @@ export default function UsersPage() {
   } | null>(null)
   const [editSub, setEditSub] = useState<Subscriber | null>(null)
   const [verifyPaymentId, setVerifyPaymentId] = useState<string | null>(null)
-  const [cancelSubId, setCancelSubId] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [page, setPage] = useState(1)
   const perPage = 10
@@ -308,7 +306,6 @@ export default function UsersPage() {
 
   const TABS: UsersTabConfig[] = [
     { id: "subscribers", label: "Subscribers", count: subscribers.length },
-    { id: "watchHistory", label: "Watch History", count: watchHistory.length },
     {
       id: "subscriptions",
       label: "Subscriptions",
@@ -383,32 +380,10 @@ export default function UsersPage() {
           loading={actionLoading}
         />
       )}
-      {cancelSubId && (
-        <ConfirmDialog
-          heading="Cancel subscription?"
-          message="The subscriber's subscription will be cancelled immediately."
-          confirmLabel="Cancel Subscription"
-          onConfirm={() => {
-            setActionLoading(true)
-            setTimeout(() => {
-              void subscriptionState.update(cancelSubId, {
-                status: "Cancelled",
-              })
-              setCancelSubId(null)
-              setActionLoading(false)
-              showToast("Subscription cancelled.")
-            }, 600)
-          }}
-          onCancel={() => setCancelSubId(null)}
-          danger
-          loading={actionLoading}
-        />
-      )}
-
       <AdminPageHeader
         eyebrow="User management"
         title="Users"
-        description="Manage subscriber accounts, viewing records, plans, subscriptions, and payment verification."
+        description="Manage subscriber accounts, plans, subscriptions, and payment verification."
       />
 
       <AdminWorkspaceTabs
@@ -525,7 +500,6 @@ export default function UsersPage() {
                   <Th>Subscription</Th>
                   <Th>Status</Th>
                   <Th>Joined</Th>
-                  <Th>Actions</Th>
                 </tr>
               </thead>
               <tbody>
@@ -762,7 +736,7 @@ export default function UsersPage() {
                 {filteredSubscriptions.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={6}
                       className="px-4 py-12 text-center text-sm"
                       style={{ color: "var(--taupe)" }}
                     >
@@ -821,16 +795,6 @@ export default function UsersPage() {
                       </Td>
                       <Td>
                         <GenericBadge label={s.status} />
-                      </Td>
-                      <Td>
-                        {s.status === "Active" && (
-                          <button
-                            onClick={() => setCancelSubId(s.id)}
-                            className="btn-danger px-2 py-1 rounded text-xs"
-                          >
-                            Cancel
-                          </button>
-                        )}
                       </Td>
                     </tr>
                   ))

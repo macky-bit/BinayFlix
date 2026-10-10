@@ -1965,16 +1965,10 @@ function WatchHistoryTab() {
 
 // ─── Subscriptions Tab ────────────────────────────────────────────────────────
 
-function SubscriptionsTab({
-  onToast,
-  focusId,
-}: {
-  onToast: (m: string) => void
-  focusId?: string | null
-}) {
-  const subscriptionState = useAdminCollection(
+function SubscriptionsTab({ focusId }: { focusId?: string | null }) {
+  const subscriptions = useAdminCollection(
     useAdminRepository<Subscription>("subscriptions"),
-  )
+  ).items
 
   const planRecords = useAdminCollection(
     useAdminRepository<Plan>("plans"),
@@ -1983,8 +1977,6 @@ function SubscriptionsTab({
   const paymentRecords = useAdminCollection(
     useAdminRepository<Payment>("payments"),
   ).items
-
-  const subscriptions = subscriptionState.items
 
   const [search, setSearch] = useState("")
 
@@ -2000,13 +1992,9 @@ function SubscriptionsTab({
 
   const [selectedId, setSelectedId] = useState<string | null>(focusId ?? null)
 
-  const [viewMode, setViewMode] = useState<"details" | "edit" | null>(
+  const [viewMode, setViewMode] = useState<"details" | null>(
     focusId ? "details" : null,
   )
-
-  const [editData, setEditData] = useState<Subscription | null>(null)
-
-  const [confirm, setConfirm] = useState<{ action: string } | null>(null)
 
   const plans = [
     "All Plans",
@@ -2048,37 +2036,6 @@ function SubscriptionsTab({
   const paged = filtered.slice((page - 1) * perPage, page * perPage)
 
   const selected = subscriptions.find((s) => s.id === selectedId) ?? null
-
-  function saveEdit() {
-    if (!editData) return
-
-    const prevSub = subscriptions.find((s) => s.id === editData.id)
-
-    if (
-      prevSub?.status === "Active" &&
-      (editData.status === "Cancelled" ||
-        editData.status === "Expired" ||
-        editData.planId !== prevSub.planId)
-    ) {
-      setConfirm({ action: "edit" })
-
-      return
-    }
-
-    applyEdit(editData)
-  }
-
-  function applyEdit(data: Subscription) {
-    void subscriptionState
-      .update(data.id, data)
-      .catch((error: Error) => onToast(error.message))
-
-    setViewMode("details")
-
-    setConfirm(null)
-
-    onToast("Subscription updated successfully.")
-  }
 
   return (
     <div>
@@ -2193,11 +2150,6 @@ function SubscriptionsTab({
                       setSelectedId(s.id)
                       setViewMode("details")
                     }} />
-                    <AdminRowAction action="edit" name={`subscription ${s.id}`} onClick={() => {
-                      setSelectedId(s.id)
-                      setEditData({ ...s })
-                      setViewMode("edit")
-                    }} />
                   </div>
                 </Td>
               </Tr>
@@ -2288,136 +2240,13 @@ function SubscriptionsTab({
                 </div>
               )
             })()}
-          <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <VioletBtn onClick={() => setViewMode(null)} style={{ flex: 1 }}>
-              Close
-            </VioletBtn>
-            <GoldBtn
-              onClick={() => {
-                setEditData({ ...selected })
-                setViewMode("edit")
-              }}
-              style={{ flex: 1 }}
-            >
-              Edit Subscription
-            </GoldBtn>
-          </div>
+          <VioletBtn
+            onClick={() => setViewMode(null)}
+            style={{ width: "100%", marginTop: 24 }}
+          >
+            Close
+          </VioletBtn>
         </Panel>
-      )}
-
-      {editData && viewMode === "edit" && (
-        <Panel
-          title="Edit Subscription"
-          onClose={() => setViewMode(null)}
-          width={480}
-        >
-          <FormField label="Subscription ID">
-            <TextInput value={editData.id} readOnly />
-          </FormField>
-          <FormField label="Subscriber ID">
-            <TextInput value={editData.subscriberId} readOnly />
-          </FormField>
-          <FormField label="Plan">
-            <select
-              value={editData.planId}
-              onChange={(e) =>
-                setEditData((d) => {
-                  if (!d) return d
-
-                  const plan = planRecords.find((p) => p.id === e.target.value)
-
-                  return {
-                    ...d,
-                    planId: e.target.value,
-                    plan: plan?.name ?? d.plan,
-                  }
-                })
-              }
-              style={{
-                width: "100%",
-                padding: "9px 12px",
-                background: "var(--color-ink)",
-                border: "1px solid #374151",
-                borderRadius: 6,
-                color: "#fff",
-                fontSize: 13,
-                fontFamily: "inherit",
-              }}
-            >
-              {planRecords.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Start Date">
-            <TextInput
-              value={editData.startDate}
-              onChange={(v) =>
-                setEditData((d) => (d ? { ...d, startDate: v } : d))
-              }
-              type="date"
-            />
-          </FormField>
-          <FormField label="End Date">
-            <TextInput
-              value={editData.endDate}
-              onChange={(v) =>
-                setEditData((d) => (d ? { ...d, endDate: v } : d))
-              }
-              type="date"
-            />
-          </FormField>
-          <FormField label="Status">
-            <select
-              value={editData.status}
-              onChange={(e) =>
-                setEditData((d) =>
-                  d ? { ...d, status: e.target.value as SubStatus } : d,
-                )
-              }
-              style={{
-                width: "100%",
-                padding: "9px 12px",
-                background: "var(--color-ink)",
-                border: "1px solid #374151",
-                borderRadius: 6,
-                color: "#fff",
-                fontSize: 13,
-                fontFamily: "inherit",
-              }}
-            >
-              {(["Active", "Expired", "Cancelled"] as SubStatus[]).map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-            <VioletBtn
-              onClick={() => setViewMode("details")}
-              style={{ flex: 1 }}
-            >
-              Cancel
-            </VioletBtn>
-            <GoldBtn onClick={saveEdit} style={{ flex: 1 }}>
-              Save Changes
-            </GoldBtn>
-          </div>
-        </Panel>
-      )}
-
-      {confirm && editData && (
-        <ConfirmDialog
-          heading="Update subscription?"
-          message="You are about to change the status or plan of an active subscription. This action may affect the subscriber's access."
-          onCancel={() => setConfirm(null)}
-          onConfirm={() => applyEdit(editData)}
-          confirmLabel="Confirm Update"
-          danger
-        />
       )}
     </div>
   )
@@ -3213,7 +3042,7 @@ function PaymentsTab({ onToast }: { onToast: (m: string) => void }) {
 
 export default function UserManagerView() {
   const [tab, setTab] =
-    useState<"subscribers" | "watch" | "subscriptions" | "plans" | "payments">(
+    useState<"subscribers" | "subscriptions" | "plans" | "payments">(
       "subscribers",
     )
 
@@ -3232,14 +3061,12 @@ export default function UserManagerView() {
       <AdminPageHeader
         eyebrow="Subscriber operations"
         title="User Management"
-        description="Manage subscriber accounts, viewing records, plans, subscriptions, and payment verification."
+        description="Manage subscriber accounts, plans, subscriptions, and payment verification."
       />
 
       <AdminWorkspaceTabs
         tabs={[
           { id: "subscribers", label: "Subscribers" },
-
-          { id: "watch", label: "Watch History" },
 
           { id: "subscriptions", label: "Subscriptions" },
 
@@ -3261,9 +3088,8 @@ export default function UserManagerView() {
           navigateToSubscription={navigateToSubscription}
         />
       )}
-      {tab === "watch" && <WatchHistoryTab />}
       {tab === "subscriptions" && (
-        <SubscriptionsTab onToast={setToast} focusId={focusSubId} />
+        <SubscriptionsTab focusId={focusSubId} />
       )}
       {tab === "plans" && <PlansTab onToast={setToast} />}
       {tab === "payments" && <PaymentsTab onToast={setToast} />}
