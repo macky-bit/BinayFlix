@@ -33,7 +33,7 @@ export function removeContinue(id: number, mediaType: Show["mediaType"]) {
 	persist(load().filter((e) => !(e.show.id === id && e.show.mediaType === mediaType)));
 }
 
-export function useContinueWatching() {
+export function useContinueWatching(limit: number | null = 10) {
 	const [entries, setEntries] = useState<ContinueEntry[]>(load);
 
 	useEffect(() => {
@@ -54,8 +54,8 @@ export function useContinueWatching() {
 		removeContinue(id, mediaType);
 	}, []);
 
-	// Sorted most-recent first, cap at 10
-	const sorted = [...entries].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 10);
+	const sorted = [...entries].sort((a, b) => b.updatedAt - a.updatedAt);
+	const visibleEntries = limit === null ? sorted : sorted.slice(0, limit);
 
-	return { entries: sorted, markWatched, remove };
+	return { entries: visibleEntries, markWatched, remove };
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import StreamFlixSelect from "../../components/StreamFlixSelect"
 import { supabase } from "../../lib/supabase"
+import { useContinueWatching } from "../dashboard/continueWatchingStore"
 import styles from "./profile.module.css"
 import { MAX_PROFILE_NAME_LENGTH, normalizeProfileName } from "./profileName"
 
@@ -793,20 +794,144 @@ function PINModal({
 
 // ── WatchHistoryPanel ──────────────────────────────────────────────────────
 
-const HISTORY_ITEMS: {
-  id: number
-
+type WatchHistoryRow = {
+  content_id: number | string
   title: string
+  thumbnail: string | null
+  watch_date: string
+  last_playback: number | null
+  runtime: number | null
+}
 
+type WatchHistoryItem = {
+  key: string
+  contentId: number | null
+  continueId: number | null
+  mediaType?: "movie" | "tv"
+  title: string
   subtitle: string
-
   date: string
-
   img: string
-}[] = []
+  updatedAt: number
+}
+
+function formatPlaybackTime(seconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(seconds))
+  const hours = Math.floor(safeSeconds / 3600)
+  const minutes = Math.floor((safeSeconds % 3600) / 60)
+  const remainingSeconds = safeSeconds % 60
+
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`
+    : `${minutes}:${String(remainingSeconds).padStart(2, "0")}`
+}
 
 function WatchHistoryPanel({ onClose }: { onClose: () => void }) {
-  const [items, setItems] = useState(HISTORY_ITEMS)
+  const [items, setItems] = useState<WatchHistoryItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const {
+    entries: continueEntries,
+    remove: removeContinueEntry,
+  } = useContinueWatching(null)
+
+  const loadHistory = useCallback(async () => {
+    setLoading(true)
+    setError("")
+
+    const { data, error: historyError } = await supabase.rpc(
+      "get_my_watch_history",
+    )
+    if (historyError) throw historyError
+
+    const rows = (data ?? []) as WatchHistoryRow[]
+    setItems(
+      rows.map((row) => ({
+        key: `history:${row.content_id}`,
+        contentId: Number(row.content_id),
+        continueId: null,
+        title: row.title,
+        subtitle: `${formatPlaybackTime(row.last_playback ?? 0)} watched${
+          row.runtime ? ` · ${row.runtime} min` : ""
+        }`,
+        date: new Intl.DateTimeFormat(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }).format(new Date(row.watch_date)),
+        img: row.thumbnail?.trim() ?? "",
+        updatedAt: new Date(row.watch_date).getTime(),
+      })),
+    )
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    void loadHistory().catch((loadError: unknown) => {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Watch history could not be loaded.",
+      )
+      setLoading(false)
+    })
+  }, [loadHistory])
+
+  const removeHistoryItem = async (item: WatchHistoryItem) => {
+    if (item.continueId !== null) {
+      removeContinueEntry(item.continueId, item.mediaType)
+    }
+
+    if (item.contentId === null) return
+
+    const { error: removeError } = await supabase.rpc(
+      "delete_my_watch_history_entry",
+      { selected_content_id: item.contentId },
+    )
+
+    if (removeError) {
+      setError(removeError.message)
+      return
+    }
+
+    setItems((current) =>
+      current.filter((entry) => entry.contentId !== item.contentId),
+    )
+  }
+
+  const remoteItemsByTitle = new Map(
+    items.map((item) => [item.title.trim().toLocaleLowerCase(), item]),
+  )
+  const continueItems: WatchHistoryItem[] = continueEntries.map((entry) => {
+    const titleKey = entry.show.title.trim().toLocaleLowerCase()
+    const remoteItem = remoteItemsByTitle.get(titleKey)
+    const progress = Math.max(0, Math.min(100, Math.round(entry.progress)))
+
+    return {
+      key: `continue:${entry.show.mediaType ?? "movie"}:${entry.show.id}`,
+      contentId: remoteItem?.contentId ?? null,
+      continueId: entry.show.id,
+      mediaType: entry.show.mediaType,
+      title: entry.show.title,
+      subtitle: `${entry.episodeLabel ? `${entry.episodeLabel} · ` : ""}${progress}% watched`,
+      date: new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(entry.updatedAt)),
+      img: entry.show.image,
+      updatedAt: entry.updatedAt,
+    }
+  })
+  const continueTitles = new Set(
+    continueItems.map((item) => item.title.trim().toLocaleLowerCase()),
+  )
+  const visibleItems = [...continueItems, ...items].filter(
+    (item, index, combined) =>
+      !(
+        item.continueId === null &&
+        continueTitles.has(item.title.trim().toLocaleLowerCase())
+      ) && combined.findIndex((candidate) => candidate.key === item.key) === index,
+  )
+  visibleItems.sort((first, second) => second.updatedAt - first.updatedAt)
 
   return (
     <div
@@ -829,6 +954,7 @@ function WatchHistoryPanel({ onClose }: { onClose: () => void }) {
             Watch History
           </h2>
           <button
+            type="button"
             onClick={onClose}
             className="text-[var(--color-taupe)] hover:text-[var(--color-cream)] transition-colors p-1"
           >
@@ -837,7 +963,33 @@ function WatchHistoryPanel({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="space-y-1 max-h-80 overflow-y-auto">
-          {items.length === 0 && (
+          {loading && (
+            <p
+              className="text-[var(--color-taupe)] text-sm py-4 text-center"
+              style={{ fontFamily: "'Barlow', sans-serif" }}
+            >
+              Loading watch history…
+            </p>
+          )}
+          {!loading && error && (
+            <div className="py-4 text-center">
+              <p
+                role="alert"
+                className="text-red-300 text-sm"
+                style={{ fontFamily: "'Barlow', sans-serif" }}
+              >
+                {error}
+              </p>
+              <button
+                type="button"
+                onClick={() => void loadHistory()}
+                className="mt-3 text-sm text-[var(--color-cream)] underline underline-offset-4"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+          {!loading && !error && visibleItems.length === 0 && (
             <p
               className="text-[var(--color-taupe)] text-sm py-4 text-center"
               style={{ fontFamily: "'Barlow', sans-serif" }}
@@ -845,17 +997,26 @@ function WatchHistoryPanel({ onClose }: { onClose: () => void }) {
               No watch history.
             </p>
           )}
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <div
-              key={item.id}
+              key={item.key}
               className="flex items-center gap-3 py-3 group"
               style={{ borderBottom: "1px solid var(--color-stone)" }}
             >
-              <img
-                src={item.img}
-                alt={item.title}
-                className="w-20 h-12 object-cover rounded-sm flex-shrink-0"
-              />
+              {item.img ? (
+                <img
+                  src={item.img}
+                  alt=""
+                  className="w-20 h-12 object-cover rounded-sm flex-shrink-0"
+                />
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className="w-20 h-12 rounded-sm flex-shrink-0 bg-[var(--color-stone)] flex items-center justify-center text-[var(--color-taupe)]"
+                >
+                  <PlayIcon size={16} />
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <p
                   className="text-[var(--color-cream)] text-sm font-medium truncate"
@@ -877,11 +1038,10 @@ function WatchHistoryPanel({ onClose }: { onClose: () => void }) {
                 </p>
               </div>
               <button
-                onClick={() =>
-                  setItems((prev) => prev.filter((i) => i.id !== item.id))
-                }
+                type="button"
+                onClick={() => void removeHistoryItem(item)}
                 className="text-[var(--color-stone)] hover:text-[var(--color-taupe)] transition-colors p-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100"
-                aria-label={`Remove ${item.title} from history`}
+                aria-label={`Remove ${item.title} from watch history`}
               >
                 <TrashIcon />
               </button>
@@ -890,6 +1050,7 @@ function WatchHistoryPanel({ onClose }: { onClose: () => void }) {
         </div>
 
         <button
+          type="button"
           onClick={onClose}
           className="mt-6 w-full py-2.5 border border-[var(--color-stone)] text-[var(--color-cream)] text-sm rounded-sm hover:border-[var(--color-taupe)] transition-colors"
           style={{ fontFamily: "'Barlow', sans-serif" }}

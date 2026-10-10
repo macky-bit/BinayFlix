@@ -774,3 +774,42 @@ test("profile PIN verification is owner-scoped, hashed, and rate limited", () =>
 
   assert.match(sql, /to authenticated, postgres, service_role/i)
 })
+
+test("normal movie playback records watch history and the profile loads it", () => {
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8")
+  const movieSource = readFileSync(
+    new URL("../src/modules/movie/fixedscreen/movie.tsx", import.meta.url),
+    "utf8",
+  )
+  const profileSource = readFileSync(
+    new URL("../src/modules/profile/components.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(movieSource, /recordWatchProgress\(/)
+  assert.match(movieSource, /playbackSeconds - previousSync\.playbackSeconds/)
+  assert.match(appSource, /onProgress=\{\(progress\) => addOrUpdateContinue/)
+  assert.match(profileSource, /get_my_watch_history/)
+  assert.match(profileSource, /delete_my_watch_history_entry/)
+  assert.match(profileSource, /useContinueWatching\(null\)/)
+  assert.doesNotMatch(profileSource, /const HISTORY_ITEMS/)
+})
+
+test("watch history RPCs are authenticated and owner scoped", () => {
+  const sql = readFileSync(
+    new URL(
+      "../supabase/migrations/20261010201500_watch_history_profile_integration.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.match(sql, /security definer/gi)
+  assert.match(sql, /account\.auth_user_id = auth\.uid\(\)/i)
+  assert.match(sql, /grant execute on function public\.record_my_watch_progress/i)
+  assert.match(sql, /grant execute on function public\.get_my_watch_history/i)
+  assert.match(
+    sql,
+    /grant execute on function public\.delete_my_watch_history_entry/i,
+  )
+})

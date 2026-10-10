@@ -252,6 +252,7 @@ export default function App() {
           backgroundImage={watchShow.hero ?? watchShow.image}
           isSeries={watchShow.mediaType === "tv"}
           activeProfile={activeProfile}
+          onProgress={(progress) => addOrUpdateContinue(watchShow, progress)}
           onBack={() => setPage("dashboard")}
         />
       )}

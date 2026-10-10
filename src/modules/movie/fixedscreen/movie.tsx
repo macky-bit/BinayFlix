@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 
 import { supabase } from "../../../lib/supabase"
 
+import { recordWatchProgress } from "../watchHistory"
+
 import {
   COMMENT_MAX_LENGTH,
   deleteContentComment,
@@ -59,6 +61,8 @@ interface WatchProps {
 
     avatar: string
   } | null
+
+  onProgress?: (progress: number) => void
 
   onBack: () => void
 }
@@ -334,6 +338,8 @@ export default function WatchScreen({
 
   activeProfile = null,
 
+  onProgress,
+
   onBack,
 }: WatchProps) {
   const [episodes, setEpisodes] = useState<TMDBEpisode[]>([])
@@ -428,6 +434,11 @@ export default function WatchScreen({
   const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const engagementRequest = useRef(0)
+
+  const watchHistorySyncRef = useRef<{
+    contentId: number
+    playbackSeconds: number
+  } | null>(null)
 
   const pageRef = useRef<HTMLDivElement>(null)
 
@@ -814,6 +825,37 @@ export default function WatchScreen({
   }, [contentId, duration, playing])
 
   useEffect(() => {
+    if (!playing || internalContentId === null || current <= 0) return
+
+    const playbackSeconds = Math.floor(current)
+    const previousSync = watchHistorySyncRef.current
+    const shouldSync =
+      previousSync === null ||
+      previousSync.contentId !== internalContentId ||
+      Math.abs(playbackSeconds - previousSync.playbackSeconds) >= 15
+
+    if (!shouldSync) return
+
+    const syncPoint = { contentId: internalContentId, playbackSeconds }
+    watchHistorySyncRef.current = syncPoint
+
+    onProgress?.(
+      Math.max(1, Math.min(100, Math.round((playbackSeconds / duration) * 100))),
+    )
+
+    void recordWatchProgress(
+      supabase,
+      internalContentId,
+      playbackSeconds,
+    ).catch((error: unknown) => {
+      if (watchHistorySyncRef.current === syncPoint) {
+        watchHistorySyncRef.current = null
+      }
+      console.error("Unable to record watch history", error)
+    })
+  }, [current, duration, internalContentId, onProgress, playing])
+
+  useEffect(() => {
     if (playing && current >= duration) setPlaying(false)
   }, [current, duration, playing])
 
@@ -880,19 +922,6 @@ export default function WatchScreen({
       const next = { ...previous, [contentId]: nextTime }
 
       saveProgress(next)
-      const nextPlayback = next[contentId] ?? 0
-      if (
-        internalContentId !== null &&
-        (nextPlayback === 1 || nextPlayback % 15 === 0)
-      ) {
-        void recordWatchProgress(
-          supabase,
-          internalContentId,
-          nextPlayback,
-        ).catch((error: unknown) => {
-          console.error("Unable to record watch history", error)
-        })
-      }
 
       return next
     })
@@ -2116,5 +2145,4 @@ export default function WatchScreen({
     </div>
   )
 }
-import { recordWatchProgress } from "../watchHistory";
 
