@@ -1436,6 +1436,11 @@ export function ProfileView({
             setProfileIdentity((current) =>
               current ? { ...current, name } : current,
             )
+            window.dispatchEvent(
+              new CustomEvent("streamflix:profile-updated", {
+                detail: { profileId: profileIdentity.id, name },
+              }),
+            )
             setEditOpen(false)
           }}
         />
@@ -1517,8 +1522,9 @@ export function ProfileView({
               </p>
             </div>
             <button
-              onClick={() => setEditOpen(true)}
-              disabled={!profileIdentity || identityLoading}
+            type="button"
+            onClick={() => setEditOpen(true)}
+            disabled={!profileIdentity || identityLoading}
               className="px-5 py-2 border border-[var(--color-stone)] text-[var(--color-cream)] text-sm rounded-sm hover:border-[var(--color-taupe)] hover:bg-[var(--color-wine)] transition-all"
               style={{ fontFamily: "'Barlow', sans-serif" }}
             >

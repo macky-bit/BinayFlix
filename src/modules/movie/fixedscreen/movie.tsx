@@ -880,6 +880,19 @@ export default function WatchScreen({
       const next = { ...previous, [contentId]: nextTime }
 
       saveProgress(next)
+      const nextPlayback = next[contentId] ?? 0
+      if (
+        internalContentId !== null &&
+        (nextPlayback === 1 || nextPlayback % 15 === 0)
+      ) {
+        void recordWatchProgress(
+          supabase,
+          internalContentId,
+          nextPlayback,
+        ).catch((error: unknown) => {
+          console.error("Unable to record watch history", error)
+        })
+      }
 
       return next
     })
@@ -2103,3 +2116,5 @@ export default function WatchScreen({
     </div>
   )
 }
+import { recordWatchProgress } from "../watchHistory";
+

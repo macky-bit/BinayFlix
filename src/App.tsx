@@ -125,6 +125,28 @@ export default function App() {
     }
   }, [activeProfile, page])
 
+  useEffect(() => {
+    const handleProfileUpdated = (event: Event) => {
+      const { profileId, name } = (event as CustomEvent<{
+        profileId: number | string
+        name: string
+      }>).detail
+
+      setActiveProfile((current) =>
+        current && String(current.id) === String(profileId)
+          ? { ...current, name }
+          : current,
+      )
+    }
+
+    window.addEventListener("streamflix:profile-updated", handleProfileUpdated)
+    return () =>
+      window.removeEventListener(
+        "streamflix:profile-updated",
+        handleProfileUpdated,
+      )
+  }, [])
+
   const handleWatch = (show: Show) => {
     addOrUpdateContinue(show, 1)
     setWatchShow(show)
