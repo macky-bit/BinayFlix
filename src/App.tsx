@@ -60,7 +60,7 @@ export default function App() {
 
   const finishOpening = useCallback(() => {
     openingStartedRef.current = false
-    setPage("dashboard")
+    setPage(activeProfileIdRef.current === null ? "profileSelect" : "dashboard")
   }, [])
 
   useEffect(() => {
@@ -119,6 +119,12 @@ export default function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (page === "dashboard" && activeProfile === null) {
+      setPage("profileSelect")
+    }
+  }, [activeProfile, page])
+
   const handleWatch = (show: Show) => {
     addOrUpdateContinue(show, 1)
     setWatchShow(show)
@@ -162,7 +168,7 @@ export default function App() {
 
       {page === "admin" && (
         <AdminPage
-          onBack={() => setPage("dashboard")}
+          onBack={() => setPage(activeProfile ? "dashboard" : "profileSelect")}
           onSignOut={handleSignOut}
           onNavigate={(p) => setPage(p)}
         />
@@ -190,7 +196,7 @@ export default function App() {
         />
       )}
 
-      {page === "dashboard" && (
+      {page === "dashboard" && activeProfile && (
         <>
           <Dashboard
             activeProfile={activeProfile}

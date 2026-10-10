@@ -8,7 +8,7 @@ import { MyListView } from "./myList/components"
 import SearchResultsPage from "./SearchResultsPage"
 
 interface Props {
-  activeProfile: Profile | null
+  activeProfile: Profile
 
   onSignOut: () => void
 

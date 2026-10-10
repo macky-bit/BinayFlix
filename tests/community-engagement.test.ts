@@ -18,6 +18,12 @@ import { createEmptyReactionCounts } from "../src/shared/reactions.ts"
 
 import { selectBestLyricsMatch } from "../src/modules/movie/lyrics.ts"
 
+import {
+  PLAYBACK_SOURCE_BY_QUALITY,
+  playbackQualitiesForPlan,
+  preferredPlaybackQuality,
+} from "../src/modules/movie/playbackQuality.ts"
+
 import { getMemberDestination } from "../src/lib/authRouting.ts"
 
 import {
@@ -66,6 +72,47 @@ test("creates a reaction optimistically", async () => {
   )
 
   assert.deepEqual(calls, ["insert:love"])
+})
+
+test("subscription plans expose only their entitled playback qualities", () => {
+  assert.deepEqual(playbackQualitiesForPlan("Basic"), [480])
+
+  assert.deepEqual(playbackQualitiesForPlan("Standard"), [480, 720])
+
+  assert.deepEqual(playbackQualitiesForPlan("Premium"), [480, 720, 1080])
+
+  assert.deepEqual(playbackQualitiesForPlan(null), [480])
+
+  assert.equal(preferredPlaybackQuality("Basic"), 480)
+
+  assert.equal(preferredPlaybackQuality("Standard"), 720)
+
+  assert.equal(preferredPlaybackQuality("Premium"), 1080)
+})
+
+test("each playback quality resolves to its matching local video asset", () => {
+  assert.match(PLAYBACK_SOURCE_BY_QUALITY[480], /480MovieStudioLogo\.mp4$/)
+
+  assert.match(PLAYBACK_SOURCE_BY_QUALITY[720], /720MovieStudioLogo\.mp4$/)
+
+  assert.match(PLAYBACK_SOURCE_BY_QUALITY[1080], /1080MovieStudioLogo\.mp4$/)
+})
+
+test("studio clip completion returns to artwork without stopping the movie timer", () => {
+  const playerSource = readFileSync(
+    new URL("../src/modules/movie/fixedscreen/movie.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(
+    playerSource,
+    /onEnded=\{\(\) => \{[\s\S]*setClipEnded\(true\)[\s\S]*setPlaying\(true\)/,
+  )
+
+  assert.match(
+    playerSource,
+    /!clipStarted \|\| clipEnded \? styles\.playerVideoHidden/,
+  )
 })
 
 test("subscribed members choose a profile after login", () => {
@@ -317,16 +364,20 @@ test("opening video runs after a profile card is clicked instead of login", () =
 
     "utf8",
   )
+
   const loginSource = readFileSync(
     new URL("../src/modules/login/LoginPage.tsx", import.meta.url),
 
     "utf8",
   )
+
   const profileSelectSource = readFileSync(
     new URL(
       "../src/modules/profileSelect/ProfileSelectPage.tsx",
+
       import.meta.url,
     ),
+
     "utf8",
   )
 
@@ -335,10 +386,30 @@ test("opening video runs after a profile card is clicked instead of login", () =
   assert.match(appSource, /page === "opening"[\s\S]*<OpeningVideo/)
 
   assert.doesNotMatch(loginSource, /requestOpeningVideo|onAuthenticated/)
+
   assert.match(profileSelectSource, /onClick=\{\(\) => onSelect\(profile\)\}/)
+
   assert.doesNotMatch(
     profileSelectSource,
+
     /Choose a profile|continueBtn|setSelected/,
+  )
+})
+
+test("dashboard requires the viewer profile selected for the current session", () => {
+  const appSource = readFileSync(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(
+    appSource,
+    /page === "dashboard" && activeProfile === null[\s\S]*setPage\("profileSelect"\)/,
+  )
+  assert.match(appSource, /page === "dashboard" && activeProfile &&/)
+  assert.match(
+    appSource,
+    /onBack=\{\(\) => setPage\(activeProfile \? "dashboard" : "profileSelect"\)\}/,
   )
 })
 
@@ -357,7 +428,10 @@ test("opening video uses its own public media bucket", () => {
 
   assert.match(sql, /file_size_limit[\s\S]*52428800/i)
 
-  assert.match(sql, /drop policy if exists authenticated_can_read_streamflix_opening/i)
+  assert.match(
+    sql,
+    /drop policy if exists authenticated_can_read_streamflix_opening/i,
+  )
 })
 
 test("help feedback validates image attachments", () => {
@@ -472,29 +546,43 @@ test("Stripe billing is webhook-authoritative and idempotent", () => {
   const sql = readFileSync(
     new URL(
       "../supabase/migrations/20261009090000_connect_stripe_billing.sql",
+
       import.meta.url,
     ),
+
     "utf8",
   )
+
   assert.match(sql, /stripe_webhook_event/i)
+
   assert.match(sql, /on conflict \(event_id\) do nothing/i)
+
   assert.match(sql, /process_stripe_billing_event/i)
+
   assert.match(sql, /subscription_stripe_price_unique/i)
+
   assert.match(
     sql,
+
     /revoke execute on function public\.select_subscription_plan/i,
   )
+
   assert.match(sql, /from public, anon, authenticated/i)
 })
 
 test("Stripe webhook verifies signatures before mutating billing records", () => {
   const source = readFileSync(
     new URL("../supabase/functions/stripe-webhook/index.ts", import.meta.url),
+
     "utf8",
   )
+
   assert.match(source, /constructEventAsync/i)
+
   assert.match(source, /Stripe-Signature/i)
+
   assert.match(source, /STRIPE_WEBHOOK_SIGNING_SECRET/i)
+
   assert.match(source, /process_stripe_billing_event/i)
 })
 
@@ -502,51 +590,78 @@ test("Checkout sessions use server-owned recurring prices and authenticated user
   const source = readFileSync(
     new URL(
       "../supabase/functions/create-checkout-session/index.ts",
+
       import.meta.url,
     ),
+
     "utf8",
   )
+
   assert.match(source, /serviceClient\.auth\.getUser/i)
+
   assert.match(source, /STRIPE_PRICE_BASIC/i)
+
   assert.match(source, /STRIPE_PRICE_STANDARD/i)
+
   assert.match(source, /STRIPE_PRICE_PREMIUM/i)
+
   assert.match(source, /mode: "subscription"/i)
+
   assert.doesNotMatch(source, /selected_subscription_id/)
 })
 
 test("movie soundtrack uses database audio and lyrics instead of placeholders", () => {
   const playerSource = readFileSync(
     new URL("../src/modules/movie/fixedscreen/movie.tsx", import.meta.url),
+
     "utf8",
   )
+
   const soundtrackSource = readFileSync(
     new URL("../src/modules/movie/soundtrack.ts", import.meta.url),
+
     "utf8",
   )
 
   assert.match(playerSource, /<audio[\s\S]*soundtrackAudioRef/)
+
   assert.match(playerSource, /toggleSoundtrack\(track\)/)
+
   assert.match(playerSource, /lyricsTrack\.lyrics/)
+
   assert.doesNotMatch(
     playerSource,
+
     /Main Theme|Featured Track|Soundtrack source pending/,
   )
+
   assert.match(soundtrackSource, /\.from\("soundtrack"\)/)
+
   assert.match(soundtrackSource, /stream_link/)
 })
 
 test("lyrics lookup accepts an exact title and artist match", () => {
-  const match = selectBestLyricsMatch("Breaking Bad Main Title Theme", "Dave Porter - Topic", [
-    {
-      id: 1,
-      trackName: "Breaking Bad Main Title Theme",
-      artistName: "Dave Porter",
-      albumName: "Breaking Bad",
-      instrumental: true,
-      plainLyrics: null,
-      syncedLyrics: null,
-    },
-  ])
+  const match = selectBestLyricsMatch(
+    "Breaking Bad Main Title Theme",
+    "Dave Porter - Topic",
+    [
+      {
+        id: 1,
+
+        trackName: "Breaking Bad Main Title Theme",
+
+        artistName: "Dave Porter",
+
+        albumName: "Breaking Bad",
+
+        instrumental: true,
+
+        plainLyrics: null,
+
+        syncedLyrics: null,
+      },
+    ],
+  )
 
   assert.equal(match?.id, 1)
 })
@@ -555,11 +670,17 @@ test("lyrics lookup rejects generic-title matches from unrelated artists", () =>
   const match = selectBestLyricsMatch("Opening", "SonySoundtracksVEVO", [
     {
       id: 2,
+
       trackName: "Opening",
+
       artistName: "Unrelated Artist",
+
       albumName: "Different Film",
+
       instrumental: false,
+
       plainLyrics: "Wrong lyrics",
+
       syncedLyrics: null,
     },
   ])
@@ -570,35 +691,53 @@ test("lyrics lookup rejects generic-title matches from unrelated artists", () =>
 test("Help Center renders at true 100 percent while preserving all actions", () => {
   const pageSource = readFileSync(
     new URL("../src/modules/help/HelpPage.tsx", import.meta.url),
+
     "utf8",
   )
+
   const viewSource = readFileSync(
     new URL("../src/modules/help/components.tsx", import.meta.url),
+
     "utf8",
   )
 
   assert.match(pageSource, /style\.setProperty\("zoom", "1"\)/)
+
   assert.match(pageSource, /style\.removeProperty\("zoom"\)/)
+
   assert.match(viewSource, />\s*Back to StreamFlix\s*</)
+
   assert.match(viewSource, />\s*Contact Us\s*</)
 })
 
 test("profile PINs are persisted and gate locked profile selection", () => {
   const profileSource = readFileSync(
     new URL("../src/modules/profile/components.tsx", import.meta.url),
+
     "utf8",
   )
+
   const selectorSource = readFileSync(
-    new URL("../src/modules/profileSelect/ProfileSelectPage.tsx", import.meta.url),
+    new URL(
+      "../src/modules/profileSelect/ProfileSelectPage.tsx",
+      import.meta.url,
+    ),
+
     "utf8",
   )
 
   assert.match(profileSource, /set_my_member_profile_pin/)
+
   assert.match(profileSource, /selected_pin:\s*selectedPin/)
+
   assert.match(profileSource, /Remove PIN/)
+
   assert.match(selectorSource, /row\.has_pin/)
+
   assert.match(selectorSource, /if \(profile\.hasPin\)/)
+
   assert.match(selectorSource, /verify_my_member_profile_pin/)
+
   assert.match(selectorSource, /if \(result\?\.is_verified\)/)
 })
 
@@ -606,19 +745,32 @@ test("profile PIN verification is owner-scoped, hashed, and rate limited", () =>
   const sql = readFileSync(
     new URL(
       "../supabase/migrations/20261010103000_secure_member_profile_pin_flow.sql",
+
       import.meta.url,
     ),
+
     "utf8",
   )
 
   assert.match(sql, /profile\.pin_hash is not null as has_pin/i)
+
   assert.match(sql, /account\.auth_user_id = \(select auth\.uid\(\)\)/i)
+
   assert.match(sql, /for update of profile/i)
-  assert.match(sql, /extensions\.crypt\(selected_pin, stored_pin_hash\) = stored_pin_hash/i)
+
+  assert.match(
+    sql,
+    /extensions\.crypt\(selected_pin, stored_pin_hash\) = stored_pin_hash/i,
+  )
+
   assert.match(sql, /next_failed_attempts >= 5/i)
+
   assert.match(sql, /interval '15 minutes'/i)
-  assert.match(sql, /revoke all on function public\.verify_my_member_profile_pin/i)
+
+  assert.match(
+    sql,
+    /revoke all on function public\.verify_my_member_profile_pin/i,
+  )
+
   assert.match(sql, /to authenticated, postgres, service_role/i)
 })
-
-
