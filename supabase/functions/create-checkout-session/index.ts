@@ -43,6 +43,40 @@ const priceForPlan = (configuredPrice: unknown) => {
   return price
 }
 
+async function enablePortalPlanUpdates(stripe: Stripe, configuration: string) {
+  const priceIds = [
+    Deno.env.get("STRIPE_PRICE_BASIC")?.trim(),
+    Deno.env.get("STRIPE_PRICE_STANDARD")?.trim(),
+    Deno.env.get("STRIPE_PRICE_PREMIUM")?.trim(),
+  ].filter((price): price is string => Boolean(price?.startsWith("price_")))
+  const prices = await Promise.all(
+    [...new Set(priceIds)].map((price) => stripe.prices.retrieve(price)),
+  )
+  const groupedProducts = new Map<string, string[]>()
+  for (const price of prices) {
+    const productId =
+      typeof price.product === "string" ? price.product : price.product.id
+    groupedProducts.set(productId, [
+      ...(groupedProducts.get(productId) ?? []),
+      price.id,
+    ])
+  }
+
+  await stripe.billingPortal.configurations.update(configuration, {
+    features: {
+      subscription_update: {
+        enabled: true,
+        default_allowed_updates: ["price"],
+        proration_behavior: "none",
+        products: [...groupedProducts].map(([product, configuredPrices]) => ({
+          product,
+          prices: configuredPrices,
+        })),
+      },
+    },
+  })
+}
+
 Deno.serve(async (request) => {
   let origin = "*"
   try {
@@ -122,18 +156,13 @@ Deno.serve(async (request) => {
       activeMembership?.stripe_subscription_id ?? "",
     ).trim()
     if (activeMembership && stripeSubscriptionId.startsWith("sub_")) {
-      const subscription = await stripe.subscriptions.retrieve(
-        stripeSubscriptionId,
-      )
+      const subscription =
+        await stripe.subscriptions.retrieve(stripeSubscriptionId)
       if (
         subscription.status !== "canceled" &&
         Number(activeMembership.subscription_id) === planId
       ) {
-        return response(
-          { updated: true, unchanged: true, planId },
-          200,
-          origin,
-        )
+        return response({ updated: true, unchanged: true, planId }, 200, origin)
       }
       if (
         subscription.status !== "canceled" &&
@@ -145,30 +174,40 @@ Deno.serve(async (request) => {
       }
 
       if (subscription.status !== "canceled") {
-        await stripe.subscriptions.update(stripeSubscriptionId, {
-          items: [
-            {
-              id: subscription.items.data[0].id,
-              price: selectedPrice,
-              quantity: 1,
+        const configuration = Deno.env
+          .get("STRIPE_PORTAL_CONFIGURATION_ID")
+          ?.trim()
+        if (!configuration?.startsWith("bpc_"))
+          throw new Error("Stripe Customer Portal is not configured")
+        await enablePortalPlanUpdates(stripe, configuration)
+
+        const customerId =
+          typeof subscription.customer === "string"
+            ? subscription.customer
+            : subscription.customer.id
+        const portalSession = await stripe.billingPortal.sessions.create({
+          customer: customerId,
+          configuration,
+          return_url: `${origin}/?billing=updated`,
+          flow_data: {
+            type: "subscription_update_confirm",
+            subscription_update_confirm: {
+              subscription: stripeSubscriptionId,
+              items: [
+                {
+                  id: subscription.items.data[0].id,
+                  price: selectedPrice,
+                  quantity: 1,
+                },
+              ],
             },
-          ],
-          metadata,
-          cancel_at_period_end: false,
-          payment_behavior: "error_if_incomplete",
-          proration_behavior: "none",
-        })
-
-        const { error: syncError } = await serviceClient.rpc(
-          "sync_stripe_subscription_plan",
-          {
-            selected_stripe_subscription_id: stripeSubscriptionId,
-            selected_plan_id: planId,
+            after_completion: {
+              type: "redirect",
+              redirect: { return_url: `${origin}/?billing=updated` },
+            },
           },
-        )
-        if (syncError) throw syncError
-
-        return response({ updated: true, planId }, 200, origin)
+        })
+        return response({ url: portalSession.url }, 200, origin)
       }
     }
 

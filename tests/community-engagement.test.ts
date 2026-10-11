@@ -647,7 +647,7 @@ test("Checkout sessions use server-owned recurring prices and authenticated user
   assert.doesNotMatch(source, /selected_subscription_id/)
 })
 
-test("active Stripe subscriptions can replace their plan without a duplicate checkout", () => {
+test("active Stripe subscriptions use the selected plan in Stripe confirmation", () => {
   const checkoutSource = readFileSync(
     new URL(
       "../supabase/functions/create-checkout-session/index.ts",
@@ -674,15 +674,19 @@ test("active Stripe subscriptions can replace their plan without a duplicate che
     "utf8",
   )
 
-  assert.match(checkoutSource, /stripe\.subscriptions\.update/)
+  assert.match(checkoutSource, /stripe\.billingPortal\.sessions\.create/)
 
   assert.match(checkoutSource, /id: subscription\.items\.data\[0\]\.id/)
 
   assert.match(checkoutSource, /price: selectedPrice/)
 
-  assert.match(checkoutSource, /proration_behavior: "none"/)
+  assert.match(checkoutSource, /type: "subscription_update_confirm"/)
 
-  assert.match(checkoutSource, /cancel_at_period_end: false/)
+  assert.match(checkoutSource, /billingPortal\.configurations\.update/)
+
+  assert.match(checkoutSource, /default_allowed_updates: \["price"\]/)
+
+  assert.match(checkoutSource, /enabled: true/)
 
   assert.doesNotMatch(checkoutSource, /An active subscription already exists/)
 
@@ -697,6 +701,8 @@ test("active Stripe subscriptions can replace their plan without a duplicate che
   )
 
   assert.match(webhookSource, /sync_stripe_subscription_plan/)
+
+  assert.match(webhookSource, /stripe_price_id/)
 
   assert.match(syncSql, /SET subscription_id = selected_plan_id/i)
 
@@ -740,7 +746,7 @@ test("membership separates plan changes from Stripe portal cancellation", () => 
 
   assert.match(accountSource, /openBillingPortal\("cancel"\)/)
 
-  assert.match(accountSource, /openBillingPortal\("change"\)/)
+  assert.match(accountSource, /setModal\("changePlan"\)/)
 })
 
 test("completed Stripe cancellation signs out and returns to login", () => {
@@ -783,6 +789,26 @@ test("scheduled Stripe cancellations immediately revoke member access", () => {
   assert.match(authSource, /get_my_subscription_state/)
   assert.match(authSource, /getMemberDestination/)
   assert.match(subscriptionStateSql, /lower\(membership\.status\) = 'active'/i)
+})
+
+test("plan success waits for Stripe instead of appearing before redirect", () => {
+  const source = readFileSync(
+    new URL(
+      "../src/modules/subscription/SubscriptionPage.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.match(source, /if \(await onConfirm\(\)\) setDone\(true\)/)
+  assert.match(
+    source,
+    /window\.location\.assign\(checkoutUrl\)[\s\S]*return false/,
+  )
+  assert.doesNotMatch(
+    source,
+    /function handleChoose\(plan: Plan\)[\s\S]{0,80}setSelectedPlan\(plan\)/,
+  )
 })
 
 test("movie soundtrack uses database audio and lyrics instead of placeholders", () => {

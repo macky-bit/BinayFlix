@@ -1881,11 +1881,7 @@ function MembershipPage({
         </div>
         <div className="flex flex-wrap gap-3">
           <button
-            onClick={() =>
-              account?.planName
-                ? void openBillingPortal("change")
-                : setModal("changePlan")
-            }
+            onClick={() => setModal("changePlan")}
             disabled={portalAction !== null}
             className="text-sm font-medium px-4 py-2 rounded transition-colors"
             style={{
@@ -1906,11 +1902,7 @@ function MembershipPage({
               e.currentTarget.style.color = "var(--color-taupe)"
             }}
           >
-            {portalAction === "change"
-              ? "Opening Stripe…"
-              : account?.planName
-                ? "Change Plan"
-                : "Choose a Plan"}
+            {account?.planName ? "Change Plan" : "Choose a Plan"}
           </button>
           {account?.planName && (
             <button

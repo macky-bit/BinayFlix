@@ -170,7 +170,7 @@ function ConfirmModal({
 
   onCancel: () => void
 
-  onConfirm: () => Promise<void>
+  onConfirm: () => Promise<boolean>
 
   onContinue: () => void
 }) {
@@ -202,9 +202,7 @@ function ConfirmModal({
     setError("")
 
     try {
-      await onConfirm()
-
-      setDone(true)
+      if (await onConfirm()) setDone(true)
     } catch (reason) {
       setError(
         reason instanceof Error ? reason.message : "Unable to save your plan.",
@@ -324,7 +322,7 @@ function PlanCard({
 }) {
   const [pressing, setPressing] = useState(false)
 
-  const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>(
+  const [ripples, setRipples] = useState<{ id: number x: number y: number }[]>(
     [],
   )
 
@@ -584,8 +582,6 @@ export default function SubscriptionPage({
   }, [onComplete])
 
   function handleChoose(plan: Plan) {
-    setSelectedPlan(plan)
-
     setModalPlan(plan)
   }
 
@@ -601,7 +597,7 @@ export default function SubscriptionPage({
     void loadPlans()
   }, [loadPlans])
 
-  async function saveSubscription(plan: Plan) {
+  async function saveSubscription(plan: Plan): Promise<boolean> {
     const { data, error } = await supabase.functions.invoke(
       "create-checkout-session",
       {
@@ -616,7 +612,7 @@ export default function SubscriptionPage({
         const payload = (await context
           .clone()
           .json()
-          .catch(() => null)) as { error?: unknown; message?: unknown } | null
+          .catch(() => null)) as { error?: unknown message?: unknown } | null
         const serverMessage = payload?.error ?? payload?.message
         if (typeof serverMessage === "string" && serverMessage.trim()) {
           message = serverMessage.trim()
@@ -629,16 +625,20 @@ export default function SubscriptionPage({
       data &&
       typeof data === "object" &&
       (data as { updated?: unknown }).updated === true
-    if (subscriptionUpdated) return
+    if (subscriptionUpdated) return true
 
     const checkoutUrl =
       data && typeof data === "object"
         ? String((data as { url?: unknown }).url ?? "")
         : ""
-    if (!checkoutUrl.startsWith("https://checkout.stripe.com/")) {
-      throw new Error("Stripe Checkout did not return a valid payment URL.")
+    if (
+      !checkoutUrl.startsWith("https://checkout.stripe.com/") &&
+      !checkoutUrl.startsWith("https://billing.stripe.com/")
+    ) {
+      throw new Error("Stripe did not return a valid billing URL.")
     }
     window.location.assign(checkoutUrl)
+    return false
   }
 
   return (
@@ -743,7 +743,11 @@ export default function SubscriptionPage({
         <ConfirmModal
           plan={modalPlan}
           onCancel={handleModalClose}
-          onConfirm={() => saveSubscription(modalPlan)}
+          onConfirm={async () => {
+            const confirmed = await saveSubscription(modalPlan)
+            if (confirmed) setSelectedPlan(modalPlan)
+            return confirmed
+          }}
           onContinue={() => {
             onSubscribe?.(modalPlan)
             onComplete()

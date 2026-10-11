@@ -56,6 +56,7 @@ function metadataPayload(subscription: Stripe.Subscription) {
     stripe_subscription_id: subscription.id,
     stripe_customer_id: idOf(subscription.customer),
     stripe_status: subscription.status,
+    stripe_price_id: subscription.items?.data[0]?.price?.id ?? "",
     cancel_at_period_end: subscription.cancel_at_period_end,
     period_start: period.start,
     period_end: period.end,
@@ -164,7 +165,16 @@ Deno.serve(async (request) => {
       const stripeSubscriptionId = String(
         payload.stripe_subscription_id ?? "",
       ).trim()
-      const selectedPlanId = Number(payload.plan_id)
+      let selectedPlanId = Number(payload.plan_id)
+      const stripePriceId = String(payload.stripe_price_id ?? "").trim()
+      if (stripePriceId.startsWith("price_")) {
+        const { data: selectedPlan } = await serviceClient
+          .from("subscription")
+          .select("subscription_id")
+          .eq("stripe_price_id", stripePriceId)
+          .maybeSingle()
+        selectedPlanId = Number(selectedPlan?.subscription_id)
+      }
       if (
         stripeSubscriptionId.startsWith("sub_") &&
         Number.isSafeInteger(selectedPlanId) &&
