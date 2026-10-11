@@ -82,11 +82,13 @@ export function useContentManagerData(onError: (message: string) => void) {
 
     deleteGenre: (id: string) => run(genreState.remove(id)),
 
-    addSoundtrack: (item: Omit<Soundtrack, "id">) =>
-      run(soundtrackState.create(item)),
+    addSoundtrack: async (item: Omit<Soundtrack, "id">) => {
+      await soundtrackState.create(item)
+    },
 
-    editSoundtrack: (item: Soundtrack) =>
-      run(soundtrackState.update(item.id, item)),
+    editSoundtrack: async (item: Soundtrack) => {
+      await soundtrackState.update(item.id, item)
+    },
 
     deleteSoundtrack: (id: string) => run(soundtrackState.remove(id)),
 

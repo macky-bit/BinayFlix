@@ -830,6 +830,8 @@ export default function WatchScreen({
   }, [id, isSeries, selectedEpisode?.ep])
 
   useEffect(() => {
+    if (activePanel !== "music") return
+
     let active = true
 
     setLyricsTrackId(null)
@@ -899,7 +901,7 @@ export default function WatchScreen({
 
       lyricsRequestRef.current?.abort()
     }
-  }, [internalContentId])
+  }, [activePanel, internalContentId])
 
   useEffect(() => {
     if (activePanel === "music") return

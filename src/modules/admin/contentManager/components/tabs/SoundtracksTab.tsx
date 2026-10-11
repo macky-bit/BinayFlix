@@ -9,7 +9,7 @@ import { supabase } from '../../../../../lib/supabase';
 interface SoundtracksTabProps {
   soundtracks: Soundtrack[];
   content: Content[];
-  onAdd: (s: Omit<Soundtrack, 'id'>) => void;
+  onAdd: (s: Omit<Soundtrack, 'id'>) => Promise<void>;
   onEdit: (s: Soundtrack) => Promise<void>;
   onDelete: (id: string) => void;
   addToast: (msg: string, type: Toast['type']) => void;
@@ -134,7 +134,7 @@ function SoundtrackForm({
           <label htmlFor="stk-cnt" className="block text-xs font-medium mb-1" style={{ color: '#9CA3AF' }}>Associated Content <span style={{ color: '#EF4444' }}>*</span></label>
           <select id="stk-cnt" value={form.contentId} onChange={(e) => set('contentId', e.target.value)} className={inputClass} style={{ ...inputStyle, borderColor: errors.contentId ? '#EF4444' : '#374151' }}>
             <option value="">Select content</option>
-            {content.map((c) => <option key={c.id} value={c.id}>{c.title} ({c.id})</option>)}
+            {content.map((c) => <option key={c.id} value={c.id}>{c.title} ({c.releaseYear || 'Year unknown'}) — Content #{c.id}</option>)}
           </select>
           {errors.contentId && <p className="mt-1 text-xs" style={{ color: '#EF4444' }}>{errors.contentId}</p>}
         </div>
@@ -320,7 +320,15 @@ export default function SoundtracksTab({ soundtracks, content, onAdd, onEdit, on
       {showAdd && (
         <Modal title="Add Soundtrack" onClose={() => setShowAdd(false)} wide>
           <SoundtrackForm initial={emptyForm} content={content} submitLabel="Add Soundtrack" onCancel={() => setShowAdd(false)}
-            onSubmit={(f) => { onAdd(f); setShowAdd(false); addToast('Soundtrack added.', 'success'); }} />
+            onSubmit={async (f) => {
+              try {
+                await onAdd(f);
+                setShowAdd(false);
+                addToast('Soundtrack added.', 'success');
+              } catch (error) {
+                addToast(error instanceof Error ? error.message : 'Soundtrack could not be saved.', 'error');
+              }
+            }} />
         </Modal>
       )}
 
@@ -328,7 +336,15 @@ export default function SoundtracksTab({ soundtracks, content, onAdd, onEdit, on
         <Modal title="Edit Soundtrack" onClose={() => setEditId(null)} wide>
           <SoundtrackForm initial={{ contentId: editItem.contentId, songTitle: editItem.songTitle, artist: editItem.artist, lyrics: editItem.lyrics, timestamp: editItem.timestamp, streamingLink: editItem.streamingLink }}
             content={content} submitLabel="Save Changes" readOnlyId={editItem.id} onCancel={() => setEditId(null)}
-            onSubmit={async (f) => { await onEdit({ ...editItem, ...f }); setEditId(null); addToast('Soundtrack updated.', 'success'); }} />
+            onSubmit={async (f) => {
+              try {
+                await onEdit({ ...editItem, ...f });
+                setEditId(null);
+                addToast('Soundtrack updated.', 'success');
+              } catch (error) {
+                addToast(error instanceof Error ? error.message : 'Soundtrack could not be updated.', 'error');
+              }
+            }} />
         </Modal>
       )}
 
