@@ -34,7 +34,10 @@ import AdminPage from "./modules/admin/AdminPage"
 
 import { supabase } from "./lib/supabase"
 
-import { getSignedInDestination } from "./lib/auth"
+import {
+  getSignedInDestination,
+  getSignedInMemberDestination,
+} from "./lib/auth"
 
 import ResetPasswordPage from "./modules/auth/ResetPasswordPage"
 
@@ -265,7 +268,7 @@ export default function App() {
         <ProfileSelectPage
           maxProfiles={plan?.MaxUser ?? 1}
           onSelect={(profile: Profile) => {
-            void getSignedInDestination()
+            void getSignedInMemberDestination()
               .then((destination) => {
                 if (destination !== "profileSelect") {
                   activeProfileIdRef.current = null

@@ -13,6 +13,12 @@ export async function getSignedInDestination(): Promise<SignedInDestination> {
     return "admin"
   }
 
+  return getSignedInMemberDestination()
+}
+
+export async function getSignedInMemberDestination(): Promise<
+  "subscription" | "profileSelect"
+> {
   const { data: subscriptionState, error: subscriptionError } = await supabase
     .rpc("get_my_subscription_state")
 

@@ -760,8 +760,23 @@ test("completed Stripe cancellation signs out and returns to login", () => {
   assert.match(appSource, /setPage\("login"\)/)
   assert.match(
     appSource,
-    /onSelect=\{\(profile: Profile\)[\s\S]*getSignedInDestination\(\)[\s\S]*destination !== "profileSelect"/,
+    /onSelect=\{\(profile: Profile\)[\s\S]*getSignedInMemberDestination\(\)[\s\S]*destination !== "profileSelect"/,
   )
+})
+
+test("choosing a member profile does not route an admin back to the admin panel", () => {
+  const appSource = readFileSync(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  )
+
+  const profileSelection = appSource.match(
+    /page === "profileSelect"[\s\S]*?<ProfileSelectPage[\s\S]*?\n\s*\/\>/,
+  )?.[0]
+
+  assert.ok(profileSelection)
+  assert.match(profileSelection, /getSignedInMemberDestination\(\)/)
+  assert.doesNotMatch(profileSelection, /getSignedInDestination\(\)/)
 })
 
 test("scheduled Stripe cancellations immediately revoke member access", () => {
