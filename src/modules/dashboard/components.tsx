@@ -1,6 +1,8 @@
-import { useEffect, useState, useRef, type RefObject } from "react"
+import { useCallback, useEffect, useState, useRef, type RefObject } from "react"
 
 import type { Show } from "../movie/types"
+
+import { supabase } from "../../lib/supabase"
 
 import { fetchTrailerKey } from "../movie/tmdb"
 
@@ -11,6 +13,11 @@ import { useMyList } from "./myList/myListStore"
 import { useContinueWatching } from "./continueWatchingStore"
 
 import { MAX_SEARCH_LENGTH } from "./search"
+
+import {
+  loadContentNotifications,
+  type ContentNotification,
+} from "./contentNotifications"
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 
@@ -119,6 +126,24 @@ function BellIcon() {
       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
     </svg>
   )
+}
+
+const CONTENT_NOTIFICATIONS_SEEN_KEY = "sf_content_notifications_seen_v1"
+
+function readLastSeenNotification() {
+  try {
+    return Number(localStorage.getItem(CONTENT_NOTIFICATIONS_SEEN_KEY)) || 0
+  } catch {
+    return 0
+  }
+}
+
+function writeLastSeenNotification(id: number) {
+  try {
+    localStorage.setItem(CONTENT_NOTIFICATIONS_SEEN_KEY, String(id))
+  } catch {
+    // Notifications still work when storage is unavailable.
+  }
 }
 
 function ChevronDown() {
@@ -825,6 +850,8 @@ export function Navbar({
   adminMenuLabel,
 
   showAdminLink = false,
+
+  onOpenContent,
 }: {
   currentProfile?: {
     name: string
@@ -876,16 +903,43 @@ export function Navbar({
   adminMenuLabel?: string
 
   showAdminLink?: boolean
+
+  onOpenContent?: (show: Show) => void
 }) {
   const [profileOpen, setProfileOpen] = useState(false)
 
   const [notifOpen, setNotifOpen] = useState(false)
+
+  const [notifications, setNotifications] = useState<ContentNotification[]>([])
+
+  const [notificationsLoading, setNotificationsLoading] = useState(false)
+
+  const [notificationsError, setNotificationsError] = useState("")
+
+  const [lastSeenNotification, setLastSeenNotification] = useState(
+    readLastSeenNotification,
+  )
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   const profileMenuRef = useRef<HTMLDivElement>(null)
 
   const notificationMenuRef = useRef<HTMLDivElement>(null)
+
+  const refreshNotifications = useCallback(async () => {
+    if (!onOpenContent) return
+
+    setNotificationsLoading(true)
+    setNotificationsError("")
+
+    try {
+      setNotifications(await loadContentNotifications(supabase))
+    } catch {
+      setNotificationsError("New releases could not be loaded.")
+    } finally {
+      setNotificationsLoading(false)
+    }
+  }, [onOpenContent])
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -914,6 +968,41 @@ export function Navbar({
       document.removeEventListener("keydown", handleKeyDown)
     }
   }, [])
+
+  useEffect(() => {
+    if (!onOpenContent) return
+
+    void refreshNotifications()
+    const channel = supabase
+      .channel("dashboard-content-notifications")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "content" },
+        () => void refreshNotifications(),
+      )
+      .subscribe()
+
+    window.addEventListener("focus", refreshNotifications)
+    return () => {
+      window.removeEventListener("focus", refreshNotifications)
+      void supabase.removeChannel(channel)
+    }
+  }, [onOpenContent, refreshNotifications])
+
+  const unreadNotificationCount = notifications.filter(
+    (notification) =>
+      new Date(notification.changedAt).getTime() > lastSeenNotification,
+  ).length
+
+  useEffect(() => {
+    if (!notifOpen || notifications.length === 0) return
+
+    const newestChange = new Date(notifications[0].changedAt).getTime()
+    if (newestChange <= lastSeenNotification) return
+
+    setLastSeenNotification(newestChange)
+    writeLastSeenNotification(newestChange)
+  }, [lastSeenNotification, notifOpen, notifications])
 
   const adminProfileKey =
     adminItems && adminItems.length > 1
@@ -1113,25 +1202,105 @@ export function Navbar({
           <button
             type="button"
             onClick={() => {
-              setNotifOpen((n) => !n)
+              const nextOpen = !notifOpen
+              setNotifOpen(nextOpen)
 
               setProfileOpen(false)
+
+              if (nextOpen) {
+                void refreshNotifications()
+              }
             }}
             className={`relative transition-colors ${styles.iconBtn}`}
-            aria-label="Notifications"
+            aria-label={
+              unreadNotificationCount
+                ? `Notifications, ${unreadNotificationCount} unread`
+                : "Notifications"
+            }
             aria-expanded={notifOpen}
             aria-haspopup="menu"
           >
             <BellIcon />
+            {unreadNotificationCount > 0 && (
+              <span
+                className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-[#110a1e] ${styles.notifDot}`}
+                aria-hidden="true"
+              />
+            )}
           </button>
           {notifOpen && (
             <div
-              className={`absolute right-0 top-8 w-64 sm:w-72 rounded-xl overflow-hidden shadow-2xl ${styles.dropdown}`}
+              className={`absolute right-0 top-8 w-72 sm:w-80 rounded-xl overflow-hidden shadow-2xl ${styles.dropdown}`}
+              role="menu"
+              aria-label="Content notifications"
             >
-              <div className={`px-4 py-4 ${styles.notifRow}`}>
-                <span className={`text-xs ${styles.notifDesc}`}>
-                  No new notifications.
-                </span>
+              <div className={`border-b px-4 py-3 ${styles.notifRow}`}>
+                <strong className={`text-sm ${styles.notifTitle}`}>
+                  What&apos;s new
+                </strong>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notificationsLoading && notifications.length === 0 ? (
+                  <p className={`px-4 py-4 text-xs ${styles.notifDesc}`} role="status">
+                    Loading new releases…
+                  </p>
+                ) : notificationsError ? (
+                  <div className={`px-4 py-4 ${styles.notifRow}`} role="alert">
+                    <p className={`text-xs ${styles.notifDesc}`}>
+                      {notificationsError}
+                    </p>
+                    <button
+                      type="button"
+                      className="mt-2 text-xs font-semibold text-[#F5A800]"
+                      onClick={() => void refreshNotifications()}
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <p className={`px-4 py-4 text-xs ${styles.notifDesc}`}>
+                    No new content yet.
+                  </p>
+                ) : (
+                  notifications.map((notification) => (
+                    <button
+                      key={notification.id}
+                      type="button"
+                      role="menuitem"
+                      className={`flex w-full gap-3 border-b px-4 py-3 text-left ${styles.notifRow} ${styles.dropdownItem}`}
+                      onClick={() => {
+                        setNotifOpen(false)
+                        onOpenContent?.(notification.show)
+                      }}
+                    >
+                      {notification.show.image ? (
+                        <img
+                          src={notification.show.image}
+                          alt=""
+                          className="h-14 w-10 shrink-0 rounded object-cover"
+                        />
+                      ) : (
+                        <span className="grid h-14 w-10 shrink-0 place-items-center rounded bg-black/30" aria-hidden="true">
+                          ▶
+                        </span>
+                      )}
+                      <span className="min-w-0">
+                        <strong className={`block truncate text-sm ${styles.notifTitle}`}>
+                          {notification.show.title}
+                        </strong>
+                        <span className={`block text-xs ${styles.notifDesc}`}>
+                          New or updated content
+                        </span>
+                        <time className={`block text-[11px] ${styles.notifTime}`} dateTime={notification.changedAt}>
+                          {new Date(notification.changedAt).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </time>
+                      </span>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           )}

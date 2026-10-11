@@ -1631,6 +1631,35 @@ test("dashboard footer keeps only support and legal links", () => {
   )
 })
 
+test("admin content timestamps feed the user notification bell", () => {
+  const componentsSource = readFileSync(
+    new URL("../src/modules/dashboard/components.tsx", import.meta.url),
+    "utf8",
+  )
+  const notificationSource = readFileSync(
+    new URL(
+      "../src/modules/dashboard/contentNotifications.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const migration = readFileSync(
+    new URL(
+      "../supabase/migrations/20261011180000_timestamp_admin_content_changes.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.match(migration, /add column if not exists admin_updated_at timestamptz/i)
+  assert.match(migration, /auth\.uid\(\)[\s\S]*public\.is_any_admin\(\)/i)
+  assert.match(notificationSource, /\.from\("content"\)/)
+  assert.match(notificationSource, /\.not\("admin_updated_at", "is", null\)/)
+  assert.match(componentsSource, /table: "content"/)
+  assert.match(componentsSource, /onOpenContent\?\.\(notification\.show\)/)
+  assert.match(componentsSource, /Notifications, \$\{unreadNotificationCount\} unread/)
+})
+
 test("TMDB search disables titles outside the available Supabase catalog", () => {
   const searchSource = readFileSync(
     new URL("../src/modules/dashboard/SearchResultsPage.tsx", import.meta.url),

@@ -16,6 +16,8 @@ CREATE TABLE "public"."content" (
   "popularity_rank"     integer,
   "catalog_source"      character varying(20)    NOT NULL DEFAULT 'manual'::character varying,
   "synced_at"           timestamp with time zone,
+  "created_at"          timestamp with time zone     DEFAULT now(),
+  "admin_updated_at"    timestamp with time zone,
   CONSTRAINT "content_catalog_source_check" CHECK (((catalog_source)::text = ANY ((ARRAY['manual'::character varying, 'tmdb'::character varying])::text[]))),
   CONSTRAINT "content_category_id_fkey" FOREIGN KEY (category_id) REFERENCES public.category(category_id) ON UPDATE CASCADE ON DELETE SET NULL,
   CONSTRAINT "content_pkey" PRIMARY KEY (content_id),
@@ -36,6 +38,9 @@ CREATE INDEX content_category_rank_idx ON public.content USING btree (category_i
   WHERE ((availability_status)::text = 'available'::text);
 
 CREATE INDEX content_genre_id_idx ON public.content USING btree (genre_id);
+
+CREATE INDEX content_admin_updated_at_idx ON public.content USING btree (admin_updated_at DESC)
+  WHERE admin_updated_at IS NOT NULL;
 
 CREATE POLICY "content_manager_delete_content" ON "public"."content"
   FOR DELETE
@@ -65,3 +70,23 @@ COMMENT ON COLUMN "public"."content"."catalog_source" IS 'Origin of the catalog 
 COMMENT ON COLUMN "public"."content"."popularity_rank" IS 'Current rank within the imported top-50 movie or TV catalog.';
 
 COMMENT ON COLUMN "public"."content"."tmdb_id" IS 'Permanent external identifier supplied by The Movie Database.';
+
+CREATE OR REPLACE FUNCTION public.set_admin_content_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND public.is_any_admin() THEN
+    NEW.admin_updated_at := now();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.set_admin_content_updated_at() FROM PUBLIC, anon, authenticated;
+
+CREATE TRIGGER set_admin_content_updated_at
+BEFORE INSERT OR UPDATE ON public.content
+FOR EACH ROW EXECUTE FUNCTION public.set_admin_content_updated_at();

@@ -67,6 +67,7 @@ export default function Dashboard({
         setSearchOpen={setSearchOpen}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
+        onOpenContent={onInfo}
         onNavigatePage={onNavigate}
         onNavigateView={(nextView) => {
           setSearchQuery("")
