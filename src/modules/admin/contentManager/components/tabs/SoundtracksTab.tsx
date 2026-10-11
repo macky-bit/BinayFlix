@@ -3,6 +3,8 @@ import type { Soundtrack, Content, Toast } from '../../types';
 import Modal from '../shared/Modal';
 import ConfirmDialog from '../shared/ConfirmDialog';
 import { AdminRowAction } from '../../../components/AdminUI';
+import AdminContentFilePicker from '../../../components/AdminContentFilePicker';
+import { supabase } from '../../../../../lib/supabase';
 
 interface SoundtracksTabProps {
   soundtracks: Soundtrack[];
@@ -50,7 +52,67 @@ function SoundtrackForm({
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<SErrors>({});
   const [saving, setSaving] = useState(false);
+  const [lyricsFilename, setLyricsFilename] = useState('');
+  const [audioFilename, setAudioFilename] = useState('');
+  const [uploadingAudio, setUploadingAudio] = useState(false);
   const set = <K extends keyof SForm>(k: K, v: SForm[K]) => { setForm((f) => ({ ...f, [k]: v })); setErrors((e) => ({ ...e, [k]: undefined })); };
+
+  async function handleAudioFile(file: File) {
+    if (!/\.mp3$/i.test(file.name)) {
+      setErrors((current) => ({ ...current, streamingLink: 'Choose an MP3 audio file. You can also enter a direct audio URL.' }));
+      return;
+    }
+    if (!form.contentId) {
+      setErrors((current) => ({ ...current, contentId: 'Select associated content before uploading an audio file.' }));
+      return;
+    }
+
+    setUploadingAudio(true);
+    setErrors((current) => ({ ...current, streamingLink: undefined }));
+    const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]+/g, '-');
+    const objectPath = `${form.contentId}/${Date.now()}-${safeFilename}`;
+    try {
+      const { data, error } = await supabase.storage
+        .from('stream_link')
+        .upload(objectPath, file, {
+          contentType: 'audio/mpeg',
+          cacheControl: '3600',
+        });
+      if (error) throw error;
+      const publicUrl = supabase.storage
+        .from('stream_link')
+        .getPublicUrl(data.path).data.publicUrl;
+      set('streamingLink', publicUrl);
+      setAudioFilename(file.name);
+    } catch (error) {
+      setErrors((current) => ({
+        ...current,
+        streamingLink: error instanceof Error
+          ? `Audio upload failed: ${error.message}`
+          : 'Audio upload failed. Try again or enter a direct audio URL.',
+      }));
+    } finally {
+      setUploadingAudio(false);
+    }
+  }
+
+  async function handleLyricsFile(file: File) {
+    if (!/\.(?:txt|lrc)$/i.test(file.name)) {
+      setErrors((current) => ({ ...current, lyrics: 'Choose a plain text .txt or .lrc lyrics file.' }));
+      return;
+    }
+    if (file.size > 524288) {
+      setErrors((current) => ({ ...current, lyrics: 'Lyrics files must be 512 KB or smaller.' }));
+      return;
+    }
+    try {
+      const lyrics = await file.text();
+      set('lyrics', lyrics);
+      setLyricsFilename(file.name);
+    } catch {
+      setErrors((current) => ({ ...current, lyrics: 'Could not read this lyrics file.' }));
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -91,22 +153,47 @@ function SoundtrackForm({
           <input id="stk-ts" type="text" value={form.timestamp} onChange={(e) => set('timestamp', e.target.value)} placeholder="00:04:22" className={inputClass} style={{ ...inputStyle, borderColor: errors.timestamp ? '#EF4444' : '#374151' }} />
           {errors.timestamp && <p className="mt-1 text-xs" style={{ color: '#EF4444' }}>{errors.timestamp}</p>}
         </div>
-        <div>
-          <label htmlFor="stk-link" className="block text-xs font-medium mb-1" style={{ color: '#9CA3AF' }}>Direct Audio URL</label>
-          <input id="stk-link" type="url" value={form.streamingLink} onChange={(e) => set('streamingLink', e.target.value)} placeholder="https://…/soundtrack.mp3" aria-describedby="stk-link-help" className={inputClass} style={{ ...inputStyle, borderColor: errors.streamingLink ? '#EF4444' : '#374151' }} />
-          <p id="stk-link-help" className="mt-1 text-xs" style={{ color: '#6B7280' }}>Use a direct MP3, AAC, OGG, WAV, or WebM audio file URL—not a YouTube page URL.</p>
-          {errors.streamingLink && <p className="mt-1 text-xs" style={{ color: '#EF4444' }}>{errors.streamingLink}</p>}
+      </div>
+      <section className="admin-content-media-fields mb-6" aria-labelledby="soundtrack-media-heading">
+        <div className="admin-content-media-fields__heading">
+          <div>
+            <h3 id="soundtrack-media-heading">Soundtrack media</h3>
+            <p>Add a playable audio URL and optional lyrics for this track.</p>
+          </div>
         </div>
-      </div>
-      <div className="mb-6">
-        <label htmlFor="stk-lyrics" className="block text-xs font-medium mb-1" style={{ color: '#9CA3AF' }}>Lyrics or Lyrics Snippet</label>
-        <textarea id="stk-lyrics" rows={3} value={form.lyrics} onChange={(e) => set('lyrics', e.target.value)} placeholder="Lyrics..." className={`${inputClass} resize-none`} style={inputStyle} />
-      </div>
+        <div className="admin-content-media-fields__grid">
+          <div className="admin-content-media-fields__thumbnail">
+            <label htmlFor="stk-link" className="block text-xs font-medium mb-1" style={{ color: '#9CA3AF' }}>Soundtrack Audio File</label>
+            <AdminContentFilePicker
+              id="stk-link"
+              accept=".mp3,audio/mpeg"
+              filename={audioFilename || (form.streamingLink ? 'Existing audio URL saved' : '')}
+              hint="MP3 audio file"
+              onSelect={(file) => void handleAudioFile(file)}
+            />
+            <p className="mt-1 text-xs" style={{ color: '#6B7280' }}>Upload an MP3 audio file for this soundtrack.</p>
+            {errors.streamingLink && <p className="mt-1 text-xs" style={{ color: '#EF4444' }}>{errors.streamingLink}</p>}
+          </div>
+          <div className="admin-content-media-fields__secondary">
+            <div className="admin-content-media-fields__upload">
+              <label htmlFor="stk-lyrics" className="block text-xs font-medium mb-1" style={{ color: '#9CA3AF' }}>Lyrics or Lyrics Snippet</label>
+              <AdminContentFilePicker
+                id="stk-lyrics"
+                accept=".txt,.lrc,text/plain"
+                filename={lyricsFilename || (form.lyrics ? 'Existing lyrics saved' : '')}
+                hint="TXT or LRC plain-text lyrics, up to 512 KB"
+                onSelect={(file) => void handleLyricsFile(file)}
+              />
+              {errors.lyrics && <p className="mt-1 text-xs" style={{ color: '#EF4444' }}>{errors.lyrics}</p>}
+            </div>
+          </div>
+        </div>
+      </section>
       <div className="flex justify-end gap-3" style={{ borderTop: '1px solid #374151', paddingTop: '1.25rem' }}>
         <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ border: '1px solid #374151', color: '#9CA3AF', backgroundColor: 'transparent' }}>Cancel</button>
-        <button type="submit" disabled={saving} aria-busy={saving || undefined} className="btn-primary flex items-center gap-2 px-5 py-2.5">
+        <button type="submit" disabled={saving || uploadingAudio} aria-busy={saving || uploadingAudio || undefined} className="btn-primary flex items-center gap-2 px-5 py-2.5">
           {submitLabel.startsWith('Add ') && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>}
-          {saving ? 'Saving…' : submitLabel}
+          {uploadingAudio ? 'Uploading…' : saving ? 'Saving…' : submitLabel}
         </button>
       </div>
     </form>

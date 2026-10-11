@@ -3,6 +3,7 @@ import type { FilmRefresher, Content, Toast } from '../../types';
 import Modal from '../shared/Modal';
 import ConfirmDialog from '../shared/ConfirmDialog';
 import { AdminRowAction } from '../../../components/AdminUI';
+import AdminContentFilePicker from '../../../components/AdminContentFilePicker';
 
 interface FilmRefreshersTabProps {
   refreshers: FilmRefresher[];
@@ -77,16 +78,48 @@ function RefresherForm({
         <textarea id="rf-summary" rows={5} value={form.summary} maxLength={2000} onChange={(e) => { set('summary', e.target.value); setSummaryLen(e.target.value.length); }} placeholder="Write a summary that helps viewers remember the story..." className={`${inputClass} resize-none`} style={{ ...inputStyle, borderColor: errors.summary ? '#EF4444' : '#374151' }} />
         {errors.summary && <p className="mt-1 text-xs" style={{ color: '#EF4444' }}>{errors.summary}</p>}
       </div>
-      <div className="mb-4">
-        <label htmlFor="rf-video" className="block text-xs font-medium mb-1" style={{ color: '#9CA3AF' }}>Refresher Video Filename</label>
-        <input id="rf-video" type="text" value={form.videoFilename} onChange={(e) => set('videoFilename', e.target.value)} placeholder="refresher-video.mp4" className={inputClass} style={inputStyle} />
+      <section className="admin-content-media-fields mb-4" aria-labelledby="refresher-media-heading">
+        <div className="admin-content-media-fields__heading">
+          <div>
+            <h3 id="refresher-media-heading">Media files</h3>
+            <p>Choose the video file used for this film refresher.</p>
+          </div>
+        </div>
+        <div className="admin-content-media-fields__grid">
+          <div className="admin-content-media-fields__thumbnail">
+            <label htmlFor="rf-video" className="block text-xs font-medium mb-1" style={{ color: '#9CA3AF' }}>Refresher Video Filename</label>
+            <AdminContentFilePicker
+              id="rf-video"
+              accept=".mp4,.webm,.ogv,.mkv,.mov,.m4v"
+              filename={form.videoFilename}
+              hint="MP4, WebM, OGV, MKV, MOV, or M4V"
+              onSelect={(file) => {
+                if (!/\.(?:mp4|webm|og[gv]|mkv|mov|m4v)$/i.test(file.name)) {
+                  setErrors((current) => ({
+                    ...current,
+                    videoFilename: 'Choose an MP4, WebM, OGV, MKV, MOV, or M4V video.',
+                  }))
+                  return
+                }
+                set('videoFilename', file.name)
+              }}
+            />
+            {errors.videoFilename && <p className="mt-1 text-xs" style={{ color: '#EF4444' }}>{errors.videoFilename}</p>}
+          </div>
+          <div className="admin-content-media-fields__secondary">
+            <div className="admin-content-media-fields__upload">
+              <p className="block text-xs font-medium mb-1" style={{ color: '#9CA3AF' }}>Selected file</p>
+              <p className="text-sm font-mono text-white truncate">{form.videoFilename || 'No file selected'}</p>
+            </div>
+          </div>
+        </div>
         {form.videoFilename && (
           <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
             <svg className="w-4 h-4" style={{ color: '#8B5CF6' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             <span className="text-xs font-mono" style={{ color: '#C4B5FD' }}>{form.videoFilename}</span>
           </div>
         )}
-      </div>
+      </section>
       <div className="mb-6">
         <label className="block text-xs font-medium mb-2" style={{ color: '#9CA3AF' }}>Availability</label>
         <div className="flex gap-4">
