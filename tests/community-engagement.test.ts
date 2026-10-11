@@ -686,6 +686,16 @@ test("active Stripe subscriptions can replace their plan without a duplicate che
 
   assert.doesNotMatch(checkoutSource, /An active subscription already exists/)
 
+  assert.match(
+    checkoutSource,
+    /if \(activeMembership && stripeSubscriptionId\.startsWith\("sub_"\)\)/,
+  )
+
+  assert.doesNotMatch(
+    checkoutSource,
+    /This subscription cannot be changed online/,
+  )
+
   assert.match(webhookSource, /sync_stripe_subscription_plan/)
 
   assert.match(syncSql, /SET subscription_id = selected_plan_id/i)
@@ -693,42 +703,86 @@ test("active Stripe subscriptions can replace their plan without a duplicate che
   assert.match(syncSql, /FROM PUBLIC, anon, authenticated/i)
 })
 
-test("membership cancellation is authenticated, immediate, and returns to subscribe", () => {
-  const cancelSource = readFileSync(
+test("active members manage plans in the authenticated Stripe Customer Portal", () => {
+  const accountSource = readFileSync(
+    new URL("../src/modules/account/components.tsx", import.meta.url),
+    "utf8",
+  )
+  const portalSource = readFileSync(
     new URL(
-      "../supabase/functions/cancel-subscription/index.ts",
-
+      "../supabase/functions/create-billing-portal-session/index.ts",
       import.meta.url,
     ),
-
     "utf8",
   )
 
+  assert.match(accountSource, /create-billing-portal-session/)
+  assert.match(accountSource, /https:\/\/billing\.stripe\.com\//)
+  assert.match(portalSource, /serviceClient\.auth\.getUser/)
+  assert.match(portalSource, /stripe_customer_id/)
+  assert.match(portalSource, /STRIPE_PORTAL_CONFIGURATION_ID/)
+  assert.match(portalSource, /stripe\.billingPortal\.sessions\.create/)
+  assert.match(portalSource, /type: "subscription_update"/)
+  assert.match(portalSource, /type: "subscription_cancel"/)
+  assert.match(portalSource, /billing=cancelled/)
+})
+
+test("membership separates plan changes from Stripe portal cancellation", () => {
   const accountSource = readFileSync(
     new URL("../src/modules/account/components.tsx", import.meta.url),
 
     "utf8",
   )
 
+  assert.match(accountSource, /"Cancel Subscription"/)
+
+  assert.match(accountSource, /Opening Stripe/)
+
+  assert.match(accountSource, /openBillingPortal\("cancel"\)/)
+
+  assert.match(accountSource, /openBillingPortal\("change"\)/)
+})
+
+test("completed Stripe cancellation signs out and returns to login", () => {
   const appSource = readFileSync(
     new URL("../src/App.tsx", import.meta.url),
-
     "utf8",
   )
 
-  assert.match(cancelSource, /serviceClient\.auth\.getUser/)
+  assert.match(appSource, /params\.get\("billing"\) !== "cancelled"/)
+  assert.match(appSource, /supabase\.auth\.signOut\(\)/)
+  assert.match(appSource, /setPage\("login"\)/)
+  assert.match(
+    appSource,
+    /onSelect=\{\(profile: Profile\)[\s\S]*getSignedInDestination\(\)[\s\S]*destination !== "profileSelect"/,
+  )
+})
 
-  assert.match(cancelSource, /stripe\.subscriptions\.cancel/)
+test("scheduled Stripe cancellations immediately revoke member access", () => {
+  const webhookSource = readFileSync(
+    new URL("../supabase/functions/stripe-webhook/index.ts", import.meta.url),
+    "utf8",
+  )
+  const authSource = readFileSync(
+    new URL("../src/lib/auth.ts", import.meta.url),
+    "utf8",
+  )
+  const subscriptionStateSql = readFileSync(
+    new URL(
+      "../supabase/schemas/public/functions/get_my_subscription_state.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
 
-  assert.match(cancelSource, /invoice_now: false, prorate: false/)
-
-  assert.match(accountSource, /functions\.invoke\("cancel-subscription"/)
-
-  assert.match(accountSource, /onSubscriptionCancelled\(\)/)
-
-  assert.match(appSource, /setPlan\(null\)/)
-
-  assert.match(appSource, /setPage\("subscription"\)/)
+  assert.match(webhookSource, /cancel_at_period_end/)
+  assert.match(
+    webhookSource,
+    /payload\.cancel_at_period_end === true[\s\S]*customer\.subscription\.deleted/,
+  )
+  assert.match(authSource, /get_my_subscription_state/)
+  assert.match(authSource, /getMemberDestination/)
+  assert.match(subscriptionStateSql, /lower\(membership\.status\) = 'active'/i)
 })
 
 test("movie soundtrack uses database audio and lyrics instead of placeholders", () => {
@@ -1651,13 +1705,19 @@ test("admin content timestamps feed the user notification bell", () => {
     "utf8",
   )
 
-  assert.match(migration, /add column if not exists admin_updated_at timestamptz/i)
+  assert.match(
+    migration,
+    /add column if not exists admin_updated_at timestamptz/i,
+  )
   assert.match(migration, /auth\.uid\(\)[\s\S]*public\.is_any_admin\(\)/i)
   assert.match(notificationSource, /\.from\("content"\)/)
   assert.match(notificationSource, /\.not\("admin_updated_at", "is", null\)/)
   assert.match(componentsSource, /table: "content"/)
   assert.match(componentsSource, /onOpenContent\?\.\(notification\.show\)/)
-  assert.match(componentsSource, /Notifications, \$\{unreadNotificationCount\} unread/)
+  assert.match(
+    componentsSource,
+    /Notifications, \$\{unreadNotificationCount\} unread/,
+  )
 })
 
 test("TMDB search disables titles outside the available Supabase catalog", () => {

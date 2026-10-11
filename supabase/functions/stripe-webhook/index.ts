@@ -56,6 +56,7 @@ function metadataPayload(subscription: Stripe.Subscription) {
     stripe_subscription_id: subscription.id,
     stripe_customer_id: idOf(subscription.customer),
     stripe_status: subscription.status,
+    cancel_at_period_end: subscription.cancel_at_period_end,
     period_start: period.start,
     period_end: period.end,
   }
@@ -138,17 +139,28 @@ Deno.serve(async (request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       { auth: { persistSession: false, autoRefreshToken: false } },
     )
+    // The product revokes StreamFlix access as soon as a member confirms
+    // cancellation, even when Stripe schedules it for the period end.
+    const billingEventType =
+      event.type === "customer.subscription.updated" &&
+      payload.cancel_at_period_end === true
+        ? "customer.subscription.deleted"
+        : event.type
+
     const { data, error } = await serviceClient.rpc(
       "process_stripe_billing_event",
       {
         p_event_id: event.id,
-        p_event_type: event.type,
+        p_event_type: billingEventType,
         p_data: payload,
       },
     )
     if (error) throw error
 
-    if (event.type === "customer.subscription.updated") {
+    if (
+      event.type === "customer.subscription.updated" &&
+      payload.cancel_at_period_end !== true
+    ) {
       const stripeSubscriptionId = String(
         payload.stripe_subscription_id ?? "",
       ).trim()

@@ -7,9 +7,13 @@ import type { Plan } from "./modules/subscription/SubscriptionPage"
 import LoginPage from "./modules/login/LoginPage"
 
 import RegisterPage from "./modules/register/RegisterPage"
+
 import SubscriptionPage from "./modules/subscription/SubscriptionPage"
+
 import ProfileSelectPage from "./modules/profileSelect/ProfileSelectPage"
+
 import type { Profile } from "./modules/profileSelect/ProfileSelectPage"
+
 import Dashboard from "./modules/dashboard/Dashboard"
 
 import WatchScreen from "./modules/movie/fixedscreen/movie"
@@ -23,12 +27,19 @@ import HelpPage from "./modules/help/HelpPage"
 import SettingsPage from "./modules/settings/SettingsPage"
 
 import PreviewModal from "./modules/movie/PreviewModal"
+
 import { addOrUpdateContinue } from "./modules/dashboard/continueWatchingStore"
+
 import AdminPage from "./modules/admin/AdminPage"
+
 import { supabase } from "./lib/supabase"
+
 import { getSignedInDestination } from "./lib/auth"
+
 import ResetPasswordPage from "./modules/auth/ResetPasswordPage"
+
 import { LOGO_SVG } from "./modules/auth/AuthUI"
+
 import OpeningVideo from "./modules/auth/OpeningVideo"
 
 type Page = "loading" | "login" | "opening" | "register" | "resetPassword" | "subscription" | "profileSelect" | "dashboard" | "watch" | "account" | "profile" | "help" | "settings" | "admin"
@@ -52,14 +63,30 @@ export default function App() {
 
   const openingStartedRef = useRef(false)
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("billing") !== "cancelled") return
+
+    window.history.replaceState({}, "", window.location.pathname)
+    activeAuthUserIdRef.current = null
+    activeProfileIdRef.current = null
+    setActiveProfileId(null)
+    setActiveProfile(null)
+    openingStartedRef.current = false
+    void supabase.auth.signOut().finally(() => setPage("login"))
+  }, [])
+
   const beginOpening = useCallback(() => {
     if (openingStartedRef.current) return
+
     openingStartedRef.current = true
+
     setPage("opening")
   }, [])
 
   const finishOpening = useCallback(() => {
     openingStartedRef.current = false
+
     setPage(activeProfileIdRef.current === null ? "profileSelect" : "dashboard")
   }, [])
 
@@ -70,12 +97,18 @@ export default function App() {
       try {
         if (activeAuthUserIdRef.current !== userId) {
           activeAuthUserIdRef.current = userId
+
           activeProfileIdRef.current = null
+
           if (mounted) setActiveProfileId(null)
+
           if (mounted) setActiveProfile(null)
         }
+
         const destination = await getSignedInDestination()
+
         if (!mounted) return
+
         if (!openingStartedRef.current) setPage(destination)
       } catch {
         if (mounted) setPage("login")
@@ -84,6 +117,7 @@ export default function App() {
 
     void supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return
+
       if (data.session) void routeSession(data.session.user.id)
       else setPage("login")
     })
@@ -92,14 +126,20 @@ export default function App() {
       (event, session) => {
         window.setTimeout(() => {
           if (!mounted) return
+
           if (event === "PASSWORD_RECOVERY") {
             setPage("resetPassword")
           } else if (event === "SIGNED_OUT") {
             activeAuthUserIdRef.current = null
+
             activeProfileIdRef.current = null
+
             setActiveProfileId(null)
+
             setActiveProfile(null)
+
             openingStartedRef.current = false
+
             setPage("login")
           } else if (event === "SIGNED_IN" && session) {
             if (
@@ -115,6 +155,7 @@ export default function App() {
 
     return () => {
       mounted = false
+
       subscription.subscription.unsubscribe()
     }
   }, [])
@@ -129,8 +170,11 @@ export default function App() {
     const handleProfileUpdated = (event: Event) => {
       const { profileId, name, avatarPath, avatar } = (event as CustomEvent<{
         profileId: number | string
+
         name: string
+
         avatarPath: string
+
         avatar: string
       }>).detail
 
@@ -142,16 +186,20 @@ export default function App() {
     }
 
     window.addEventListener("streamflix:profile-updated", handleProfileUpdated)
+
     return () =>
       window.removeEventListener(
         "streamflix:profile-updated",
+
         handleProfileUpdated,
       )
   }, [])
 
   const handleWatch = (show: Show) => {
     addOrUpdateContinue(show, 1, undefined, activeProfileId)
+
     setWatchShow(show)
+
     setPreviewShow(null)
 
     setPage("watch")
@@ -163,10 +211,15 @@ export default function App() {
 
   const handleSignOut = () => {
     activeAuthUserIdRef.current = null
+
     activeProfileIdRef.current = null
+
     setActiveProfileId(null)
+
     setActiveProfile(null)
+
     openingStartedRef.current = false
+
     void supabase.auth.signOut().finally(() => setPage("login"))
   }
 
@@ -212,10 +265,22 @@ export default function App() {
         <ProfileSelectPage
           maxProfiles={plan?.MaxUser ?? 1}
           onSelect={(profile: Profile) => {
-            activeProfileIdRef.current = profile.id
-            setActiveProfileId(profile.id)
-            setActiveProfile(profile)
-            beginOpening()
+            void getSignedInDestination()
+              .then((destination) => {
+                if (destination !== "profileSelect") {
+                  activeProfileIdRef.current = null
+                  setActiveProfileId(null)
+                  setActiveProfile(null)
+                  setPage(destination)
+                  return
+                }
+
+                activeProfileIdRef.current = profile.id
+                setActiveProfileId(profile.id)
+                setActiveProfile(profile)
+                beginOpening()
+              })
+              .catch(handleSignOut)
           }}
         />
       )}
@@ -230,9 +295,12 @@ export default function App() {
             onNavigate={(p) => {
               if (p === "profileSelect") {
                 activeProfileIdRef.current = null
+
                 setActiveProfileId(null)
+
                 setActiveProfile(null)
               }
+
               setPage(p)
             }}
           />
@@ -261,14 +329,17 @@ export default function App() {
           backgroundImage={watchShow.hero ?? watchShow.image}
           isSeries={watchShow.mediaType === "tv"}
           activeProfile={activeProfile}
-            onProgress={(progress) =>
-              addOrUpdateContinue(
-                watchShow,
-                progress,
-                undefined,
-                activeProfileId,
-              )
-            }
+          onProgress={(progress) =>
+            addOrUpdateContinue(
+              watchShow,
+
+              progress,
+
+              undefined,
+
+              activeProfileId,
+            )
+          }
           onBack={() => setPage("dashboard")}
         />
       )}
@@ -279,14 +350,14 @@ export default function App() {
           plan={plan}
           onPlanChange={(p) => {
             setPlan(p)
+
             activeProfileIdRef.current = null
+
             setActiveProfileId(null)
+
             setActiveProfile(null)
+
             setPage("profileSelect")
-          }}
-          onSubscriptionCancelled={() => {
-            setPlan(null)
-            setPage("subscription")
           }}
         />
       )}
@@ -297,8 +368,11 @@ export default function App() {
           activeProfileId={activeProfileId}
           onProfileDeleted={() => {
             activeProfileIdRef.current = null
+
             setActiveProfileId(null)
+
             setActiveProfile(null)
+
             setPage("profileSelect")
           }}
         />
@@ -307,10 +381,10 @@ export default function App() {
       {page === "help" && <HelpPage onBack={() => setPage("dashboard")} />}
 
       {page === "settings" && (
-          <SettingsPage
-            activeProfileId={activeProfileId ?? 0}
-            onBack={() => setPage("dashboard")}
-          />
+        <SettingsPage
+          activeProfileId={activeProfileId ?? 0}
+          onBack={() => setPage("dashboard")}
+        />
       )}
     </>
   )

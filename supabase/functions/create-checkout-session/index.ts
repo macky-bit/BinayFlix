@@ -118,16 +118,10 @@ Deno.serve(async (request) => {
       streamflix_plan_id: String(plan.subscription_id),
     }
 
-    if (activeMembership) {
-      const stripeSubscriptionId = String(
-        activeMembership.stripe_subscription_id ?? "",
-      ).trim()
-      if (!stripeSubscriptionId.startsWith("sub_")) {
-        throw new Error(
-          "This subscription cannot be changed online. Contact support for assistance.",
-        )
-      }
-
+    const stripeSubscriptionId = String(
+      activeMembership?.stripe_subscription_id ?? "",
+    ).trim()
+    if (activeMembership && stripeSubscriptionId.startsWith("sub_")) {
       const subscription = await stripe.subscriptions.retrieve(
         stripeSubscriptionId,
       )
