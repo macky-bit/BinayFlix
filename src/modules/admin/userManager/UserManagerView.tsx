@@ -1168,10 +1168,6 @@ function SubscribersTab({
     (subscriber) => subscriber.status === "Active",
   ).length
 
-  const suspendedSubscribers = subscribers.filter(
-    (subscriber) => subscriber.status === "Suspended",
-  ).length
-
   const activeSubscriptions = new Set(
     subscriptions
 
@@ -1295,19 +1291,6 @@ function SubscribersTab({
             setPage(1)
           }}
           actionLabel="Show subscribers with active plans"
-        />
-        <AdminStatCard
-          label="Suspended"
-          value={suspendedSubscribers.toLocaleString()}
-          hint="Require attention"
-          tone="red"
-          active={statusFilter === "Suspended" && !activePlansOnly}
-          onClick={() => {
-            setStatusFilter("Suspended")
-            setActivePlansOnly(false)
-            setPage(1)
-          }}
-          actionLabel="Filter to suspended accounts"
         />
       </AdminStats>
       {/* Filters */}
