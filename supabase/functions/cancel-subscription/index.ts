@@ -81,13 +81,21 @@ Deno.serve(async (request) => {
       .limit(1)
       .maybeSingle()
     if (membershipError) throw membershipError
-    if (!membership)
+    if (!membership) {
+      const { error: accountUpdateError } = await serviceClient
+        .from("user")
+        .update({ subscription_id: null })
+        .eq("user_id", account.user_id)
+      if (accountUpdateError) throw accountUpdateError
+
       return response({ canceled: true, alreadyInactive: true }, 200, origin)
+    }
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!)
     let stripeSubscriptionId = String(
       membership.stripe_subscription_id ?? "",
     ).trim()
+    let stripeConfirmedInactive = false
 
     // Older memberships were created before Stripe identifiers were persisted.
     // Recover the subscription from the account's Stripe customer when there is
@@ -153,38 +161,82 @@ Deno.serve(async (request) => {
           throw new Error(
             "More than one Stripe subscription matches this account. Contact support before canceling to avoid canceling the wrong plan.",
           )
+        } else {
+          stripeConfirmedInactive = true
         }
       }
     }
 
     if (stripeSubscriptionId.startsWith("sub_")) {
-      const subscription = await stripe.subscriptions.cancel(
-        stripeSubscriptionId,
-        { invoice_now: false, prorate: false },
-      )
+      let subscription =
+        await stripe.subscriptions.retrieve(stripeSubscriptionId)
+      const stripeCustomerId = String(account.stripe_customer_id ?? "").trim()
+      const subscriptionCustomerId =
+        typeof subscription.customer === "string"
+          ? subscription.customer
+          : subscription.customer.id
+      if (
+        stripeCustomerId.startsWith("cus_") &&
+        subscriptionCustomerId !== stripeCustomerId
+      ) {
+        throw new Error(
+          "The Stripe subscription does not belong to this StreamFlix account.",
+        )
+      }
+
+      if (subscription.status !== "canceled") {
+        try {
+          subscription = await stripe.subscriptions.cancel(
+            stripeSubscriptionId,
+            { invoice_now: false, prorate: false },
+          )
+        } catch (cancelError) {
+          subscription =
+            await stripe.subscriptions.retrieve(stripeSubscriptionId)
+          if (subscription.status !== "canceled") throw cancelError
+        }
+      }
       if (subscription.status !== "canceled") {
         throw new Error("Stripe did not confirm the cancellation")
       }
+      stripeConfirmedInactive = true
+    }
+
+    if (!stripeConfirmedInactive) {
+      throw new Error(
+        "Stripe could not confirm which subscription to cancel. Contact support before trying again.",
+      )
     }
 
     const canceledAt = new Date().toISOString()
-    const { error: cancelError } = await serviceClient
+    const { data: canceledMembership, error: cancelError } = await serviceClient
       .from("user_subscription")
       .update({ status: "Canceled", ends_at: canceledAt })
       .eq("user_subscription_id", membership.user_subscription_id)
       .eq("user_id", account.user_id)
+      .select("status")
+      .single()
     if (cancelError) throw cancelError
+    if (String(canceledMembership.status).toLowerCase() !== "canceled")
+      throw new Error(
+        "StreamFlix could not confirm the membership cancellation",
+      )
 
-    const { error: accountUpdateError } = await serviceClient
-      .from("user")
-      .update({ subscription_id: null, end_date: canceledAt })
-      .eq("user_id", account.user_id)
+    const { data: canceledAccount, error: accountUpdateError } =
+      await serviceClient
+        .from("user")
+        .update({ subscription_id: null, end_date: canceledAt })
+        .eq("user_id", account.user_id)
+        .select("subscription_id")
+        .single()
     if (accountUpdateError) throw accountUpdateError
+    if (canceledAccount.subscription_id !== null)
+      throw new Error("StreamFlix could not confirm the account cancellation")
 
     return response(
       {
         canceled: true,
-        stripeCanceled: stripeSubscriptionId.startsWith("sub_"),
+        stripeCanceled: stripeConfirmedInactive,
       },
       200,
       origin,

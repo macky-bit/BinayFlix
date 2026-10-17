@@ -65,7 +65,8 @@ Deno.serve(async (request) => {
     const body = (await request.json().catch(() => ({}))) as {
       action?: unknown
     }
-    const action = body.action === "change" ? "change" : "cancel"
+    if (body.action !== "change" && body.action !== "cancel")
+      throw new Error("Choose a supported subscription action")
 
     const { data: account, error: accountError } = await serviceClient
       .from("user")
@@ -92,24 +93,28 @@ Deno.serve(async (request) => {
       membership?.stripe_subscription_id ?? "",
     ).trim()
     if (membershipError || !subscriptionId.startsWith("sub_"))
-      throw new Error("No active Stripe subscription can be cancelled")
+      throw new Error("No active Stripe subscription can be managed")
 
     const configuration = Deno.env.get("STRIPE_PORTAL_CONFIGURATION_ID")?.trim()
     if (!configuration?.startsWith("bpc_"))
       throw new Error("Stripe Customer Portal is not configured")
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!)
+    if (body.action === "cancel") {
+      await stripe.billingPortal.configurations.update(configuration, {
+        features: {
+          subscription_cancel: {
+            enabled: true,
+            mode: "immediately",
+            proration_behavior: "none",
+          },
+        },
+      })
+    }
+
     const flowData =
-      action === "change"
+      body.action === "cancel"
         ? {
-            type: "subscription_update" as const,
-            subscription_update: { subscription: subscriptionId },
-            after_completion: {
-              type: "redirect" as const,
-              redirect: { return_url: `${origin}/?billing=updated` },
-            },
-          }
-        : {
             type: "subscription_cancel" as const,
             subscription_cancel: { subscription: subscriptionId },
             after_completion: {
@@ -117,11 +122,22 @@ Deno.serve(async (request) => {
               redirect: { return_url: `${origin}/?billing=cancelled` },
             },
           }
+        : {
+            type: "subscription_update" as const,
+            subscription_update: { subscription: subscriptionId },
+            after_completion: {
+              type: "redirect" as const,
+              redirect: { return_url: `${origin}/?billing=updated` },
+            },
+          }
 
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
       configuration,
-      return_url: `${origin}/`,
+      return_url:
+        body.action === "cancel"
+          ? `${origin}/?billing=cancel-abandoned`
+          : `${origin}/`,
       flow_data: flowData,
     })
 

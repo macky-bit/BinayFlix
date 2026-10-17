@@ -709,9 +709,17 @@ test("active Stripe subscriptions use the selected plan in Stripe confirmation",
   assert.match(syncSql, /FROM PUBLIC, anon, authenticated/i)
 })
 
-test("active members manage plans in the authenticated Stripe Customer Portal", () => {
+test("membership opens Stripe-hosted cancellation and keeps plan changes separate", () => {
   const accountSource = readFileSync(
     new URL("../src/modules/account/components.tsx", import.meta.url),
+
+    "utf8",
+  )
+  const cancelSource = readFileSync(
+    new URL(
+      "../supabase/functions/cancel-subscription/index.ts",
+      import.meta.url,
+    ),
     "utf8",
   )
   const portalSource = readFileSync(
@@ -722,31 +730,33 @@ test("active members manage plans in the authenticated Stripe Customer Portal", 
     "utf8",
   )
 
-  assert.match(accountSource, /create-billing-portal-session/)
-  assert.match(accountSource, /https:\/\/billing\.stripe\.com\//)
-  assert.match(portalSource, /serviceClient\.auth\.getUser/)
-  assert.match(portalSource, /stripe_customer_id/)
-  assert.match(portalSource, /STRIPE_PORTAL_CONFIGURATION_ID/)
-  assert.match(portalSource, /stripe\.billingPortal\.sessions\.create/)
-  assert.match(portalSource, /type: "subscription_update"/)
-  assert.match(portalSource, /type: "subscription_cancel"/)
-  assert.match(portalSource, /billing=cancelled/)
-})
-
-test("membership separates plan changes from Stripe portal cancellation", () => {
-  const accountSource = readFileSync(
-    new URL("../src/modules/account/components.tsx", import.meta.url),
-
-    "utf8",
-  )
-
   assert.match(accountSource, /"Cancel Subscription"/)
-
-  assert.match(accountSource, /Opening Stripe/)
-
-  assert.match(accountSource, /openBillingPortal\("cancel"\)/)
-
+  assert.match(
+    accountSource,
+    /functions\.invoke\(\s*"create-billing-portal-session"[\s\S]*action: "cancel"/,
+  )
+  assert.match(accountSource, /window\.confirm/)
+  assert.match(accountSource, /https:\/\/billing\.stripe\.com\//)
+  assert.match(accountSource, /window\.location\.assign/)
+  assert.doesNotMatch(
+    accountSource,
+    /functions\.invoke\(\s*"cancel-subscription"/,
+  )
+  assert.doesNotMatch(accountSource, /onSubscriptionCancelled/)
   assert.match(accountSource, /setModal\("changePlan"\)/)
+
+  assert.match(cancelSource, /serviceClient\.auth\.getUser/)
+  assert.match(cancelSource, /stripe\.subscriptions\.retrieve/)
+  assert.match(cancelSource, /stripe\.subscriptions\.cancel/)
+  assert.match(cancelSource, /stripeConfirmedInactive/)
+  assert.match(cancelSource, /\.select\("status"\)/)
+  assert.match(cancelSource, /canceledAccount\.subscription_id !== null/)
+  assert.match(portalSource, /serviceClient\.auth\.getUser/)
+  assert.match(portalSource, /subscription_cancel/)
+  assert.match(portalSource, /mode: "immediately"/)
+  assert.match(portalSource, /subscription: subscriptionId/)
+  assert.match(portalSource, /billing=cancelled/)
+  assert.match(portalSource, /billing=cancel-abandoned/)
 })
 
 test("completed Stripe cancellation signs out and returns to login", () => {
@@ -755,13 +765,35 @@ test("completed Stripe cancellation signs out and returns to login", () => {
     "utf8",
   )
 
-  assert.match(appSource, /params\.get\("billing"\) !== "cancelled"/)
-  assert.match(appSource, /supabase\.auth\.signOut\(\)/)
+  assert.match(appSource, /initialBillingReturn === "cancelled"/)
+  assert.match(appSource, /Confirming your Stripe cancellation/)
+  assert.match(appSource, /getSignedInMemberDestination\(\)/)
+  assert.match(appSource, /destination === "subscription"/)
+  assert.match(appSource, /Stripe is still processing your cancellation/)
+  assert.match(appSource, /setCancellationAttempt/)
+  assert.match(appSource, /scope: "global"/)
+  assert.match(appSource, /scope: "local"/)
+  assert.doesNotMatch(appSource, /onSubscriptionCancelled/)
+  assert.match(appSource, /resetViewerState\(\)/)
   assert.match(appSource, /setPage\("login"\)/)
   assert.match(
     appSource,
     /onSelect=\{\(profile: Profile\)[\s\S]*getSignedInMemberDestination\(\)[\s\S]*destination !== "profileSelect"/,
   )
+})
+
+test("protected member screens recheck subscription access for stale sessions", () => {
+  const appSource = readFileSync(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(appSource, /protectedMemberPages/)
+  assert.match(appSource, /getSignedInMemberDestination\(\)/)
+  assert.match(appSource, /setPage\("subscription"\)/)
+  assert.match(appSource, /window\.setInterval/)
+  assert.match(appSource, /window\.addEventListener\("focus"/)
+  assert.match(appSource, /document\.addEventListener\("visibilitychange"/)
 })
 
 test("choosing a member profile does not route an admin back to the admin panel", () => {

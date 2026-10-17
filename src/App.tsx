@@ -15,6 +15,7 @@ import ProfileSelectPage from "./modules/profileSelect/ProfileSelectPage"
 import type { Profile } from "./modules/profileSelect/ProfileSelectPage"
 
 import Dashboard from "./modules/dashboard/Dashboard"
+
 import type { DashboardView } from "./modules/dashboard/components"
 
 import WatchScreen from "./modules/movie/fixedscreen/movie"
@@ -48,8 +49,39 @@ import OpeningVideo from "./modules/auth/OpeningVideo"
 
 type Page = "loading" | "login" | "opening" | "register" | "resetPassword" | "subscription" | "profileSelect" | "dashboard" | "watch" | "account" | "profile" | "help" | "settings" | "admin"
 
+const protectedMemberPages = new Set<Page>([
+  "opening",
+
+  "profileSelect",
+
+  "dashboard",
+
+  "watch",
+
+  "account",
+
+  "profile",
+
+  "help",
+
+  "settings",
+])
+
 export default function App() {
   const [page, setPage] = useState<Page>("loading")
+
+  const initialBillingReturn = new URLSearchParams(window.location.search).get(
+    "billing",
+  )
+
+  const cancellationReturnRef = useRef(initialBillingReturn === "cancelled")
+
+  const [cancellationStatus, setCancellationStatus] =
+    useState<"none" | "pending" | "failed">(
+      initialBillingReturn === "cancelled" ? "pending" : "none",
+    )
+
+  const [cancellationAttempt, setCancellationAttempt] = useState(0)
 
   const [plan, setPlan] = useState<Plan | null>(null)
 
@@ -69,18 +101,58 @@ export default function App() {
 
   const openingStartedRef = useRef(false)
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get("billing") !== "cancelled") return
+  const resetViewerState = useCallback(() => {
+    setPlan(null)
 
-    window.history.replaceState({}, "", window.location.pathname)
+    setWatchShow(null)
+
+    setPreviewShow(null)
+
+    setDashboardView("home")
+
     activeAuthUserIdRef.current = null
+
     activeProfileIdRef.current = null
+
     setActiveProfileId(null)
+
     setActiveProfile(null)
+
     openingStartedRef.current = false
-    void supabase.auth.signOut().finally(() => setPage("login"))
   }, [])
+
+  const clearBillingReturn = useCallback(() => {
+    const url = new URL(window.location.href)
+
+    url.searchParams.delete("billing")
+
+    window.history.replaceState(
+      {},
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    )
+  }, [])
+
+  const signOutSession = useCallback(async () => {
+    const { error: globalError } = await supabase.auth.signOut({
+      scope: "global",
+    })
+
+    if (globalError) {
+      const { error: localError } = await supabase.auth.signOut({
+        scope: "local",
+      })
+
+      if (localError)
+        throw new Error(
+          "Your subscription was cancelled, but this device could not be signed out. Check your connection and try again.",
+        )
+    }
+
+    resetViewerState()
+
+    setPage("login")
+  }, [resetViewerState])
 
   const beginOpening = useCallback(() => {
     if (openingStartedRef.current) return
@@ -95,6 +167,10 @@ export default function App() {
 
     setPage(activeProfileIdRef.current === null ? "profileSelect" : "dashboard")
   }, [])
+
+  useEffect(() => {
+    if (initialBillingReturn === "cancel-abandoned") clearBillingReturn()
+  }, [clearBillingReturn, initialBillingReturn])
 
   useEffect(() => {
     let mounted = true
@@ -124,6 +200,8 @@ export default function App() {
     void supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return
 
+      if (cancellationReturnRef.current) return
+
       if (data.session) void routeSession(data.session.user.id)
       else setPage("login")
     })
@@ -136,18 +214,12 @@ export default function App() {
           if (event === "PASSWORD_RECOVERY") {
             setPage("resetPassword")
           } else if (event === "SIGNED_OUT") {
-            activeAuthUserIdRef.current = null
-
-            activeProfileIdRef.current = null
-
-            setActiveProfileId(null)
-
-            setActiveProfile(null)
-
-            openingStartedRef.current = false
+            resetViewerState()
 
             setPage("login")
           } else if (event === "SIGNED_IN" && session) {
+            if (cancellationReturnRef.current) return
+
             if (
               activeAuthUserIdRef.current !== session.user.id ||
               activeProfileIdRef.current === null
@@ -164,7 +236,111 @@ export default function App() {
 
       subscription.subscription.unsubscribe()
     }
-  }, [])
+  }, [resetViewerState])
+
+  useEffect(() => {
+    if (!cancellationReturnRef.current) return
+
+    let active = true
+
+    const confirmCancellation = async () => {
+      setCancellationStatus("pending")
+      setPage("loading")
+
+      const { data } = await supabase.auth.getSession()
+
+      if (!active) return
+
+      if (!data.session) {
+        cancellationReturnRef.current = false
+        clearBillingReturn()
+        resetViewerState()
+        setCancellationStatus("none")
+        setPage("login")
+        return
+      }
+
+      for (let attempt = 0; attempt < 15; attempt += 1) {
+        try {
+          const destination = await getSignedInMemberDestination()
+
+          if (!active) return
+
+          if (destination === "subscription") {
+            cancellationReturnRef.current = false
+            clearBillingReturn()
+            setCancellationStatus("none")
+            await signOutSession()
+            return
+          }
+        } catch {
+          // The webhook or network may still be catching up. Retry below.
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 1000))
+
+        if (!active) return
+      }
+
+      setCancellationStatus("failed")
+    }
+
+    void confirmCancellation().catch(() => {
+      if (active) setCancellationStatus("failed")
+    })
+
+    return () => {
+      active = false
+    }
+  }, [
+    cancellationAttempt,
+    clearBillingReturn,
+    resetViewerState,
+    signOutSession,
+  ])
+
+  useEffect(() => {
+    if (!protectedMemberPages.has(page)) return
+
+    let active = true
+
+    const enforceSubscription = async () => {
+      try {
+        const destination = await getSignedInMemberDestination()
+
+        if (!active || destination === "profileSelect") return
+
+        resetViewerState()
+
+        setPage("subscription")
+      } catch {
+        // Keep the current screen during transient network failures. Supabase
+        // policies remain the authority for protected data access.
+      }
+    }
+
+    const enforceWhenVisible = () => {
+      if (document.visibilityState === "visible") void enforceSubscription()
+    }
+
+    void enforceSubscription()
+
+    const interval = window.setInterval(() => void enforceSubscription(), 15000)
+
+    window.addEventListener("focus", enforceWhenVisible)
+
+    document.addEventListener("visibilitychange", enforceWhenVisible)
+
+    return () => {
+      active = false
+
+      window.clearInterval(interval)
+
+      window.removeEventListener("focus", enforceWhenVisible)
+
+      document.removeEventListener("visibilitychange", enforceWhenVisible)
+    }
+  }, [page, resetViewerState])
 
   useEffect(() => {
     if (page === "dashboard" && activeProfile === null) {
@@ -216,18 +392,9 @@ export default function App() {
   }
 
   const handleSignOut = () => {
-    setDashboardView("home")
-    activeAuthUserIdRef.current = null
-
-    activeProfileIdRef.current = null
-
-    setActiveProfileId(null)
-
-    setActiveProfile(null)
-
-    openingStartedRef.current = false
-
-    void supabase.auth.signOut().finally(() => setPage("login"))
+    void signOutSession().catch((error: unknown) => {
+      console.error("sign-out", error)
+    })
   }
 
   return (
@@ -237,7 +404,22 @@ export default function App() {
           <div className="app-loading__content">
             <div className="app-loading__logo">{LOGO_SVG}</div>
             <div className="app-loading__spinner" aria-hidden="true" />
-            <p className="app-loading__text">Loading StreamFlix…</p>
+            <p className="app-loading__text">
+              {cancellationStatus === "pending"
+                ? "Confirming your Stripe cancellation…"
+                : cancellationStatus === "failed"
+                  ? "Stripe is still processing your cancellation."
+                  : "Loading StreamFlix…"}
+            </p>
+            {cancellationStatus === "failed" && (
+              <button
+                type="button"
+                className="mt-4 rounded border border-white/40 px-4 py-2 text-sm text-white"
+                onClick={() => setCancellationAttempt((attempt) => attempt + 1)}
+              >
+                Try again
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -273,21 +455,31 @@ export default function App() {
           maxProfiles={plan?.MaxUser ?? 1}
           onSelect={(profile: Profile) => {
             void getSignedInMemberDestination()
+
               .then((destination) => {
                 if (destination !== "profileSelect") {
                   activeProfileIdRef.current = null
+
                   setActiveProfileId(null)
+
                   setActiveProfile(null)
+
                   setPage(destination)
+
                   return
                 }
 
                 activeProfileIdRef.current = profile.id
+
                 setDashboardView("home")
+
                 setActiveProfileId(profile.id)
+
                 setActiveProfile(profile)
+
                 beginOpening()
               })
+
               .catch(handleSignOut)
           }}
         />

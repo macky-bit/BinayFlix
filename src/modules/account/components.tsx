@@ -437,7 +437,7 @@ function IconX() {
 
 type Section = "overview" | "membership" | "security" | "devices" | "profiles" | "privacy"
 
-type Modal = null | "email" | "password" | "phone" | "delete1" | "delete2" | "signout" | "billing" | "cancelMembership" | "updatePayment" | "changePlan"
+type Modal = null | "email" | "password" | "phone" | "delete1" | "delete2" | "signout" | "billing" | "updatePayment" | "changePlan"
 
 // ─── Modal Overlay ────────────────────────────────────────────────────────────
 
@@ -1768,23 +1768,26 @@ function MembershipPage({
 
   billingHistory: BillingHistoryEntry[]
 }) {
-  const [portalAction, setPortalAction] = useState<"change" | "cancel" | null>(
-    null,
-  )
+  const [canceling, setCanceling] = useState(false)
 
-  const [portalError, setPortalError] = useState("")
+  const [cancelError, setCancelError] = useState("")
 
-  async function openBillingPortal(action: "change" | "cancel") {
-    if (portalAction) return
+  async function cancelSubscription() {
+    if (canceling) return
+    if (
+      !window.confirm(
+        "Cancel your StreamFlix subscription now? Access will end immediately.",
+      )
+    )
+      return
 
-    setPortalAction(action)
+    setCanceling(true)
 
-    setPortalError("")
+    setCancelError("")
 
     const { data, error } = await supabase.functions.invoke(
       "create-billing-portal-session",
-
-      { body: { action } },
+      { body: { action: "cancel" } },
     )
 
     if (error) {
@@ -1805,27 +1808,26 @@ function MembershipPage({
           message = payload.error.trim()
       }
 
-      setPortalError(message || "We couldn't open Stripe Customer Portal.")
+      setCancelError(message || "We couldn't open Stripe cancellation.")
 
-      setPortalAction(null)
-
-      return
-    }
-
-    const portalUrl =
-      data && typeof data === "object"
-        ? String((data as { url?: unknown }).url ?? "")
-        : ""
-
-    if (!portalUrl.startsWith("https://billing.stripe.com/")) {
-      setPortalError("Stripe Customer Portal returned an invalid URL.")
-
-      setPortalAction(null)
+      setCanceling(false)
 
       return
     }
 
-    window.location.assign(portalUrl)
+    if (
+      !data ||
+      typeof data !== "object" ||
+      typeof (data as { url?: unknown }).url !== "string" ||
+      !(data as { url: string }).url.startsWith("https://billing.stripe.com/")
+    ) {
+      setCancelError("Stripe returned an invalid cancellation link.")
+      setCanceling(false)
+
+      return
+    }
+
+    window.location.assign((data as { url: string }).url)
   }
 
   return (
@@ -1882,7 +1884,7 @@ function MembershipPage({
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => setModal("changePlan")}
-            disabled={portalAction !== null}
+            disabled={canceling}
             className="text-sm font-medium px-4 py-2 rounded transition-colors"
             style={{
               border: "1px solid var(--color-stone)",
@@ -1907,8 +1909,8 @@ function MembershipPage({
           {account?.planName && (
             <button
               type="button"
-              onClick={() => void openBillingPortal("cancel")}
-              disabled={portalAction !== null}
+              onClick={() => void cancelSubscription()}
+              disabled={canceling}
               className="text-sm font-medium px-4 py-2 rounded transition-colors"
               style={{
                 border: "1px solid var(--color-wine)",
@@ -1916,15 +1918,13 @@ function MembershipPage({
                 backgroundColor: "transparent",
               }}
             >
-              {portalAction === "cancel"
-                ? "Opening Stripe…"
-                : "Cancel Subscription"}
+              {canceling ? "Opening Stripe…" : "Cancel Subscription"}
             </button>
           )}
         </div>
-        {portalError && (
+        {cancelError && (
           <p role="alert" className="mt-2 text-xs text-red-400">
-            {portalError}
+            {cancelError}
           </p>
         )}
       </div>

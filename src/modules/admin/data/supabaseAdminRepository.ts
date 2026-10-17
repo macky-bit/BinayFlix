@@ -129,7 +129,7 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
 
       status: text(row.status || "Active"),
 
-      lastLogin: row.last_login ? date(row.last_login) : null,
+      lastLogin: row.last_login ? String(row.last_login) : null,
 
       avatarColor: colorFor(row.admin_id),
     }),
