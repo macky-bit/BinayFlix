@@ -303,7 +303,7 @@ export default function ReactionsWorkspace({
                   <td className="px-4 py-3">
                     <AdminRowAction
                       action="view"
-                      name={`reactors for ${group.contentTitle}`}
+                      name={`reactors for ${group.title}`}
                       onClick={() => setSelected(group)}
                     />
                   </td>

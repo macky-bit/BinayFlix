@@ -11,7 +11,7 @@ const OPENING_VIDEO_URL = supabase.storage
 
 export default function OpeningVideo({ onComplete }: { onComplete: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const completionTimer = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const completionTimer = useRef<number | null>(null)
   const finishing = useRef(false)
   const [ready, setReady] = useState(false)
   const [leaving, setLeaving] = useState(false)

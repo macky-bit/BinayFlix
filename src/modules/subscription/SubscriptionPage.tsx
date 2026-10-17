@@ -322,7 +322,9 @@ function PlanCard({
 }) {
   const [pressing, setPressing] = useState(false)
 
-  const [ripples, setRipples] = useState<{ id: number x: number y: number }[]>(
+  const [ripples, setRipples] = useState<
+    { id: number; x: number; y: number }[]
+  >(
     [],
   )
 
@@ -612,7 +614,10 @@ export default function SubscriptionPage({
         const payload = (await context
           .clone()
           .json()
-          .catch(() => null)) as { error?: unknown message?: unknown } | null
+          .catch(() => null)) as {
+          error?: unknown
+          message?: unknown
+        } | null
         const serverMessage = payload?.error ?? payload?.message
         if (typeof serverMessage === "string" && serverMessage.trim()) {
           message = serverMessage.trim()

@@ -378,6 +378,8 @@ export default function App() {
   }, [])
 
   const handleWatch = (show: Show) => {
+    if (show.contentId == null) return
+
     addOrUpdateContinue(show, 1, undefined, activeProfileId)
 
     setWatchShow(show)
@@ -521,9 +523,11 @@ export default function App() {
         </>
       )}
 
-      {page === "watch" && watchShow && (
+      {page === "watch" && watchShow?.contentId != null && (
         <WatchScreen
-          id={watchShow.id}
+          id={watchShow.contentId}
+          tmdbId={watchShow.tmdbId}
+          videoPath={watchShow.videoPath}
           title={watchShow.title}
           year={watchShow.year}
           rating={watchShow.rating}

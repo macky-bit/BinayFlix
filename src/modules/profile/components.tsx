@@ -1348,23 +1348,23 @@ function WatchHistoryPanel({
     )
   }
 
-  const remoteItemsByTitle = new Map(
-    items.map((item) => [item.title.trim().toLocaleLowerCase(), item]),
+  const remoteItemsByContentId = new Map(
+    items.map((item) => [item.contentId, item]),
   )
 
   const continueItems: WatchHistoryItem[] = continueEntries.map((entry) => {
-    const titleKey = entry.show.title.trim().toLocaleLowerCase()
+    const contentId = entry.show.contentId ?? null
 
-    const remoteItem = remoteItemsByTitle.get(titleKey)
+    const remoteItem = contentId == null ? undefined : remoteItemsByContentId.get(contentId)
 
     const progress = Math.max(0, Math.min(100, Math.round(entry.progress)))
 
     return {
-      key: `continue:${entry.show.mediaType ?? "movie"}:${entry.show.id}`,
+      key: `continue:${contentId ?? "unknown"}`,
 
-      contentId: remoteItem?.contentId ?? null,
+      contentId,
 
-      continueId: entry.show.id,
+      continueId: contentId,
 
       mediaType: entry.show.mediaType,
 

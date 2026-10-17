@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "format": "oxfmt",
+    "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/community-engagement.test.ts",
     "soundtrack:youtube": "node scripts/sync-youtube-soundtracks.mjs",
     "soundtrack:lyrics": "node --experimental-strip-types scripts/sync-soundtrack-lyrics.mjs"

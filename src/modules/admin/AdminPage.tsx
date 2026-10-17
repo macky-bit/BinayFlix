@@ -17,7 +17,13 @@ interface Props {
   onBack: () => void
   onSignOut: () => void
   onNavigate: (
-    page: "account" | "profile" | "help" | "settings" | "admin",
+    page:
+      | "account"
+      | "profile"
+      | "help"
+      | "settings"
+      | "admin"
+      | "profileSelect",
   ) => void
 }
 

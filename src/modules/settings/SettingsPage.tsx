@@ -11,6 +11,7 @@ import { clearContinueWatching } from "../dashboard/continueWatchingStore"
 import {
   readSubtitleSize,
   SUBTITLE_SIZE_OPTIONS,
+  type SubtitleSize,
   writeSubtitleSize,
 } from "./subtitlePreferences"
 
@@ -23,7 +24,7 @@ interface Props {
 
 type Tab = "playback" | "notifications" | "privacy" | "appearance"
 
-const TABS: { id: Tab label: string }[] = [
+const TABS: { id: Tab; label: string }[] = [
   { id: "playback", label: "Playback" },
 
   { id: "notifications", label: "Notifications" },
@@ -448,7 +449,7 @@ function AppearanceTab() {
             ariaLabel="Subtitle size"
             options={[...SUBTITLE_SIZE_OPTIONS]}
             onChange={(size) => {
-              setSubtitleSize(size)
+              setSubtitleSize(size as SubtitleSize)
               writeSubtitleSize(size)
             }}
           />

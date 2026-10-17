@@ -1,29 +1,49 @@
 import { useEffect, useState } from "react"
+
 import { supabase } from "../../lib/supabase"
-import type { Show } from "../movie/types"
+
+import { showIdentity, type Show } from "../movie/types"
+
 import { searchShows } from "../movie/tmdb"
+
 import { Footer, TrendingCard } from "./components"
+
 import { normalizeSearchQuery } from "./search"
 
 interface Props {
   query: string
+
   onWatch: (show: Show) => void
+
   onInfo: (show: Show) => void
+
   onNavigateHelp: () => void
 }
 
 type SearchResult = Show & { available: boolean }
 
 type ContentAvailabilityRow = {
+  content_id: number
+
   tmdb_id: number | string | null
-  category:
-    | { category_name: string }
-    | { category_name: string }[]
-    | null
+
+  video_file: string | null
+
+  category: { category_name: string } | { category_name: string }[] | null
+}
+
+type LocalContentRow = ContentAvailabilityRow & {
+  title: string
+  synopsis: string | null
+  release_year: number | null
+  runtime: number | null
+  age_rating: string | null
+  thumbnail: string | null
 }
 
 function categoryName(row: ContentAvailabilityRow) {
   const category = Array.isArray(row.category) ? row.category[0] : row.category
+
   return category?.category_name?.toLowerCase() ?? ""
 }
 
@@ -36,66 +56,170 @@ async function attachCatalogAvailability(
 ): Promise<SearchResult[]> {
   if (!shows.length) return []
 
-  const tmdbIds = [...new Set(shows.map((show) => show.id))]
+  const tmdbIds = [
+    ...new Set(
+      shows.flatMap((show) =>
+        show.tmdbId == null ? [] : [show.tmdbId],
+      ),
+    ),
+  ]
+
   const { data, error } = await supabase
+
     .from("content")
-    .select("tmdb_id, category(category_name)")
+
+    .select("content_id, tmdb_id, video_file, category(category_name)")
+
     .eq("availability_status", "available")
+
+    .eq("publishing_status", "ready")
+
+    .not("video_file", "is", null)
+
     .in("tmdb_id", tmdbIds)
 
   if (error) throw error
 
-  const availableKeys = new Set(
+  const availableRows = new Map(
     ((data ?? []) as unknown as ContentAvailabilityRow[]).flatMap((row) => {
       if (row.tmdb_id === null) return []
+
       const name = categoryName(row)
+
       const mediaType = name.includes("tv") ? "tv" : "movie"
-      return [availabilityKey(row.tmdb_id, mediaType)]
+
+      return [[availabilityKey(row.tmdb_id, mediaType), row] as const]
     }),
   )
 
-  return shows.map((show) => ({
-    ...show,
-    available: availableKeys.has(
-      availabilityKey(show.id, show.mediaType ?? "movie"),
-    ),
-  }))
+  return shows.map((show) => {
+    const row =
+      show.tmdbId == null
+        ? undefined
+        : availableRows.get(
+            availabilityKey(show.tmdbId, show.mediaType ?? "movie"),
+          )
+
+    return {
+      ...show,
+
+      contentId: row?.content_id,
+
+      tmdbId: show.tmdbId,
+
+      videoPath: row?.video_file,
+
+      available: Boolean(row),
+    }
+  })
+}
+
+async function searchLocalCatalog(query: string): Promise<SearchResult[]> {
+  const pattern = `%${query.replace(/[%_]/g, "\\$&")}%`
+  const { data, error } = await supabase
+    .from("content")
+    .select(
+      "content_id, tmdb_id, video_file, title, synopsis, release_year, runtime, age_rating, thumbnail, category(category_name)",
+    )
+    .eq("availability_status", "available")
+    .eq("publishing_status", "ready")
+    .not("video_file", "is", null)
+    .ilike("title", pattern)
+    .limit(20)
+  if (error) throw error
+
+  return ((data ?? []) as unknown as LocalContentRow[]).map((row) => {
+    const image =
+      row.thumbnail && !/^https?:/i.test(row.thumbnail)
+        ? supabase.storage
+            .from("content-thumbnails")
+            .getPublicUrl(row.thumbnail).data.publicUrl
+        : (row.thumbnail ?? "")
+    const minutes = Number(row.runtime ?? 0)
+    return {
+      contentId: row.content_id,
+      tmdbId: row.tmdb_id == null ? null : Number(row.tmdb_id),
+      videoPath: row.video_file,
+      title: row.title,
+      description: row.synopsis ?? "",
+      year: row.release_year?.toString() ?? "",
+      duration: minutes ? `${minutes} min` : "",
+      rating: row.age_rating ?? "",
+      image,
+      hero: image || undefined,
+      genres: [],
+      mediaType: categoryName(row).includes("tv") ? "tv" : "movie",
+      available: true,
+    }
+  })
 }
 
 export default function SearchResultsPage({
   query,
+
   onWatch,
+
   onInfo,
+
   onNavigateHelp,
 }: Props) {
   const normalizedQuery = normalizeSearchQuery(query)
+
   const [results, setResults] = useState<SearchResult[]>([])
+
   const [loading, setLoading] = useState(false)
+
   const [error, setError] = useState("")
 
   useEffect(() => {
     if (!normalizedQuery) {
       setResults([])
+
       setLoading(false)
+
       setError("")
+
       return
     }
 
     const controller = new AbortController()
+
     setLoading(true)
+
     setError("")
+
     const timeout = window.setTimeout(() => {
-      void searchShows(normalizedQuery, controller.signal)
-        .then(attachCatalogAvailability)
-        .then((nextResults) => {
-          if (!controller.signal.aborted) setResults(nextResults)
+      void Promise.all([
+        searchLocalCatalog(normalizedQuery),
+        searchShows(normalizedQuery, controller.signal).then(
+          attachCatalogAvailability,
+        ),
+      ])
+
+        .then(([localResults, tmdbResults]) => {
+          if (controller.signal.aborted) return
+          const localTmdbIds = new Set(
+            localResults.flatMap((show) =>
+              show.tmdbId == null ? [] : [show.tmdbId],
+            ),
+          )
+          setResults([
+            ...localResults,
+            ...tmdbResults.filter(
+              (show) => show.tmdbId == null || !localTmdbIds.has(show.tmdbId),
+            ),
+          ])
         })
+
         .catch((reason) => {
           if (reason instanceof DOMException && reason.name === "AbortError")
             return
+
           setResults([])
+
           setError("Search is temporarily unavailable. Please try again.")
         })
+
         .finally(() => {
           if (!controller.signal.aborted) setLoading(false)
         })
@@ -103,6 +227,7 @@ export default function SearchResultsPage({
 
     return () => {
       window.clearTimeout(timeout)
+
       controller.abort()
     }
   }, [normalizedQuery])
@@ -163,7 +288,7 @@ export default function SearchResultsPage({
         <section className="flex flex-wrap gap-4" aria-label="Search results">
           {results.map((show) => (
             <TrendingCard
-              key={`${show.mediaType}-${show.id}`}
+              key={showIdentity(show)}
               show={show}
               onPlay={onWatch}
               onInfo={onInfo}

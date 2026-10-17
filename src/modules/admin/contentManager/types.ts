@@ -23,6 +23,8 @@ export interface Genre {
 export interface Content {
   id: string
 
+  tmdbId: number | null
+
   title: string
 
   categoryId: string
@@ -41,15 +43,35 @@ export interface Content {
 
   thumbnailFilename: string
 
+  thumbnailFile?: File
+
   videoFilename: string
 
+  videoFile?: File
+
   subtitleFilename: string
+
+  subtitleFile?: File
+
+  uploadSignal?: AbortSignal
+
+  onUploadProgress?: (progress: ContentUploadProgress) => void
 
   totalStreams: number
 
   availability: "available" | "unavailable"
 
   syncedAt: string
+}
+
+export interface ContentUploadProgress {
+  asset: "thumbnail" | "video" | "subtitle"
+
+  loadedBytes: number
+
+  totalBytes: number
+
+  percent: number
 }
 
 export interface Soundtrack {

@@ -26,6 +26,8 @@ import {
 
 import { parseSubtitleCues } from "../src/modules/movie/subtitles.ts"
 
+import { showIdentity } from "../src/modules/movie/types.ts"
+
 import { getMemberDestination } from "../src/lib/authRouting.ts"
 
 import {
@@ -45,6 +47,28 @@ import {
   validateFeedbackImage,
   validateFeedbackText,
 } from "../src/modules/help/feedback.ts"
+
+test("show identities never conflate StreamFlix and TMDB IDs", () => {
+  const base = {
+    title: "Same title",
+    year: "2026",
+    rating: "",
+    duration: "",
+    genres: [],
+    image: "",
+    mediaType: "movie" as const,
+  }
+
+  assert.equal(
+    showIdentity({ ...base, contentId: 42, tmdbId: 42 }),
+    "content:42",
+  )
+  assert.equal(showIdentity({ ...base, tmdbId: 42 }), "tmdb:movie:42")
+  assert.notEqual(
+    showIdentity({ ...base, contentId: 42 }),
+    showIdentity({ ...base, tmdbId: 42 }),
+  )
+})
 
 test("admin last-login timestamps are synchronized from Supabase Auth", () => {
   const migration = readFileSync(
@@ -1229,13 +1253,16 @@ test("normal movie playback records watch history and the profile loads it", () 
 
   assert.match(movieSource, /playbackSeconds - previousSync\.playbackSeconds/)
 
-  assert.match(appSource, /onProgress=\{\(progress\) => addOrUpdateContinue/)
+  assert.match(
+    appSource,
+    /onProgress=\{\(progress\) =>\s*addOrUpdateContinue\(/,
+  )
 
   assert.match(profileSource, /get_my_watch_history/)
 
   assert.match(profileSource, /delete_my_watch_history_entry/)
 
-  assert.match(profileSource, /useContinueWatching\(null\)/)
+  assert.match(profileSource, /useContinueWatching\(null, profileId\)/)
 
   assert.doesNotMatch(profileSource, /const HISTORY_ITEMS/)
 })
@@ -1461,7 +1488,7 @@ test("Clear History removes remote history and local continue-watching data", ()
     "utf8",
   )
 
-  assert.match(settingsSource, /supabase\.rpc\("clear_my_watch_history"\)/)
+  assert.match(settingsSource, /supabase\.rpc\("clear_my_watch_history", \{/)
 
   assert.match(settingsSource, /role="alertdialog"/)
 
@@ -1469,7 +1496,7 @@ test("Clear History removes remote history and local continue-watching data", ()
 
   assert.match(settingsSource, /Yes, clear history/)
 
-  assert.match(settingsSource, /clearContinueWatching\(\)/)
+  assert.match(settingsSource, /clearContinueWatching\(profileId\)/)
 
   assert.match(
     settingsSource,
@@ -1477,7 +1504,10 @@ test("Clear History removes remote history and local continue-watching data", ()
     /window\.alert\("Your watch history has been cleared\."\)/,
   )
 
-  assert.match(storeSource, /export function clearContinueWatching\(\)/)
+  assert.match(
+    storeSource,
+    /export function clearContinueWatching\(profileId\?: number \| null\)/,
+  )
 
   assert.match(sql, /delete from public\.watch_history/i)
 
@@ -1812,7 +1842,7 @@ test("TMDB search disables titles outside the available Supabase catalog", () =>
 
   assert.match(searchSource, /\.in\("tmdb_id", tmdbIds\)/)
 
-  assert.match(searchSource, /availabilityKey\(show\.id, show\.mediaType/)
+  assert.match(searchSource, /availabilityKey\(show\.tmdbId, show\.mediaType/)
 
   assert.match(searchSource, /unavailable=\{!show\.available\}/)
 
@@ -1820,7 +1850,9 @@ test("TMDB search disables titles outside the available Supabase catalog", () =>
 
   assert.match(cardSource, /onClick=\{unavailable \? undefined/)
 
-  assert.match(cardSource, />Unavailable</)
+  assert.match(cardSource, /unavailableLabel = "Unavailable"/)
+
+  assert.match(cardSource, /\{unavailableLabel\}/)
 })
 
 test("dashboard search does not render a close button", () => {
@@ -1853,4 +1885,154 @@ test("movie carousels use mirrored arrowhead SVG controls", () => {
   assert.doesNotMatch(dashboardSource, /styles\.scrollArrow\}>‹/)
 
   assert.doesNotMatch(dashboardSource, /styles\.scrollArrow\}>›/)
+})
+
+test("admin movie publishing stores real assets and keeps TMDB optional", () => {
+  const repositorySource = readFileSync(
+    new URL(
+      "../src/modules/admin/data/supabaseAdminRepository.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const catalogSource = readFileSync(
+    new URL("../src/modules/movie/useSupabaseCatalog.ts", import.meta.url),
+    "utf8",
+  )
+  const playerSource = readFileSync(
+    new URL("../src/modules/movie/fixedscreen/movie.tsx", import.meta.url),
+    "utf8",
+  )
+  const syncSource = readFileSync(
+    new URL(
+      "../supabase/functions/sync-tmdb-catalog/index.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const migrationSource = readFileSync(
+    new URL(
+      "../supabase/migrations/20261017193000_publish_admin_content_uploads.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const publishContractSource = readFileSync(
+    new URL(
+      "../supabase/migrations/20261017203000_require_uploaded_video_for_available_content.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const cleanupSource = readFileSync(
+    new URL(
+      "../supabase/functions/cleanup-content-uploads/index.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const assetProtectionSource = readFileSync(
+    new URL(
+      "../supabase/migrations/20261017204500_protect_referenced_content_assets.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const quarantineSource = readFileSync(
+    new URL(
+      "../supabase/migrations/20261017205500_quarantine_legacy_manual_assets.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const tmdbClientSource = readFileSync(
+    new URL("../src/modules/movie/tmdb.ts", import.meta.url),
+    "utf8",
+  )
+  const tmdbMetadataSource = readFileSync(
+    new URL(
+      "../supabase/functions/tmdb-metadata/index.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const contentFormSource = readFileSync(
+    new URL(
+      "../src/modules/admin/contentManager/components/tabs/ContentTab.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const myListSource = readFileSync(
+    new URL(
+      "../src/modules/dashboard/myList/components.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const movieTypesSource = readFileSync(
+    new URL("../src/modules/movie/types.ts", import.meta.url),
+    "utf8",
+  )
+  const profileSource = readFileSync(
+    new URL("../src/modules/profile/components.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(repositorySource, /create_admin_content_draft/)
+  assert.match(repositorySource, /finalize_admin_content_upload/)
+  assert.match(repositorySource, /createSignedUploadUrl\(path\)/)
+  assert.match(repositorySource, /uploadWithProgress\(\{/)
+  assert.match(
+    repositorySource,
+    /request\.upload\.addEventListener\("progress"/,
+  )
+  assert.match(
+    repositorySource,
+    /new DOMException\("Upload cancelled", "AbortError"\)/,
+  )
+  assert.match(repositorySource, /const removeStorageAssets = async/)
+  assert.match(repositorySource, /Storage cleanup incomplete:/)
+  assert.match(repositorySource, /publishing_status: "failed"/)
+  assert.match(repositorySource, /publishing_status: "uploading"/)
+  assert.match(repositorySource, /Draft status update failed:/)
+  assert.doesNotMatch(
+    repositorySource,
+    /Replacement upload cleanup failed", cleanupError/,
+  )
+  assert.match(catalogSource, /contentId: row\.content_id/)
+  assert.doesNotMatch(catalogSource, /\.not\("tmdb_id", "is", null\)/)
+  assert.match(playerSource, /createSignedUrl\(videoPath/)
+  assert.match(playerSource, /loadSubtitleTrack\(supabase, id\)/)
+  assert.doesNotMatch(playerSource, /PLAYBACK_SOURCE_BY_QUALITY/)
+  assert.match(playerSource, /<small>Uploaded source<\/small>/)
+  assert.match(playerSource, /50 \* 60 \* 1000/)
+  assert.match(syncSource, /skipped_manual/)
+  assert.doesNotMatch(syncSource, /video_file: null/)
+  assert.match(syncSource, /availability_status: "unavailable"/)
+  assert.match(migrationSource, /publishing_status = 'ready'/)
+  assert.match(migrationSource, /public\.is_any_admin\(\)/)
+  assert.match(
+    publishContractSource,
+    /content_available_requires_uploaded_video/,
+  )
+  assert.match(publishContractSource, /FROM storage\.objects/)
+  assert.match(cleanupSource, /\["draft", "uploading", "failed"\]/)
+  assert.match(cleanupSource, /\.remove\(paths\)/)
+  assert.match(assetProtectionSource, /AND NOT EXISTS/)
+  assert.match(assetProtectionSource, /c\.video_file = name/)
+  assert.match(quarantineSource, /publishing_status = 'failed'/)
+  assert.match(quarantineSource, /FROM storage\.objects AS object/)
+  assert.doesNotMatch(tmdbClientSource, /VITE_TMDB|api\.themoviedb\.org/)
+  assert.match(tmdbClientSource, /functions\.invoke\("tmdb-metadata"/)
+  assert.match(tmdbMetadataSource, /Deno\.env\.get\("TMDB_API_KEY"\)/)
+  assert.match(tmdbMetadataSource, /Unsupported TMDB operation/)
+  assert.match(contentFormSource, /file\.slice\(0, 512\)\.arrayBuffer\(\)/)
+  assert.doesNotMatch(myListSource, /entry\.id/)
+  assert.match(myListSource, /fetchShowDetails\(tmdbId/)
+  assert.doesNotMatch(tmdbClientSource, /id:\s*item\.id/)
+  assert.doesNotMatch(movieTypesSource, /^\s*id\??:\s*number/m)
+  assert.match(movieTypesSource, /return `content:\$\{show\.contentId\}`/)
+  assert.match(profileSource, /remoteItemsByContentId/)
+  assert.doesNotMatch(profileSource, /remoteItemsByTitle/)
 })

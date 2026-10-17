@@ -18,10 +18,13 @@ CREATE TABLE "public"."content" (
   "synced_at"           timestamp with time zone,
   "created_at"          timestamp with time zone     DEFAULT now(),
   "admin_updated_at"    timestamp with time zone,
+  "publishing_status"   character varying(20)    NOT NULL DEFAULT 'ready'::character varying,
   CONSTRAINT "content_catalog_source_check" CHECK (((catalog_source)::text = ANY ((ARRAY['manual'::character varying, 'tmdb'::character varying])::text[]))),
   CONSTRAINT "content_category_id_fkey" FOREIGN KEY (category_id) REFERENCES public.category(category_id) ON UPDATE CASCADE ON DELETE SET NULL,
   CONSTRAINT "content_pkey" PRIMARY KEY (content_id),
   CONSTRAINT "content_popularity_rank_check" CHECK (((popularity_rank IS NULL) OR ((popularity_rank >= 1) AND (popularity_rank <= 50)))),
+  CONSTRAINT "content_publishing_status_check" CHECK (((publishing_status)::text = ANY ((ARRAY['draft'::character varying, 'uploading'::character varying, 'ready'::character varying, 'failed'::character varying])::text[]))),
+  CONSTRAINT "content_available_requires_uploaded_video" CHECK (((availability_status)::text <> 'available'::text) OR (((publishing_status)::text = 'ready'::text) AND (NULLIF(btrim(video_file), ''::text) IS NOT NULL))),
   CONSTRAINT "content_release_year_check" CHECK ((release_year >= 1888)),
   CONSTRAINT "content_runtime_check" CHECK ((runtime > 0)),
   CONSTRAINT "content_tmdb_reference_unique" UNIQUE (category_id, tmdb_id),
@@ -47,6 +50,11 @@ CREATE POLICY "content_manager_delete_content" ON "public"."content"
   TO "authenticated"
   USING (public.is_any_admin());
 
+CREATE POLICY "content_admin_read_all" ON "public"."content"
+  FOR SELECT
+  TO "authenticated"
+  USING (public.is_any_admin());
+
 CREATE POLICY "content_manager_insert_content" ON "public"."content"
   FOR INSERT
   TO "authenticated"
@@ -61,7 +69,7 @@ CREATE POLICY "content_manager_update_content" ON "public"."content"
 CREATE POLICY "user_can_view_available_content" ON "public"."content"
   FOR SELECT
   TO PUBLIC
-  USING (((availability_status)::text = 'available'::text));
+  USING (((availability_status)::text = 'available'::text) AND ((publishing_status)::text = 'ready'::text) AND (NULLIF(btrim(video_file), ''::text) IS NOT NULL));
 
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE "public"."content" TO "anon", "authenticated", "postgres", "service_role";
 
@@ -90,3 +98,62 @@ REVOKE ALL ON FUNCTION public.set_admin_content_updated_at() FROM PUBLIC, anon, 
 CREATE TRIGGER set_admin_content_updated_at
 BEFORE INSERT OR UPDATE ON public.content
 FOR EACH ROW EXECUTE FUNCTION public.set_admin_content_updated_at();
+
+CREATE OR REPLACE FUNCTION public.enforce_content_publish_contract()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+DECLARE
+  required_prefix text := 'content/' || NEW.content_id || '/';
+BEGIN
+  IF auth.uid() IS NOT NULL AND public.is_any_admin() THEN
+    IF TG_OP = 'INSERT' THEN
+      NEW.total_streams_count := 0;
+      NEW.catalog_source := 'manual';
+      NEW.synced_at := NULL;
+      NEW.popularity_rank := NULL;
+      NEW.availability_status := 'unavailable';
+    ELSE
+      NEW.total_streams_count := OLD.total_streams_count;
+      NEW.catalog_source := OLD.catalog_source;
+      NEW.synced_at := OLD.synced_at;
+    END IF;
+  END IF;
+
+  IF NEW.availability_status = 'available' THEN
+    IF NEW.publishing_status <> 'ready'
+      OR NULLIF(btrim(NEW.video_file), '') IS NULL THEN
+      RAISE EXCEPTION 'Available content requires a ready uploaded video';
+    END IF;
+
+    IF NEW.catalog_source = 'manual' THEN
+      IF NEW.video_file NOT LIKE required_prefix || 'video/%'
+        OR NULLIF(btrim(NEW.thumbnail), '') IS NULL
+        OR NEW.thumbnail NOT LIKE required_prefix || 'thumbnail/%' THEN
+        RAISE EXCEPTION 'Manual content assets must use their content ID path';
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM storage.objects
+        WHERE bucket_id = 'video_file' AND name = NEW.video_file
+      ) OR NOT EXISTS (
+        SELECT 1 FROM storage.objects
+        WHERE bucket_id = 'content-thumbnails' AND name = NEW.thumbnail
+      ) THEN
+        RAISE EXCEPTION 'Available content requires uploaded video and thumbnail objects';
+      END IF;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.enforce_content_publish_contract()
+FROM PUBLIC, anon, authenticated;
+
+CREATE TRIGGER enforce_content_publish_contract
+BEFORE INSERT OR UPDATE ON public.content
+FOR EACH ROW EXECUTE FUNCTION public.enforce_content_publish_contract();

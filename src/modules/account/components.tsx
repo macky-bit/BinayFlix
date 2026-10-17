@@ -3010,7 +3010,7 @@ function UpdatePaymentModal({ onClose }: { onClose: () => void }) {
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-const sidebarItems: { key: Section label: string icon: React.ReactNode }[] = [
+const sidebarItems: { key: Section; label: string; icon: React.ReactNode }[] = [
   { key: "overview", label: "Overview", icon: <IconHome /> },
 
   { key: "membership", label: "Membership", icon: <IconCard /> },

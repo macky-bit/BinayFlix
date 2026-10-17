@@ -227,7 +227,7 @@ export default function FeedbackPage() {
           <FeedbackDetailPanel
             item={selectedItem}
             onClose={() => setSelectedId(null)}
-            onStatusChange={(id, status) => { handleStatusChange(id, status) }}
+            onStatusChange={handleStatusChange}
           />
         )}
       </div>

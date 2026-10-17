@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+
 import type { Tab, Toast } from "./types"
 
 import ContentTab from "./components/tabs/ContentTab"
@@ -17,13 +18,26 @@ import { useContentManagerData } from "./useContentManagerData"
 
 import { AdminPageHeader } from "../components/AdminUI"
 
+import { supabase } from "../../../lib/supabase"
+
 export default function ContentManagerView() {
   const [activeTab, setActiveTab] = useState<Tab>("content")
+
   const [streamFilter, setStreamFilter] = useState<"all" | "movies" | "tv">(
     "all",
   )
+
   const [addRequest, setAddRequest] = useState(0)
+
   const [toasts, setToasts] = useState<Toast[]>([])
+
+  useEffect(() => {
+    void supabase.functions
+      .invoke("cleanup-content-uploads")
+      .then(({ error }) => {
+        if (error) console.warn("Content upload cleanup failed", error)
+      })
+  }, [])
 
   const addToast = useCallback((message: string, type: Toast["type"]) => {
     const id = String(Date.now())
@@ -82,38 +96,51 @@ export default function ContentManagerView() {
   const availableTitles = content.filter(
     (item) => item.availability === "available",
   ).length
+
   const availabilityPercent = content.length
     ? Math.round((availableTitles / content.length) * 100)
     : 0
 
   const categoryNames = useMemo(
     () => new Map(categories.map((category) => [category.id, category.name])),
+
     [categories],
   )
+
   const topStreamedTitles = useMemo(() => {
     return content
+
       .map((item) => {
         const categoryName = categoryNames.get(item.categoryId) ?? ""
+
         const kind = categoryName.toLowerCase().includes("tv") ? "tv" : "movies"
+
         return { ...item, kind }
       })
+
       .filter((item) => streamFilter === "all" || item.kind === streamFilter)
+
       .sort(
         (left, right) =>
           right.totalStreams - left.totalStreams ||
           left.title.localeCompare(right.title),
       )
+
       .slice(0, 10)
   }, [categoryNames, content, streamFilter])
+
   const largestStreamCount = Math.max(
     1,
+
     ...topStreamedTitles.map((item) => item.totalStreams),
   )
+
   const formatStreams = (value: number) =>
     new Intl.NumberFormat("en-US").format(value)
 
   const openAddTitle = () => {
     setActiveTab("content")
+
     setAddRequest((request) => request + 1)
   }
 
@@ -129,8 +156,19 @@ export default function ContentManagerView() {
             className="btn-primary flex items-center gap-2 px-5 py-2.5"
             onClick={openAddTitle}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             Add content
           </button>
@@ -230,7 +268,9 @@ export default function ContentManagerView() {
             >
               {([
                 ["all", "All"],
+
                 ["movies", "Movies"],
+
                 ["tv", "TV Series"],
               ] as const).map(([value, label]) => (
                 <button
@@ -251,14 +291,19 @@ export default function ContentManagerView() {
               {topStreamedTitles.map((item, index) => {
                 const percentage = Math.max(
                   item.totalStreams > 0 ? 2 : 0,
+
                   (item.totalStreams / largestStreamCount) * 100,
                 )
+
                 return (
                   <li key={item.id} data-kind={item.kind}>
                     <span className="content-stream-chart__rank">
                       {index + 1}
                     </span>
-                    <span className="content-stream-chart__title" title={item.title}>
+                    <span
+                      className="content-stream-chart__title"
+                      title={item.title}
+                    >
                       {item.title}
                     </span>
                     <span
@@ -280,8 +325,12 @@ export default function ContentManagerView() {
           )}
 
           <footer className="content-stream-chart__legend" aria-hidden="true">
-            <span><i className="is-movie" /> Movies</span>
-            <span><i className="is-tv" /> TV Series</span>
+            <span>
+              <i className="is-movie" /> Movies
+            </span>
+            <span>
+              <i className="is-tv" /> TV Series
+            </span>
             <small>Streams</small>
           </footer>
         </section>

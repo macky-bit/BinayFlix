@@ -1,49 +1,22 @@
-import type { Show } from "./types"
+import { showIdentity, type Show } from "./types"
+
+import { supabase } from "../../lib/supabase"
+
+interface TmdbGenre {
+  id: number
+  name: string
+}
 
 // ─── TMDB CONFIG ────────────────────────────────────────────────────────────
 
-// Credentials are supplied through the local environment and are exposed to
-
-// the browser because this is a client-side TMDB integration.
-
-export const TMDB_API_KEY = (import.meta.env
-  .VITE_TMDB_API_KEY as string | undefined)
-
-  ?.trim()
-
-export const TMDB_READ_ACCESS_TOKEN = (import.meta.env
-  .VITE_TMDB_READ_ACCESS_TOKEN as string | undefined)
-
-  ?.trim()
-
-export const TMDB_BASE = "https://api.themoviedb.org/3"
-
 export const TMDB_IMG = "https://image.tmdb.org/t/p"
 
-export const hasTMDBCredentials = Boolean(
-  TMDB_API_KEY || TMDB_READ_ACCESS_TOKEN,
-)
-
-function tmdbRequest(path: string, params: Record<string, string> = {}) {
-  if (!hasTMDBCredentials) return null
-
-  const url = new URL(`${TMDB_BASE}${path}`)
-
-  url.searchParams.set("language", "en-US")
-
-  if (TMDB_API_KEY) url.searchParams.set("api_key", TMDB_API_KEY)
-
-  Object.entries(params).forEach(([key, value]) =>
-    url.searchParams.set(key, value),
-  )
-
-  return {
-    url: url.toString(),
-
-    init: TMDB_READ_ACCESS_TOKEN
-      ? { headers: { Authorization: `Bearer ${TMDB_READ_ACCESS_TOKEN}` } }
-      : undefined,
-  }
+async function invokeTmdb<T>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke("tmdb-metadata", {
+    body,
+  })
+  if (error) throw error
+  return (data as { data: T }).data
 }
 
 // Map TMDB genre IDs -> names
@@ -110,22 +83,16 @@ export async function tmdb<T>(
   params: Record<string, string> = {},
 ): Promise<T[]> {
   try {
-    const request = tmdbRequest(path, params)
-
-    if (!request) return []
-
-    const res = await fetch(request.url, request.init)
-
-    if (!res.ok) {
-      if (res.status !== 401 && res.status !== 403) {
-        console.warn(`TMDB ${res.status} on ${path}`)
-      }
-
-      throw new Error(`TMDB ${res.status}`)
-    }
-
-    const data = await res.json()
-
+    const match = path.match(/^\/discover\/(movie|tv)$/)
+    if (!match) return []
+    const dateField =
+      match[1] === "movie" ? "primary_release_date" : "first_air_date"
+    const data = await invokeTmdb<{ results?: T[] }>({
+      operation: "discover",
+      mediaType: match[1],
+      start: params[`${dateField}.gte`],
+      end: params[`${dateField}.lte`],
+    })
     return data.results ?? []
   } catch {
     return []
@@ -137,21 +104,11 @@ export async function searchShows(
 
   signal?: AbortSignal,
 ): Promise<Show[]> {
-  const request = tmdbRequest("/search/multi", {
-    query,
-
-    include_adult: "false",
-  })
-
-  if (!request) throw new Error("TMDB credentials are unavailable")
-
-  const response = await fetch(request.url, { ...request.init, signal })
-
-  if (!response.ok) throw new Error(`TMDB ${response.status}`)
-
-  const payload = (await response.json()) as {
+  if (signal?.aborted) throw new DOMException("Search cancelled", "AbortError")
+  const payload = await invokeTmdb<{
     results?: Array<Record<string, any>>
-  }
+  }>({ operation: "search", query })
+  if (signal?.aborted) throw new DOMException("Search cancelled", "AbortError")
 
   const seen = new Set<string>()
 
@@ -162,7 +119,7 @@ export async function searchShows(
     .map((item) => toShow(item, false, item.media_type as "movie" | "tv"))
 
     .filter((show) => {
-      const key = `${show.mediaType}-${show.id}`
+      const key = showIdentity(show)
 
       if (!show.title || !show.image || seen.has(key)) return false
 
@@ -174,35 +131,16 @@ export async function searchShows(
     .slice(0, 30)
 }
 
-async function tmdbOne<T>(
-  path: string,
-
-  params: Record<string, string> = {},
-): Promise<T | null> {
-  try {
-    const request = tmdbRequest(path, params)
-
-    if (!request) return null
-
-    const res = await fetch(request.url, request.init)
-
-    if (!res.ok) throw new Error(`TMDB ${res.status}`)
-
-    return await res.json()
-  } catch {
-    return null
-  }
-}
-
 export async function fetchShowDetails(
   id: number,
 
   mediaType: "movie" | "tv" = "movie",
 ): Promise<Show | null> {
-  const data = await tmdbOne<any>(`/${mediaType}/${id}`, {
-    append_to_response:
-      mediaType === "movie" ? "release_dates" : "content_ratings",
-  })
+  const data = await invokeTmdb<any>({
+    operation: "details",
+    id,
+    mediaType,
+  }).catch(() => null)
 
   if (!data) return null
 
@@ -246,17 +184,7 @@ export interface TMDBEpisode {
 }
 
 export async function fetchTVEpisodes(id: number): Promise<TMDBEpisode[]> {
-  const details = await tmdbOne<{
-    seasons?: { season_number: number; episode_count: number }[]
-  }>(`/tv/${id}`)
-
-  const season = details?.seasons?.find(
-    (item) => item.season_number > 0 && item.episode_count > 0,
-  )
-
-  if (!season) return []
-
-  const seasonData = await tmdbOne<{
+  const seasonData = await invokeTmdb<{
     episodes?: {
       episode_number: number
 
@@ -266,7 +194,7 @@ export async function fetchTVEpisodes(id: number): Promise<TMDBEpisode[]> {
 
       still_path?: string | null
     }[]
-  }>(`/tv/${id}/season/${season.season_number}`)
+  }>({ operation: "episodes", id }).catch(() => null)
 
   return (seasonData?.episodes ?? [])
 
@@ -300,8 +228,7 @@ export function toShow(
 
   const genreIds = item.genre_ids as number[] | undefined ?? []
 
-  const detailGenres =
-    item.genres as { id: number; name: string }[] | undefined ?? []
+  const detailGenres = item.genres as TmdbGenre[] | undefined ?? []
 
   const genres = (
     detailGenres.length > 0
@@ -316,7 +243,7 @@ export function toShow(
   const vote = Math.round((item.vote_average ?? 0) * 10)
 
   return {
-    id: item.id,
+    tmdbId: item.id,
 
     title,
 
@@ -354,15 +281,11 @@ export async function fetchTrailerKey(
   mediaType: "movie" | "tv" = "movie",
 ): Promise<string | null> {
   try {
-    const request = tmdbRequest(`/${mediaType}/${id}/videos`)
-
-    if (!request) return null
-
-    const res = await fetch(request.url, request.init)
-
-    if (!res.ok) throw new Error(`TMDB ${res.status}`)
-
-    const data = await res.json()
+    const data = await invokeTmdb<{ results?: any[] }>({
+      operation: "videos",
+      id,
+      mediaType,
+    })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
 
@@ -389,9 +312,12 @@ export async function fetchSimilar(
 
   mediaType: "movie" | "tv" = "movie",
 ): Promise<Show[]> {
-  const raw = await tmdb<Record<string, unknown>>(
-    `/${mediaType}/${id}/similar`,
-  )
+  const data = await invokeTmdb<{ results?: Array<Record<string, unknown>> }>({
+    operation: "similar",
+    id,
+    mediaType,
+  }).catch(() => ({ results: [] }))
+  const raw = data.results ?? []
 
   return raw
 

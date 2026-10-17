@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useRef, type RefObject } from "react"
 
-import type { Show } from "../movie/types"
+import { showIdentity, type Show } from "../movie/types"
 
 import { supabase } from "../../lib/supabase"
 
@@ -23,7 +23,12 @@ import {
 
 export const LOGO_SVG = (
   <div className="flex items-center gap-2">
-    <img src="/favicon.png" alt="" aria-hidden className="h-7 w-auto object-contain" />
+    <img
+      src="/favicon.png"
+      alt=""
+      aria-hidden
+      className="h-7 w-auto object-contain"
+    />
     <svg viewBox="0 0 111.81 30" className="h-6 w-auto" aria-label="StreamFlix">
       <defs>
         <linearGradient id="sfGradNav" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -163,30 +168,25 @@ function ChevronDown() {
   )
 }
 
-type AccountMenuIconName =
-  | "profile"
-  | "account"
-  | "settings"
-  | "help"
-  | "switchProfile"
-  | "signout"
+type AccountMenuIconName = "profile" | "account" | "settings" | "help" | "switchProfile" | "signout"
 
-type AccountMenuPage =
-  | "account"
-  | "profile"
-  | "help"
-  | "settings"
-  | "profileSelect"
+type AccountMenuPage = "account" | "profile" | "help" | "settings" | "profileSelect"
 
 const ACCOUNT_MENU_ITEMS: ReadonlyArray<{
   label: string
+
   page: AccountMenuPage
+
   icon: AccountMenuIconName
 }> = [
   { label: "Profile", page: "profile", icon: "profile" },
+
   { label: "Account", page: "account", icon: "account" },
+
   { label: "Settings", page: "settings", icon: "settings" },
+
   { label: "Help Center", page: "help", icon: "help" },
+
   { label: "Change Profile", page: "profileSelect", icon: "switchProfile" },
 ]
 
@@ -298,9 +298,11 @@ export function TrendingCard({
   onInfo,
 
   posterStyle = false,
+
   wide = false,
 
   unavailable = false,
+
   unavailableLabel = "Unavailable",
 }: {
   show: Show
@@ -310,9 +312,11 @@ export function TrendingCard({
   onInfo?: (show: Show) => void
 
   posterStyle?: boolean
+
   wide?: boolean
 
   unavailable?: boolean
+
   unavailableLabel?: string
 }) {
   const [hovered, setHovered] = useState(false)
@@ -321,30 +325,36 @@ export function TrendingCard({
 
   const mediaType = show.mediaType ?? "movie"
 
-  const inList = isSaved(show.id, mediaType)
+  const inList = isSaved(show)
 
   return (
     <div
       className={`relative shrink-0 rounded-xl overflow-hidden ${
         unavailable
-          ? unavailableLabel === "Coming soon" ? styles.trendingCardComingSoon : styles.trendingCardUnavailable
+          ? unavailableLabel === "Coming soon"
+            ? styles.trendingCardComingSoon
+            : styles.trendingCardUnavailable
           : "cursor-pointer"
-      } ${styles.trendingCard} ${posterStyle ? styles.posterCarouselCard : ""} ${wide ? styles.continueCard : ""}`}
+      } ${styles.trendingCard} ${
+        posterStyle ? styles.posterCarouselCard : ""
+      } ${wide ? styles.continueCard : ""}`}
       aria-disabled={unavailable || undefined}
       style={{
-        transform: hovered && !unavailable
-          ? posterStyle
-            ? "translateY(-4px) scale(1.02)"
-            : "scale(1.04)"
-          : "scale(1)",
+        transform:
+          hovered && !unavailable
+            ? posterStyle
+              ? "translateY(-4px) scale(1.02)"
+              : "scale(1.04)"
+            : "scale(1)",
 
         transition: "transform 0.2s ease, box-shadow 0.2s ease",
 
-        boxShadow: hovered && !unavailable
-          ? "-10px 8px 28px rgba(0,0,0,0.58)"
-          : posterStyle
-            ? "-10px 0 24px rgba(0,0,0,0.45)"
-            : "none",
+        boxShadow:
+          hovered && !unavailable
+            ? "-10px 8px 28px rgba(0,0,0,0.58)"
+            : posterStyle
+              ? "-10px 0 24px rgba(0,0,0,0.45)"
+              : "none",
       }}
       onMouseEnter={() => {
         if (!unavailable) setHovered(true)
@@ -354,8 +364,12 @@ export function TrendingCard({
     >
       {/* thumbnail */}
       <div
-        className={`relative w-full ${posterStyle ? styles.posterCardMedia : ""}`}
-        style={posterStyle ? undefined : { aspectRatio: wide ? "16/9" : "16/10" }}
+        className={`relative w-full ${
+          posterStyle ? styles.posterCardMedia : ""
+        }`}
+        style={
+          posterStyle ? undefined : { aspectRatio: wide ? "16/9" : "16/10" }
+        }
       >
         <img
           src={show.image}
@@ -366,7 +380,11 @@ export function TrendingCard({
       </div>
 
       {/* metadata always visible */}
-      <div className={`px-2.5 pt-2 pb-2.5 ${styles.trendingMeta} ${posterStyle ? styles.posterCardMeta : ""}`}>
+      <div
+        className={`px-2.5 pt-2 pb-2.5 ${styles.trendingMeta} ${
+          posterStyle ? styles.posterCardMeta : ""
+        }`}
+      >
         {/* title row */}
         <div className="mb-1">
           <p className="text-[13px] font-semibold text-white leading-snug line-clamp-1 flex-1">
@@ -388,7 +406,9 @@ export function TrendingCard({
           </div>
           <span
             className={`${styles.mediaTypeBadge} ${styles.mediaTypeBadgeInline} ${
-              mediaType === "tv" ? styles.mediaTypeBadgeSeries : styles.mediaTypeBadgeMovie
+              mediaType === "tv"
+                ? styles.mediaTypeBadgeSeries
+                : styles.mediaTypeBadgeMovie
             }`}
           >
             {mediaType === "tv" ? "TV Series" : "Movie"}
@@ -410,34 +430,34 @@ export function TrendingCard({
           {unavailable ? (
             <span className={styles.unavailableBadge}>{unavailableLabel}</span>
           ) : (
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Play */}
-            <button
-              className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors ${styles.playBtn}`}
-              aria-label="Play"
-              onClick={(e) => {
-                e.stopPropagation()
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Play */}
+              <button
+                className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors ${styles.playBtn}`}
+                aria-label="Play"
+                onClick={(e) => {
+                  e.stopPropagation()
 
-                onPlay?.(show)
-              }}
-            >
-              <PlayIcon size={10} color="var(--color-ink)" />
-            </button>
-            {/* Add / Remove from list */}
-            <button
-              className={`w-7 h-7 flex items-center justify-center rounded-full border text-xs font-bold transition-colors ${
-                inList ? styles.listBtnActive : styles.listBtnInactive
-              }`}
-              aria-label={inList ? "Remove from list" : "Add to list"}
-              onClick={(e) => {
-                e.stopPropagation()
+                  onPlay?.(show)
+                }}
+              >
+                <PlayIcon size={10} color="var(--color-ink)" />
+              </button>
+              {/* Add / Remove from list */}
+              <button
+                className={`w-7 h-7 flex items-center justify-center rounded-full border text-xs font-bold transition-colors ${
+                  inList ? styles.listBtnActive : styles.listBtnInactive
+                }`}
+                aria-label={inList ? "Remove from list" : "Add to list"}
+                onClick={(e) => {
+                  e.stopPropagation()
 
-                toggle(show.id, mediaType, show)
-              }}
-            >
-              {inList ? "✓" : "+"}
-            </button>
-          </div>
+                  toggle(show)
+                }}
+              >
+                {inList ? "✓" : "+"}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -470,7 +490,7 @@ export function ContinueWatchingCard({
 
   const mediaType = show.mediaType ?? "movie"
 
-  const inList = isSaved(show.id, mediaType)
+  const inList = isSaved(show)
 
   return (
     <div
@@ -530,7 +550,7 @@ export function ContinueWatchingCard({
               onClick={(e) => {
                 e.stopPropagation()
 
-                toggle(show.id, mediaType, show)
+                toggle(show)
               }}
             >
               {inList ? "✓" : "+"}
@@ -538,10 +558,14 @@ export function ContinueWatchingCard({
           </div>
         </div>
         <div className="flex items-center justify-between gap-1.5 mb-1.5">
-          <span className="text-[11px]" style={{ color: "#9CA3AF" }}>• {show.year}</span>
+          <span className="text-[11px]" style={{ color: "#9CA3AF" }}>
+            • {show.year}
+          </span>
           <span
             className={`${styles.mediaTypeBadge} ${styles.mediaTypeBadgeInline} ${
-              mediaType === "tv" ? styles.mediaTypeBadgeSeries : styles.mediaTypeBadgeMovie
+              mediaType === "tv"
+                ? styles.mediaTypeBadgeSeries
+                : styles.mediaTypeBadgeMovie
             }`}
           >
             {mediaType === "tv" ? "TV Series" : "Movie"}
@@ -593,15 +617,10 @@ export function Top10Card({
       onClick={() => onInfo?.(show)}
       aria-label={`View details for number ${rank}, ${show.title}`}
     >
-      <span
-        className={styles.rankNumber}
-        aria-hidden="true"
-      >
+      <span className={styles.rankNumber} aria-hidden="true">
         {rank}
       </span>
-      <div
-        className={styles.top10Poster}
-      >
+      <div className={styles.top10Poster}>
         <img
           src={show.image}
           alt={show.title}
@@ -624,6 +643,7 @@ export function CarouselRow({
   variant = "portrait",
 
   unavailable = false,
+
   unavailableLabel = "Unavailable",
 
   onPlay,
@@ -641,6 +661,7 @@ export function CarouselRow({
   variant?: "portrait" | "trending" | "continue" | "wide"
 
   unavailable?: boolean
+
   unavailableLabel?: string
 
   onPlay?: (show: Show) => void
@@ -649,31 +670,57 @@ export function CarouselRow({
 }) {
   const posterStyleRows = new Set([
     "trending now",
+
     "new movies",
+
     "popular tv shows",
+
     "recommended movies",
+
     "recommended tv shows",
   ])
+
   const usePosterCards = posterStyleRows.has(title.toLowerCase())
+
   const ref = useRef<HTMLDivElement>(null)
+
   const [canScrollLeft, setCanScrollLeft] = useState(false)
+
   const [canScrollRight, setCanScrollRight] = useState(false)
+
   const updateScrollState = () => {
     const element = ref.current
+
     if (!element) return
+
     setCanScrollLeft(element.scrollLeft > 2)
-    setCanScrollRight(element.scrollLeft + element.clientWidth < element.scrollWidth - 2)
+
+    setCanScrollRight(
+      element.scrollLeft + element.clientWidth < element.scrollWidth - 2,
+    )
   }
+
   useEffect(() => {
     const element = ref.current
+
     if (!element) return
+
     updateScrollState()
+
     const observer = new ResizeObserver(updateScrollState)
+
     observer.observe(element)
+
     Array.from(element.children).forEach((child) => observer.observe(child))
+
     element.addEventListener("scroll", updateScrollState, { passive: true })
-    return () => { observer.disconnect(); element.removeEventListener("scroll", updateScrollState) }
+
+    return () => {
+      observer.disconnect()
+      element.removeEventListener("scroll", updateScrollState)
+    }
   }, [shows])
+
   if (shows.length === 0) return null
 
   const scroll = (dir: "left" | "right") => {
@@ -696,59 +743,69 @@ export function CarouselRow({
       </div>
 
       <div className="relative group">
-        {canScrollLeft && <button
-          onClick={() => scroll("left")}
-          className={`hidden sm:flex absolute left-0 top-0 bottom-0 z-10 w-12 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${styles.scrollFadeLeft}`}
-          aria-label="Scroll left"
-        >
-          <span className={styles.scrollArrow}>
-            <CarouselArrowIcon direction="left" />
-          </span>
-        </button>}
+        {canScrollLeft && (
+          <button
+            onClick={() => scroll("left")}
+            className={`hidden sm:flex absolute left-0 top-0 bottom-0 z-10 w-12 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${styles.scrollFadeLeft}`}
+            aria-label="Scroll left"
+          >
+            <span className={styles.scrollArrow}>
+              <CarouselArrowIcon direction="left" />
+            </span>
+          </button>
+        )}
 
         <div
           ref={ref}
-          className={top10 ? styles.top10Grid : `flex gap-3 overflow-x-auto pb-2 ${styles.noScrollbar}`}
+          className={
+            top10
+              ? styles.top10Grid
+              : `flex gap-3 overflow-x-auto pb-2 ${styles.noScrollbar}`
+          }
         >
-          {shows.slice(0, top10 ? 10 : shows.length).map((show, i) =>
-            top10 ? (
-              <Top10Card
-                key={show.id}
-                show={show}
-                rank={i + 1}
-                onInfo={onInfo}
-              />
-            ) : variant === "continue" ? (
-              <ContinueWatchingCard
-                key={show.id}
-                show={{ ...show, progress: show.progress ?? 50 }}
-                onPlay={onPlay}
-                onInfo={onInfo}
-              />
-            ) : (
-              <TrendingCard
-                key={show.id}
-                show={show}
-                onPlay={onPlay}
-                onInfo={onInfo}
-                posterStyle={usePosterCards}
-                wide={variant === "wide"}
-                unavailable={unavailable}
-                unavailableLabel={unavailableLabel}
-              />
-            ),
-          )}
+          {shows
+            .slice(0, top10 ? 10 : shows.length)
+            .map((show, i) =>
+              top10 ? (
+                <Top10Card
+                  key={showIdentity(show)}
+                  show={show}
+                  rank={i + 1}
+                  onInfo={onInfo}
+                />
+              ) : variant === "continue" ? (
+                <ContinueWatchingCard
+                  key={showIdentity(show)}
+                  show={{ ...show, progress: show.progress ?? 50 }}
+                  onPlay={onPlay}
+                  onInfo={onInfo}
+                />
+              ) : (
+                <TrendingCard
+                  key={showIdentity(show)}
+                  show={show}
+                  onPlay={onPlay}
+                  onInfo={onInfo}
+                  posterStyle={usePosterCards}
+                  wide={variant === "wide"}
+                  unavailable={unavailable}
+                  unavailableLabel={unavailableLabel}
+                />
+              ),
+            )}
         </div>
 
-        {canScrollRight && <button
-          onClick={() => scroll("right")}
-          className={`hidden sm:flex absolute right-0 top-0 bottom-0 z-10 w-12 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${styles.scrollFadeRight}`}
-          aria-label="Scroll right"
-        >
-          <span className={styles.scrollArrow}>
-            <CarouselArrowIcon direction="right" />
-          </span>
-        </button>}
+        {canScrollRight && (
+          <button
+            onClick={() => scroll("right")}
+            className={`hidden sm:flex absolute right-0 top-0 bottom-0 z-10 w-12 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${styles.scrollFadeRight}`}
+            aria-label="Scroll right"
+          >
+            <span className={styles.scrollArrow}>
+              <CarouselArrowIcon direction="right" />
+            </span>
+          </button>
+        )}
       </div>
     </section>
   )
@@ -803,7 +860,9 @@ const ADMIN_PROFILE_BY_ITEM: Record<string, {
 
   content: {
     initial: "C",
+
     name: "Content Manager",
+
     role: "Content Administrator",
   },
 
@@ -873,6 +932,7 @@ export function Navbar({
 }: {
   currentProfile?: {
     name: string
+
     avatar?: string | null
   } | null
 
@@ -887,13 +947,7 @@ export function Navbar({
   onSearchQueryChange?: (value: string) => void
 
   onNavigatePage?: (
-    page:
-      | "account"
-      | "profile"
-      | "help"
-      | "settings"
-      | "admin"
-      | "profileSelect",
+    page: "account" | "profile" | "help" | "settings" | "admin" | "profileSelect",
   ) => void
 
   onNavigateView?: (view: DashboardView) => void
@@ -948,6 +1002,7 @@ export function Navbar({
     if (!onOpenContent) return
 
     setNotificationsLoading(true)
+
     setNotificationsError("")
 
     try {
@@ -991,18 +1046,26 @@ export function Navbar({
     if (!onOpenContent) return
 
     void refreshNotifications()
+
     const channel = supabase
+
       .channel("dashboard-content-notifications")
+
       .on(
         "postgres_changes",
+
         { event: "*", schema: "public", table: "content" },
+
         () => void refreshNotifications(),
       )
+
       .subscribe()
 
     window.addEventListener("focus", refreshNotifications)
+
     return () => {
       window.removeEventListener("focus", refreshNotifications)
+
       void supabase.removeChannel(channel)
     }
   }, [onOpenContent, refreshNotifications])
@@ -1016,9 +1079,11 @@ export function Navbar({
     if (!notifOpen || notifications.length === 0) return
 
     const newestChange = new Date(notifications[0].changedAt).getTime()
+
     if (newestChange <= lastSeenNotification) return
 
     setLastSeenNotification(newestChange)
+
     writeLastSeenNotification(newestChange)
   }, [lastSeenNotification, notifOpen, notifications])
 
@@ -1037,8 +1102,11 @@ export function Navbar({
 
   const navigateFromAccountMenu = (page: AccountMenuPage) => {
     setProfileOpen(false)
+
     setNotifOpen(false)
+
     setMobileNavOpen(false)
+
     onNavigatePage?.(page)
   }
 
@@ -1085,11 +1153,31 @@ export function Navbar({
         <span className={`block h-0.5 w-full ${styles.hamburgerBar}`} />
       </button>
 
-      {adminItems && <button type="button" className="admin-utility-header__brand" onClick={() => onNavigateView?.("home")} aria-label="Go to StreamFlix home">{LOGO_SVG}</button>}
+      {adminItems && (
+        <button
+          type="button"
+          className="admin-utility-header__brand"
+          onClick={() => onNavigateView?.("home")}
+          aria-label="Go to StreamFlix home"
+        >
+          {LOGO_SVG}
+        </button>
+      )}
 
-      {adminItems && <span className="admin-utility-header__divider" aria-hidden="true" />}
+      {adminItems && (
+        <span className="admin-utility-header__divider" aria-hidden="true" />
+      )}
 
-      {!adminItems && <button type="button" className="shrink-0 mr-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-400" onClick={() => onNavigateView?.("home")} aria-label="Go to StreamFlix home">{LOGO_SVG}</button>}
+      {!adminItems && (
+        <button
+          type="button"
+          className="shrink-0 mr-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-400"
+          onClick={() => onNavigateView?.("home")}
+          aria-label="Go to StreamFlix home"
+        >
+          {LOGO_SVG}
+        </button>
+      )}
 
       <nav
         aria-label={
@@ -1100,7 +1188,9 @@ export function Navbar({
         } items-center min-w-0`}
       >
         {adminItems ? (
-          <span className="admin-utility-header__context">{adminPageLabel ?? "Administration"}</span>
+          <span className="admin-utility-header__context">
+            {adminPageLabel ?? "Administration"}
+          </span>
         ) : (
           visibleNavLinks.map((link) => (
             <button
@@ -1181,46 +1271,49 @@ export function Navbar({
       <div className="flex-1" />
 
       <div className="flex items-center gap-3 sm:gap-4">
-        {!adminItems && (searchOpen ? (
-          <div className="flex items-center gap-1">
-            <input
-              autoFocus
-              placeholder={
-                adminItems ? "Search admin…" : "Search movies and shows..."
-              }
-              className={`w-32 sm:w-56 px-3 py-1.5 text-sm rounded-lg outline-none ${styles.searchInput}`}
-              type="search"
-              aria-label={
-                adminItems
-                  ? "Search administration"
-                  : "Search movies and TV shows"
-              }
-              value={searchQuery}
-              maxLength={MAX_SEARCH_LENGTH}
-              onChange={(event) => onSearchQueryChange?.(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  onSearchQueryChange?.("")
-                  setSearchOpen(false)
+        {!adminItems &&
+          (searchOpen ? (
+            <div className="flex items-center gap-1">
+              <input
+                autoFocus
+                placeholder={
+                  adminItems ? "Search admin…" : "Search movies and shows..."
                 }
-              }}
-            />
-          </div>
-        ) : (
-          <button
-            onClick={() => setSearchOpen(true)}
-            className={`transition-colors ${styles.iconBtn}`}
-            aria-label="Search"
-          >
-            <SearchIcon />
-          </button>
-        ))}
+                className={`w-32 sm:w-56 px-3 py-1.5 text-sm rounded-lg outline-none ${styles.searchInput}`}
+                type="search"
+                aria-label={
+                  adminItems
+                    ? "Search administration"
+                    : "Search movies and TV shows"
+                }
+                value={searchQuery}
+                maxLength={MAX_SEARCH_LENGTH}
+                onChange={(event) => onSearchQueryChange?.(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    onSearchQueryChange?.("")
+
+                    setSearchOpen(false)
+                  }
+                }}
+              />
+            </div>
+          ) : (
+            <button
+              onClick={() => setSearchOpen(true)}
+              className={`transition-colors ${styles.iconBtn}`}
+              aria-label="Search"
+            >
+              <SearchIcon />
+            </button>
+          ))}
 
         <div className="relative" ref={notificationMenuRef}>
           <button
             type="button"
             onClick={() => {
               const nextOpen = !notifOpen
+
               setNotifOpen(nextOpen)
 
               setProfileOpen(false)
@@ -1259,7 +1352,10 @@ export function Navbar({
               </div>
               <div className="max-h-80 overflow-y-auto">
                 {notificationsLoading && notifications.length === 0 ? (
-                  <p className={`px-4 py-4 text-xs ${styles.notifDesc}`} role="status">
+                  <p
+                    className={`px-4 py-4 text-xs ${styles.notifDesc}`}
+                    role="status"
+                  >
                     Loading new releases…
                   </p>
                 ) : notificationsError ? (
@@ -1288,6 +1384,7 @@ export function Navbar({
                       className={`flex w-full gap-3 border-b px-4 py-3 text-left ${styles.notifRow} ${styles.dropdownItem}`}
                       onClick={() => {
                         setNotifOpen(false)
+
                         onOpenContent?.(notification.show)
                       }}
                     >
@@ -1298,22 +1395,34 @@ export function Navbar({
                           className="h-14 w-10 shrink-0 rounded object-cover"
                         />
                       ) : (
-                        <span className="grid h-14 w-10 shrink-0 place-items-center rounded bg-black/30" aria-hidden="true">
+                        <span
+                          className="grid h-14 w-10 shrink-0 place-items-center rounded bg-black/30"
+                          aria-hidden="true"
+                        >
                           ▶
                         </span>
                       )}
                       <span className="min-w-0">
-                        <strong className={`block truncate text-sm ${styles.notifTitle}`}>
+                        <strong
+                          className={`block truncate text-sm ${styles.notifTitle}`}
+                        >
                           {notification.show.title}
                         </strong>
                         <span className={`block text-xs ${styles.notifDesc}`}>
                           New or updated content
                         </span>
-                        <time className={`block text-[11px] ${styles.notifTime}`} dateTime={notification.changedAt}>
-                          {new Date(notification.changedAt).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                          })}
+                        <time
+                          className={`block text-[11px] ${styles.notifTime}`}
+                          dateTime={notification.changedAt}
+                        >
+                          {new Date(notification.changedAt).toLocaleDateString(
+                            undefined,
+                            {
+                              month: "short",
+
+                              day: "numeric",
+                            },
+                          )}
                         </time>
                       </span>
                     </button>
@@ -1342,7 +1451,7 @@ export function Navbar({
               aria-label={
                 adminProfile
                   ? adminProfile.name
-                  : currentProfile?.name ?? "Current profile"
+                  : (currentProfile?.name ?? "Current profile")
               }
             >
               {adminProfile?.initial ?? currentProfileInitial}
@@ -1456,21 +1565,35 @@ export function Hero({
   onInfo: (show: Show) => void
 }) {
   const slides = shows.slice(0, 5)
+
   const [activeIndex, setActiveIndex] = useState(0)
+
   const [muted, setMuted] = useState(false)
+
   const [trailerKey, setTrailerKey] = useState<string | null>(null)
+
   const [showTrailer, setShowTrailer] = useState(false)
+
   const [trailerLoaded, setTrailerLoaded] = useState(false)
+
   const [trailerPlaying, setTrailerPlaying] = useState(false)
+
   const [heroVisible, setHeroVisible] = useState(true)
+
   const heroRef = useRef<HTMLElement>(null)
+
   const trailerRef = useRef<HTMLIFrameElement>(null)
+
   const trailerRevealTimerRef = useRef<number | null>(null)
+
   const dragStartRef = useRef<{
     x: number
+
     y: number
+
     pointerId: number
   } | null>(null)
+
   const show = slides[activeIndex] ?? slides[0]
 
   useEffect(() => {
@@ -1501,27 +1624,39 @@ export function Hero({
     if (
       slides.length < 2 ||
       (event.pointerType === "mouse" && event.button !== 0) ||
-      (event.target as HTMLElement).closest("button, a, input, select, textarea")
+      (event.target as HTMLElement).closest(
+        "button, a, input, select, textarea",
+      )
     ) {
       return
     }
 
     dragStartRef.current = {
       x: event.clientX,
+
       y: event.clientY,
+
       pointerId: event.pointerId,
     }
+
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
   const finishDrag = (event: React.PointerEvent<HTMLElement>) => {
     const start = dragStartRef.current
+
     dragStartRef.current = null
+
     if (!start || start.pointerId !== event.pointerId) return
 
     const distanceX = event.clientX - start.x
+
     const distanceY = event.clientY - start.y
-    if (Math.abs(distanceX) >= 60 && Math.abs(distanceX) > Math.abs(distanceY)) {
+
+    if (
+      Math.abs(distanceX) >= 60 &&
+      Math.abs(distanceX) > Math.abs(distanceY)
+    ) {
       selectSlide(activeIndex + (distanceX < 0 ? 1 : -1))
     }
 
@@ -1536,35 +1671,46 @@ export function Hero({
 
   useEffect(() => {
     let cancelled = false
+
     setMuted(false)
+
     setTrailerKey(null)
+
     setShowTrailer(false)
+
     setTrailerLoaded(false)
+
     setTrailerPlaying(false)
 
     const timer = window.setTimeout(() => {
       if (!cancelled) setShowTrailer(true)
     }, 3_000)
 
-    void fetchTrailerKey(show.id, show.mediaType ?? "movie").then((key) => {
+    if (!show.tmdbId) return
+
+    void fetchTrailerKey(show.tmdbId, show.mediaType ?? "movie").then((key) => {
       if (!cancelled) setTrailerKey(key)
     })
 
     return () => {
       cancelled = true
+
       window.clearTimeout(timer)
+
       if (trailerRevealTimerRef.current !== null) {
         window.clearTimeout(trailerRevealTimerRef.current)
+
         trailerRevealTimerRef.current = null
       }
     }
-  }, [show.id, show.mediaType])
+  }, [show.mediaType, show.tmdbId])
 
   useEffect(() => {
     const handleTrailerMessage = (event: MessageEvent) => {
       if (event.source !== trailerRef.current?.contentWindow) return
 
       let message: { event?: string; info?: number } | null = null
+
       try {
         message =
           typeof event.data === "string" ? JSON.parse(event.data) : event.data
@@ -1576,13 +1722,18 @@ export function Hero({
         trailerRef.current?.contentWindow?.postMessage(
           JSON.stringify({
             event: "command",
+
             func: "addEventListener",
+
             args: ["onStateChange"],
           }),
+
           "*",
         )
+
         trailerRef.current?.contentWindow?.postMessage(
           JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+
           "*",
         )
       }
@@ -1591,40 +1742,53 @@ export function Hero({
         if (trailerRevealTimerRef.current !== null) {
           window.clearTimeout(trailerRevealTimerRef.current)
         }
+
         // Keep YouTube's startup transport controls behind the hero poster until
+
         // its play, pause, rewind, and fast-forward overlay has auto-hidden.
+
         trailerRevealTimerRef.current = window.setTimeout(() => {
           setTrailerPlaying(true)
+
           trailerRevealTimerRef.current = null
         }, 5_000)
       }
     }
 
     window.addEventListener("message", handleTrailerMessage)
+
     return () => window.removeEventListener("message", handleTrailerMessage)
   }, [trailerKey])
 
   useEffect(() => {
     const element = heroRef.current
+
     if (!element) return
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         const visible = entry.isIntersecting && entry.intersectionRatio > 0.1
+
         setHeroVisible(visible)
+
         if (!visible) {
           setTrailerLoaded(false)
+
           setTrailerPlaying(false)
+
           if (trailerRevealTimerRef.current !== null) {
             window.clearTimeout(trailerRevealTimerRef.current)
+
             trailerRevealTimerRef.current = null
           }
         }
       },
+
       { threshold: [0, 0.1, 0.25] },
     )
 
     observer.observe(element)
+
     return () => observer.disconnect()
   }, [])
 
@@ -1633,12 +1797,16 @@ export function Hero({
 
   useEffect(() => {
     if (!trailerVisible) return
+
     trailerRef.current?.contentWindow?.postMessage(
       JSON.stringify({
         event: "command",
+
         func: muted ? "mute" : "unMute",
+
         args: [],
       }),
+
       "*",
     )
   }, [muted, trailerVisible])
@@ -1650,7 +1818,9 @@ export function Hero({
   return (
     <section
       ref={heroRef}
-      className={`relative w-full ${styles.heroRoot} ${slides.length > 1 ? styles.heroDraggable : ""}`}
+      className={`relative w-full ${styles.heroRoot} ${
+        slides.length > 1 ? styles.heroDraggable : ""
+      }`}
       style={{ height: "56vh", minHeight: 340 }}
       role="region"
       aria-roledescription="carousel"
@@ -1680,21 +1850,30 @@ export function Hero({
           aria-hidden="true"
           onLoad={() => {
             setTrailerLoaded(true)
+
             setTrailerPlaying(false)
+
             if (trailerRevealTimerRef.current !== null) {
               window.clearTimeout(trailerRevealTimerRef.current)
+
               trailerRevealTimerRef.current = null
             }
+
             trailerRef.current?.contentWindow?.postMessage(
               JSON.stringify({ event: "listening", id: "hero-trailer" }),
+
               "*",
             )
+
             trailerRef.current?.contentWindow?.postMessage(
               JSON.stringify({
                 event: "command",
+
                 func: "addEventListener",
+
                 args: ["onStateChange"],
               }),
+
               "*",
             )
           }}
@@ -1705,7 +1884,9 @@ export function Hero({
           src={bg}
           alt=""
           aria-hidden="true"
-          className={`${styles.heroTrailerCover} ${trailerVisible ? styles.heroTrailerCoverHidden : ""}`}
+          className={`${styles.heroTrailerCover} ${
+            trailerVisible ? styles.heroTrailerCoverHidden : ""
+          }`}
         />
       )}
       <div className={`absolute inset-0 ${styles.heroDim}`} />
@@ -1719,6 +1900,7 @@ export function Hero({
             className={`${styles.heroCarouselArrow} ${styles.heroCarouselArrowLeft}`}
             onClick={(event) => {
               event.stopPropagation()
+
               selectSlide(activeIndex - 1)
             }}
             aria-label="Show previous featured title"
@@ -1730,6 +1912,7 @@ export function Hero({
             className={`${styles.heroCarouselArrow} ${styles.heroCarouselArrowRight}`}
             onClick={(event) => {
               event.stopPropagation()
+
               selectSlide(activeIndex + 1)
             }}
             aria-label="Show next featured title"
@@ -1804,12 +1987,17 @@ export function Hero({
       </div>
 
       {slides.length > 1 && (
-        <div className={styles.heroCarouselDots} aria-label="Choose featured title">
+        <div
+          className={styles.heroCarouselDots}
+          aria-label="Choose featured title"
+        >
           {slides.map((slide, index) => (
             <button
-              key={`${slide.mediaType ?? "movie"}-${slide.id}`}
+              key={showIdentity(slide)}
               type="button"
-              className={`${styles.heroCarouselDot} ${index === activeIndex ? styles.heroCarouselDotActive : ""}`}
+              className={`${styles.heroCarouselDot} ${
+                index === activeIndex ? styles.heroCarouselDotActive : ""
+              }`}
               onClick={() => selectSlide(index)}
               aria-label={`Show ${index + 1}: ${slide.title}`}
               aria-current={index === activeIndex ? "true" : undefined}
@@ -1825,20 +2013,35 @@ export function Hero({
 
 export const GENRES = [
   "All",
+
   "Action",
+
   "Adventure",
+
   "Animation",
+
   "Comedy",
+
   "Crime",
+
   "Documentary",
+
   "Drama",
+
   "Family",
+
   "Fantasy",
+
   "History",
+
   "Horror",
+
   "Music",
+
   "Mystery",
+
   "Romance",
+
   "Sci-Fi",
 ]
 
@@ -1879,9 +2082,13 @@ export function GenreFilters({
 
 const FOOTER_LINKS = [
   "Help Center",
+
   "Terms of Use",
+
   "Privacy",
+
   "Cookie Preferences",
+
   "Contact Us",
 ]
 
@@ -1893,6 +2100,7 @@ export function ContinueWatchingRow({
   onInfo,
 
   genre = "All",
+
   profileId,
 }: {
   onPlay?: (show: Show) => void
@@ -1900,10 +2108,13 @@ export function ContinueWatchingRow({
   onInfo?: (show: Show) => void
 
   genre?: string
+
   profileId: number
 }) {
   const { entries } = useContinueWatching(10, profileId)
+
   const normalizedGenre = genre.trim().toLowerCase()
+
   const filteredEntries =
     normalizedGenre === "all"
       ? entries

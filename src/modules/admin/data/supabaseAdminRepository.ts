@@ -13,6 +13,8 @@ import type {
 
 import type { AdminDataServices } from "./repositories"
 
+import type { ContentUploadProgress } from "../contentManager/types"
+
 type DatabaseRecord = Record<string, any>
 
 interface ResourceConfiguration {
@@ -53,6 +55,7 @@ const colorFor = (id: unknown) => {
 
   const hash = [...source].reduce(
     (total, char) => total + char.charCodeAt(0),
+
     0,
   )
 
@@ -65,6 +68,86 @@ const related = (value: unknown): DatabaseRecord | null =>
     : (value as DatabaseRecord | null ?? null)
 
 const FEEDBACK_ATTACHMENT_BUCKET = "feedback-attachments"
+
+const uploadWithProgress = async ({
+  client,
+  bucket,
+  path,
+  file,
+  signal,
+  onProgress,
+}: {
+  client: SupabaseClient
+  bucket: string
+  path: string
+  file: File
+  signal?: AbortSignal
+  onProgress?: (loadedBytes: number) => void
+}) => {
+  if (signal?.aborted) throw new DOMException("Upload cancelled", "AbortError")
+
+  const { data, error } = await client.storage
+    .from(bucket)
+    .createSignedUploadUrl(path)
+
+  if (error) throw error
+
+  if (signal?.aborted) throw new DOMException("Upload cancelled", "AbortError")
+
+  await new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    const body = new FormData()
+    const abort = () => request.abort()
+
+    body.append("cacheControl", "3600")
+    body.append("", file)
+    request.open("PUT", data.signedUrl)
+    request.setRequestHeader("x-upsert", "false")
+
+    request.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded)
+    })
+    request.addEventListener("load", () => {
+      signal?.removeEventListener("abort", abort)
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.(file.size)
+        resolve()
+        return
+      }
+
+      reject(
+        new Error(
+          request.responseText || `Storage upload failed (${request.status})`,
+        ),
+      )
+    })
+    request.addEventListener("error", () => {
+      signal?.removeEventListener("abort", abort)
+      reject(
+        new Error("Storage upload failed. Check your connection and retry."),
+      )
+    })
+    request.addEventListener("abort", () => {
+      signal?.removeEventListener("abort", abort)
+      reject(new DOMException("Upload cancelled", "AbortError"))
+    })
+    signal?.addEventListener("abort", abort, { once: true })
+    request.send(body)
+  })
+}
+
+const removeStorageAssets = async (
+  client: SupabaseClient,
+  assets: Array<Record<"bucket" | "path", string>>,
+) => {
+  const failures: string[] = []
+  for (const asset of assets) {
+    const { error } = await client.storage.from(asset.bucket).remove([asset.path])
+    if (error) failures.push(`${asset.bucket}/${asset.path}: ${error.message}`)
+  }
+  if (failures.length)
+    throw new Error(`Storage cleanup incomplete: ${failures.join("; ")}`)
+}
 
 const adminRoleLabel = (value: unknown) => {
   const normalized = text(value).replace(/\s/g, "").toLowerCase()
@@ -162,6 +245,8 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
     fromRow: (row) => ({
       id: text(row.content_id),
 
+      tmdbId: row.tmdb_id == null ? null : number(row.tmdb_id),
+
       title: text(row.title),
 
       category: text(related(row.category)?.category_name),
@@ -209,6 +294,8 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
 
     toRow: (record) => ({
       title: record.title,
+
+      tmdb_id: record.tmdbId ?? null,
 
       category_id: record.categoryId ? number(record.categoryId) : null,
 
@@ -483,27 +570,42 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
 
     fromRow: (row) => {
       const user = related(row.user)
+
       const content = related(row.content)
+
       return {
         id: text(row.reaction_id),
+
         subscriberId: text(row.user_id),
+
         subscriberName:
           `${text(user?.first_name)} ${text(user?.last_name)}`.trim(),
+
         contentId: text(row.content_id),
+
         contentTitle: text(content?.title),
+
         contentThumb: text(content?.thumbnail),
+
         emoji: text(row.emoji),
+
         label: text(row.emoji),
+
         type: text(row.emoji),
+
         date: date(row.created_at),
+
         status: text(row.status || "Active"),
       }
     },
 
     toRow: (record) => ({
       user_id: record.subscriberId,
+
       content_id: record.contentId ? number(record.contentId) : undefined,
+
       emoji: record.emoji,
+
       status: record.status,
     }),
   },
@@ -565,24 +667,37 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
 
     fromRow: (row) => {
       const user = related(row.user)
+
       return {
         id: text(row.post_id),
+
         subscriberId: text(row.user_id),
+
         authorName: `${text(user?.first_name)} ${text(user?.last_name)}`.trim(),
+
         title: text(row.title),
+
         content: text(row.body),
+
         body: text(row.body),
+
         datePosted: date(row.created_at),
+
         date: text(row.created_at),
+
         status: text(row.status),
+
         commentCount: number(related(row.community_comment)?.count),
       }
     },
 
     toRow: (record) => ({
       user_id: record.subscriberId,
+
       title: record.title,
+
       body: record.content ?? record.body,
+
       status: record.status,
     }),
   },
@@ -598,24 +713,37 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
 
     fromRow: (row) => {
       const user = related(row.user)
+
       return {
         id: text(row.community_comment_id),
+
         postId: text(row.post_id),
+
         postTitle: text(related(row.community_post)?.title),
+
         subscriberId: text(row.user_id),
+
         authorName: `${text(user?.first_name)} ${text(user?.last_name)}`.trim(),
+
         text: text(row.body),
+
         body: text(row.body),
+
         dateCommented: date(row.created_at),
+
         date: text(row.created_at),
+
         status: text(row.status),
       }
     },
 
     toRow: (record) => ({
       post_id: number(record.postId),
+
       user_id: record.subscriberId,
+
       body: record.text ?? record.body,
+
       status: record.status,
     }),
   },
@@ -631,27 +759,45 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
 
     fromRow: (row) => ({
       id: text(row.user_id),
+
       firstName: text(row.first_name),
+
       lastName: text(row.last_name),
+
       name: `${text(row.first_name)} ${text(row.last_name)}`.trim(),
+
       email: text(row.email),
+
       username: text(row.username),
+
       dob: text(row.date_of_birth),
+
       mobile: "",
+
       registeredAt: date(row.joined_at),
+
       joinDate: text(row.joined_at),
+
       status: text(row.account_status || "Active"),
+
       avatar: colorFor(row.user_id),
+
       avatarColor: colorFor(row.user_id),
     }),
 
     toRow: (record) => ({
       first_name: record.firstName,
+
       last_name: record.lastName,
+
       email: record.email,
+
       username: record.username,
+
       date_of_birth: record.dob,
+
       account_status: record.status,
+
       user_role: record.userRole ?? "subscriber",
     }),
   },
@@ -667,25 +813,38 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
 
     fromRow: (row) => {
       const user = related(row.user)
+
       const content = related(row.content)
+
       return {
         id: text(row.watch_history_id),
+
         subscriberId: text(row.user_id),
+
         subscriberName:
           `${text(user?.first_name)} ${text(user?.last_name)}`.trim(),
+
         contentId: text(row.content_id),
+
         contentTitle: text(content?.title),
+
         watchDate: date(row.watch_date),
+
         progress: number(row.last_playback),
+
         lastPlayback: text(row.last_playback),
+
         thumbnail: text(content?.thumbnail),
       }
     },
 
     toRow: (record) => ({
       user_id: record.subscriberId,
+
       content_id: number(record.contentId),
+
       watch_date: record.watchDate,
+
       last_playback: record.progress,
     }),
   },
@@ -701,20 +860,31 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
 
     fromRow: (row) => ({
       id: text(row.subscription_id),
+
       name: text(row.plan_name),
+
       price: number(row.monthly_price),
+
       monthlyPrice: number(row.monthly_price),
+
       maxUsers: number(row.max_user),
+
       description: text(row.plan_description),
+
       duration: "Monthly",
+
       features: text(row.plan_description) ? [text(row.plan_description)] : [],
+
       subscriberCount: number(related(row.user_subscription)?.count),
     }),
 
     toRow: (record) => ({
       plan_name: record.name,
+
       monthly_price: record.price ?? record.monthlyPrice,
+
       max_user: record.maxUsers,
+
       plan_description: record.description,
     }),
   },
@@ -730,17 +900,27 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
 
     fromRow: (row) => {
       const user = related(row.user)
+
       const plan = related(row.subscription)
+
       return {
         id: text(row.user_subscription_id),
+
         subscriberId: text(row.user_id),
+
         subscriberName:
           `${text(user?.first_name)} ${text(user?.last_name)}`.trim(),
+
         planId: text(row.subscription_id),
+
         plan: text(plan?.plan_name),
+
         planName: text(plan?.plan_name),
+
         startDate: text(row.started_at).slice(0, 10),
+
         endDate: text(row.ends_at).slice(0, 10),
+
         status: text(row.status),
       }
     },
@@ -754,6 +934,7 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
         ? {
             subscription_id: positiveInteger(
               record.planId,
+
               "Subscription plan ID",
             ),
           }
@@ -782,31 +963,48 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
 
     fromRow: (row) => {
       const user = related(row.user)
+
       return {
         id: text(row.payment_id),
+
         subscriptionId: text(row.user_subscription_id),
+
         subscriberId: text(row.user_id),
+
         subscriberName:
           `${text(user?.first_name)} ${text(user?.last_name)}`.trim(),
+
         planName: "",
+
         amount: number(row.amount),
+
         method: text(row.payment_method),
+
         reference: text(row.reference_number),
+
         paymentDate: date(row.paid_at || row.created_at),
+
         date: text(row.paid_at || row.created_at),
+
         status: text(row.status),
       }
     },
 
     toRow: (record) => ({
       user_id: record.subscriberId,
+
       user_subscription_id: record.subscriptionId
         ? number(record.subscriptionId)
         : null,
+
       amount: record.amount,
+
       payment_method: record.method,
+
       reference_number: record.reference,
+
       paid_at: record.paymentDate,
+
       status: record.status,
     }),
   },
@@ -822,20 +1020,31 @@ const CONFIG: Record<AdminResourceName, ResourceConfiguration> = {
 
     fromRow: (row) => ({
       id: text(row.system_log_id),
+
       dateTime: date(row.created_at),
+
       eventType: text(row.event_type),
+
       userSource: text(row.actor_auth_user_id || "system"),
+
       description: text(row.message),
+
       ip: text(row.metadata?.ip),
+
       severity: text(row.severity),
+
       status: text(row.status),
     }),
 
     toRow: (record) => ({
       event_type: record.eventType,
+
       severity: record.severity,
+
       status: record.status,
+
       message: record.description,
+
       metadata: record.metadata,
     }),
   },
@@ -978,6 +1187,10 @@ export class SupabaseAdminRepository<T extends AdminEntity>
   }
 
   async create(input: Omit<T, "id">): Promise<T> {
+    if (this.config.table === "content") {
+      return this.createContent(input as DatabaseRecord)
+    }
+
     const { data, error } = await this.client
 
       .from(this.config.table)
@@ -998,6 +1211,10 @@ export class SupabaseAdminRepository<T extends AdminEntity>
   }
 
   async update(id: string, input: Partial<Omit<T, "id">>): Promise<T> {
+    if (this.config.table === "content") {
+      return this.updateContent(id, input as DatabaseRecord)
+    }
+
     const { data, error } = await this.client
 
       .from(this.config.table)
@@ -1018,6 +1235,36 @@ export class SupabaseAdminRepository<T extends AdminEntity>
   }
 
   async remove(id: string): Promise<void> {
+    if (this.config.table === "content") {
+      const { data: row, error: rowError } = await this.client
+        .from("content")
+        .select("thumbnail, video_file, subtitle")
+        .eq("content_id", id)
+        .single()
+      if (rowError) throw rowError
+
+      const { error } = await this.client
+        .from("content")
+        .delete()
+        .eq("content_id", id)
+      if (error) throw error
+
+      const assets = [
+        ["content-thumbnails", row.thumbnail],
+        ["video_file", row.video_file],
+        ["subtitle", row.subtitle],
+      ] as const
+      await removeStorageAssets(
+        this.client,
+        assets.flatMap(([bucket, path]) =>
+          path && !/^(?:https?:|data:)/i.test(path)
+            ? [{ bucket, path }]
+            : [],
+        ),
+      )
+      return
+    }
+
     const { error } = await this.client
 
       .from(this.config.table)
@@ -1030,6 +1277,22 @@ export class SupabaseAdminRepository<T extends AdminEntity>
   }
 
   private async hydratePrivateAssets(record: T): Promise<T> {
+    if (this.config.table === "content") {
+      const thumbnail = text((record as DatabaseRecord).thumbnailUrl)
+
+      if (thumbnail && !/^(?:https?:|data:)/i.test(thumbnail)) {
+        const { data } = this.client.storage
+
+          .from("content-thumbnails")
+
+          .getPublicUrl(thumbnail)
+
+        return { ...record, thumbnailUrl: data.publicUrl } as T
+      }
+
+      return record
+    }
+
     if (this.config.table !== "platform_feedback") return record
 
     const screenshot = text((record as DatabaseRecord).screenshot)
@@ -1047,6 +1310,311 @@ export class SupabaseAdminRepository<T extends AdminEntity>
     }
 
     return { ...record, screenshot: data.signedUrl } as T
+  }
+
+  private async createContent(input: DatabaseRecord): Promise<T> {
+    const thumbnailFile = input.thumbnailFile as File | undefined
+
+    const videoFile = input.videoFile as File | undefined
+
+    const subtitleFile = input.subtitleFile as File | undefined
+
+    const uploadSignal = input.uploadSignal as AbortSignal | undefined
+
+    const onUploadProgress = input.onUploadProgress as ((
+      progress: ContentUploadProgress,
+    ) => void) | undefined
+
+    if (!thumbnailFile || !videoFile)
+      throw new Error("A thumbnail and video file are required")
+
+    const { data: contentId, error: draftError } = await this.client.rpc(
+      "create_admin_content_draft",
+
+      {
+        p_content: {
+          category_id: input.categoryId,
+
+          title: input.title,
+
+          synopsis: input.synopsis,
+
+          release_year: input.releaseYear,
+
+          runtime: input.runtime,
+
+          age_rating: input.ageRating,
+
+          tmdb_id: input.tmdbId ?? null,
+        },
+
+        p_genre_ids: input.genreIds.map(Number),
+      },
+    )
+
+    if (draftError) throw draftError
+
+    const id = Number(contentId)
+
+    if (!Number.isSafeInteger(id) || id <= 0)
+      throw new Error("Supabase did not return a valid content ID")
+
+    const safeName = (name: string) =>
+      name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "asset"
+
+    const nonce = crypto.randomUUID()
+
+    const assets = [
+      {
+        kind: "thumbnail" as const,
+
+        bucket: "content-thumbnails",
+
+        path: `content/${id}/thumbnail/${nonce}-${safeName(thumbnailFile.name)}`,
+
+        file: thumbnailFile,
+      },
+
+      {
+        kind: "video" as const,
+
+        bucket: "video_file",
+
+        path: `content/${id}/video/${nonce}-${safeName(videoFile.name)}`,
+
+        file: videoFile,
+      },
+
+      ...(subtitleFile
+        ? [
+            {
+              kind: "subtitle" as const,
+
+              bucket: "subtitle",
+
+              path: `content/${id}/subtitle/${nonce}-${safeName(subtitleFile.name)}`,
+
+              file: subtitleFile,
+            },
+          ]
+        : []),
+    ] as const
+
+    const uploaded: Array<{ bucket: string; path: string }> = []
+
+    const totalBytes = assets.reduce(
+      (total, asset) => total + asset.file.size,
+      0,
+    )
+
+    let completedBytes = 0
+
+    try {
+      const { error: uploadingError } = await this.client
+        .from("content")
+        .update({ publishing_status: "uploading" })
+        .eq("content_id", id)
+      if (uploadingError) throw uploadingError
+
+      for (const asset of assets) {
+        await uploadWithProgress({
+          client: this.client,
+          bucket: asset.bucket,
+          path: asset.path,
+          file: asset.file,
+          signal: uploadSignal,
+          onProgress: (loadedBytes) => {
+            const overallLoaded = completedBytes + loadedBytes
+            onUploadProgress?.({
+              asset: asset.kind,
+              loadedBytes: overallLoaded,
+              totalBytes,
+              percent: totalBytes
+                ? Math.min(100, Math.round((overallLoaded / totalBytes) * 100))
+                : 100,
+            })
+          },
+        })
+
+        uploaded.push({ bucket: asset.bucket, path: asset.path })
+        completedBytes += asset.file.size
+      }
+
+      const { error: finalizeError } = await this.client.rpc(
+        "finalize_admin_content_upload",
+
+        {
+          p_content_id: id,
+
+          p_thumbnail_path: assets[0].path,
+
+          p_video_path: assets[1].path,
+
+          p_subtitle_path: assets[2]?.path ?? null,
+
+          p_availability_status: input.availability,
+        },
+      )
+
+      if (finalizeError) throw finalizeError
+    } catch (error) {
+      const recoveryFailures: string[] = []
+      try {
+        await removeStorageAssets(this.client, uploaded)
+      } catch (cleanupError) {
+        recoveryFailures.push(
+          cleanupError instanceof Error
+            ? cleanupError.message
+            : "Storage cleanup failed",
+        )
+      }
+
+      const { error: markError } = await this.client
+        .from("content")
+        .update({
+          availability_status: "unavailable",
+          publishing_status: "failed",
+        })
+        .eq("content_id", id)
+      if (markError)
+        recoveryFailures.push(`Draft status update failed: ${markError.message}`)
+
+      if (recoveryFailures.length) {
+        const originalMessage =
+          error instanceof Error ? error.message : "Content upload failed"
+        throw new Error(`${originalMessage}. ${recoveryFailures.join("; ")}`)
+      }
+      throw error
+    }
+
+    return this.get(String(id))
+  }
+
+  private async updateContent(id: string, input: DatabaseRecord): Promise<T> {
+    const numericId = positiveInteger(id, "Content ID")
+    const { data: current, error: currentError } = await this.client
+      .from("content")
+      .select("thumbnail, video_file, subtitle")
+      .eq("content_id", numericId)
+      .single()
+
+    if (currentError) throw currentError
+
+    const replacements = [
+      {
+        field: "thumbnail",
+        bucket: "content-thumbnails",
+        folder: "thumbnail",
+        file: input.thumbnailFile as File | undefined,
+      },
+      {
+        field: "video_file",
+        bucket: "video_file",
+        folder: "video",
+        file: input.videoFile as File | undefined,
+      },
+      {
+        field: "subtitle",
+        bucket: "subtitle",
+        folder: "subtitle",
+        file: input.subtitleFile as File | undefined,
+      },
+    ] as const
+    const nextPaths: Record<string, string | null> = {
+      thumbnail: current.thumbnail,
+      video_file: current.video_file,
+      subtitle: current.subtitle,
+    }
+    const uploaded: Array<{ bucket: string; path: string }> = []
+
+    const uploadSignal = input.uploadSignal as AbortSignal | undefined
+
+    const onUploadProgress = input.onUploadProgress as ((
+      progress: ContentUploadProgress,
+    ) => void) | undefined
+
+    const totalBytes = replacements.reduce(
+      (total, item) => total + (item.file?.size ?? 0),
+      0,
+    )
+
+    let completedBytes = 0
+
+    try {
+      for (const replacement of replacements) {
+        if (!replacement.file) continue
+        const filename =
+          replacement.file.name
+            .replace(/[^a-zA-Z0-9._-]+/g, "-")
+            .replace(/^-+|-+$/g, "") || "asset"
+        const path = `content/${numericId}/${replacement.folder}/${crypto.randomUUID()}-${filename}`
+        await uploadWithProgress({
+          client: this.client,
+          bucket: replacement.bucket,
+          path,
+          file: replacement.file,
+          signal: uploadSignal,
+          onProgress: (loadedBytes) => {
+            const overallLoaded = completedBytes + loadedBytes
+            onUploadProgress?.({
+              asset: replacement.folder as ContentUploadProgress["asset"],
+              loadedBytes: overallLoaded,
+              totalBytes,
+              percent: totalBytes
+                ? Math.min(100, Math.round((overallLoaded / totalBytes) * 100))
+                : 100,
+            })
+          },
+        })
+        uploaded.push({ bucket: replacement.bucket, path })
+        nextPaths[replacement.field] = path
+        completedBytes += replacement.file.size
+      }
+
+      const row = {
+        ...this.config.toRow(input),
+        thumbnail: nextPaths.thumbnail,
+        video_file: nextPaths.video_file,
+        subtitle: nextPaths.subtitle,
+      }
+      const { data, error } = await this.client
+        .from("content")
+        .update(row)
+        .eq("content_id", numericId)
+        .select(this.config.select)
+        .single()
+      if (error) throw error
+
+      await this.syncContentGenres(data, input)
+    } catch (error) {
+      try {
+        await removeStorageAssets(this.client, uploaded)
+      } catch (cleanupError) {
+        const originalMessage =
+          error instanceof Error ? error.message : "Content update failed"
+        const cleanupMessage =
+          cleanupError instanceof Error
+            ? cleanupError.message
+            : "Replacement upload cleanup failed"
+        throw new Error(`${originalMessage}. ${cleanupMessage}`)
+      }
+      throw error
+    }
+
+    await removeStorageAssets(
+      this.client,
+      replacements.flatMap((replacement) => {
+        const oldPath = current[replacement.field]
+        const nextPath = nextPaths[replacement.field]
+        return oldPath &&
+          oldPath !== nextPath &&
+          !/^(?:https?:|data:)/i.test(oldPath)
+          ? [{ bucket: replacement.bucket, path: oldPath }]
+          : []
+      }),
+    )
+
+    return this.get(id)
   }
 
   private async syncContentGenres(
@@ -1072,7 +1640,9 @@ export class SupabaseAdminRepository<T extends AdminEntity>
     if (input.genreIds.length === 0) return
 
     const { error: insertError } = await this.client
+
       .from("content_genre")
+
       .insert(
         input.genreIds.map((genreId: string) => ({
           content_id: contentId,
@@ -1107,13 +1677,16 @@ export function createSupabaseAdminDataServices(
     async action<TPayload,
     TResult,>(
       resource: AdminResourceName,
+
       id: string,
+
       request: AdminActionRequest<TPayload>,
     ): Promise<AdminActionResult<TResult>> {
       const repository = this.repository(resource)
 
       const data = await repository.update(
         id,
+
         (request.payload ?? {}) as Record<string, unknown>,
       )
 
@@ -1135,14 +1708,20 @@ export function createSupabaseAdminDataServices(
 
       return {
         accessToken: data.session.access_token,
+
         expiresAt: data.session.expires_at
           ? new Date(data.session.expires_at * 1000).toISOString()
           : undefined,
+
         administrator: {
           id: data.user.id,
+
           name: text(data.user.user_metadata?.full_name || data.user.email),
+
           email: text(data.user.email),
+
           roles: [text(role)],
+
           permissions: [],
         },
       } as AdminSession
@@ -1165,17 +1744,23 @@ export function createSupabaseAdminDataServices(
 
       return {
         accessToken: data.session.access_token,
+
         expiresAt: data.session.expires_at
           ? new Date(data.session.expires_at * 1000).toISOString()
           : undefined,
+
         administrator: {
           id: data.session.user.id,
+
           name: text(
             data.session.user.user_metadata?.full_name ||
               data.session.user.email,
           ),
+
           email: text(data.session.user.email),
+
           roles: role ? [text(role)] : [],
+
           permissions: [],
         },
       } as AdminSession

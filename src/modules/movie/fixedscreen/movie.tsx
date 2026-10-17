@@ -9,7 +9,6 @@ import {
   deleteContentComment,
   loadEngagement,
   postContentComment,
-  resolveContentId,
   saveReaction,
   updateContentComment,
   optimisticReaction,
@@ -31,15 +30,6 @@ import { loadWikipediaRefresher, type WikipediaRefresher } from "../refresher"
 import { createRefresherVideoUrl } from "../refresherVideo"
 
 import {
-  PLAYBACK_QUALITIES,
-  PLAYBACK_SOURCE_BY_QUALITY,
-  playbackQualitiesForPlan,
-  preferredPlaybackQuality,
-  requiredPlanForQuality,
-  type PlaybackQuality,
-} from "../playbackQuality"
-
-import {
   createEmptyReactionCounts,
   REACTION_DEFINITIONS,
   type ReactionKey,
@@ -49,6 +39,10 @@ import styles from "./movie.module.css"
 
 interface WatchProps {
   id: number
+
+  tmdbId?: number | null
+
+  videoPath?: string | null
 
   title: string
 
@@ -85,8 +79,9 @@ type LyricsLookupState = { status: "loading" } | {
 
 type RefresherLookupState = { status: "idle" } | { status: "loading" } | {
   status: "ready"
+
   result: WikipediaRefresher
-} | { status: "error" message: string }
+} | { status: "error"; message: string }
 
 const MOVIE_FALLBACK_SECONDS = 2 * 60 * 60
 
@@ -318,7 +313,7 @@ function ExpandIcon({ active }: { active: boolean }) {
   )
 }
 
-function RefresherSection({ title, items }: { title: string items: string[] }) {
+function RefresherSection({ title, items }: { title: string; items: string[] }) {
   return (
     <div className={styles.refresherSection}>
       <h4>{title}</h4>
@@ -333,6 +328,10 @@ function RefresherSection({ title, items }: { title: string items: string[] }) {
 
 export default function WatchScreen({
   id,
+
+  tmdbId,
+
+  videoPath,
 
   title,
 
@@ -382,17 +381,13 @@ export default function WatchScreen({
 
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  const [subscriptionPlan, setSubscriptionPlan] = useState<string>("Basic")
-
-  const [subscriptionLoading, setSubscriptionLoading] = useState(true)
-
-  const [selectedQuality, setSelectedQuality] = useState<PlaybackQuality>(480)
-
   const [clipStarted, setClipStarted] = useState(false)
 
   const [clipEnded, setClipEnded] = useState(false)
 
   const [videoError, setVideoError] = useState<string | null>(null)
+
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState("")
 
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
 
@@ -544,7 +539,15 @@ export default function WatchScreen({
 
     setEpisodesLoading(true)
 
-    fetchTVEpisodes(id)
+    if (!tmdbId) {
+      setEpisodesLoading(false)
+
+      return () => {
+        active = false
+      }
+    }
+
+    fetchTVEpisodes(tmdbId)
 
       .then((items) => {
         if (!active) return
@@ -567,45 +570,7 @@ export default function WatchScreen({
     return () => {
       active = false
     }
-  }, [id, isSeries])
-
-  useEffect(() => {
-    let active = true
-
-    setSubscriptionLoading(true)
-
-    void supabase
-
-      .rpc("get_my_subscription_state")
-
-      .then(({ data, error }) => {
-        if (!active) return
-
-        const row = Array.isArray(data) ? data[0] : data
-
-        const planName =
-          !error &&
-          row &&
-          typeof row === "object" &&
-          (row as { is_active?: unknown }).is_active
-            ? String((row as { plan_name?: unknown }).plan_name ?? "Basic")
-            : "Basic"
-
-        setSubscriptionPlan(planName)
-
-        pendingVideoTimeRef.current = playerVideoRef.current?.currentTime ?? 0
-
-        setSelectedQuality(preferredPlaybackQuality(planName))
-      })
-
-      .finally(() => {
-        if (active) setSubscriptionLoading(false)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [])
+  }, [isSeries, tmdbId])
 
   const contentId =
     isSeries && selectedEpisode
@@ -634,16 +599,47 @@ export default function WatchScreen({
       ? `${title} — Episode ${selectedEpisode.ep}: ${selectedEpisode.title}`
       : title
 
-  const allowedQualities = useMemo(
-    () => playbackQualitiesForPlan(subscriptionPlan),
-
-    [subscriptionPlan],
-  )
-
-  const videoSource = PLAYBACK_SOURCE_BY_QUALITY[selectedQuality]
-
   const activeVideoSource =
-    refresherVideoPlaying && refresherVideoUrl ? refresherVideoUrl : videoSource
+    refresherVideoPlaying && refresherVideoUrl
+      ? refresherVideoUrl
+      : uploadedVideoUrl
+
+  useEffect(() => {
+    let active = true
+
+    let renewalTimer: ReturnType<typeof setTimeout> | null = null
+
+    setUploadedVideoUrl("")
+
+    if (!videoPath) return () => void (active = false)
+
+    const signVideo = async () => {
+      const { data, error } = await supabase.storage
+        .from("video_file")
+        .createSignedUrl(videoPath, 60 * 60)
+        if (!active) return
+
+        if (error || !data?.signedUrl) {
+          setVideoError("The uploaded movie could not be loaded.")
+
+          return
+        }
+
+        pendingVideoTimeRef.current = playerVideoRef.current?.currentTime ?? 0
+
+        setUploadedVideoUrl(data.signedUrl)
+
+        renewalTimer = setTimeout(() => void signVideo(), 50 * 60 * 1000)
+    }
+
+    void signVideo()
+
+    return () => {
+      active = false
+
+      if (renewalTimer) clearTimeout(renewalTimer)
+    }
+  }, [videoPath])
 
   useEffect(() => {
     let active = true
@@ -656,7 +652,7 @@ export default function WatchScreen({
 
     setCaptions(false)
 
-    void loadSubtitleTrack(supabase, id, isSeries)
+    void loadSubtitleTrack(supabase, id)
 
       .then((cues) => {
         if (!active) return
@@ -679,7 +675,7 @@ export default function WatchScreen({
     return () => {
       active = false
     }
-  }, [id, isSeries])
+  }, [id])
 
   useEffect(() => {
     const video = playerVideoRef.current
@@ -748,11 +744,11 @@ export default function WatchScreen({
 
     playing,
 
-    selectedQuality,
-
     refresherVideoPlaying,
 
     refresherVideoUrl,
+
+    uploadedVideoUrl,
   ])
 
   useEffect(() => {
@@ -786,7 +782,7 @@ export default function WatchScreen({
 
     setEngagementLoading(true)
 
-    void resolveContentId(supabase, id, isSeries)
+    void Promise.resolve(id)
 
       .then(async (resolvedId) => {
         if (requestId !== engagementRequest.current) return
@@ -827,7 +823,7 @@ export default function WatchScreen({
       .finally(() => {
         if (requestId === engagementRequest.current) setEngagementLoading(false)
       })
-  }, [id, isSeries, selectedEpisode?.ep])
+  }, [id, selectedEpisode?.ep])
 
   useEffect(() => {
     if (activePanel !== "music") return
@@ -1015,6 +1011,7 @@ export default function WatchScreen({
     onProgress?.(
       Math.max(
         1,
+
         Math.min(100, Math.round((playbackSeconds / duration) * 100)),
       ),
     )
@@ -1146,17 +1143,6 @@ export default function WatchScreen({
 
     if (playing && !activePanel && !settingsOpen)
       controlsTimer.current = setTimeout(() => setShowControls(false), 3000)
-  }
-
-  const changeQuality = (quality: PlaybackQuality) => {
-    if (!allowedQualities.includes(quality) || quality === selectedQuality)
-      return
-
-    pendingVideoTimeRef.current = playerVideoRef.current?.currentTime ?? 0
-
-    setSelectedQuality(quality)
-
-    setVideoError(null)
   }
 
   const selectEpisode = (episode: TMDBEpisode) => {
@@ -1710,7 +1696,7 @@ export default function WatchScreen({
             onError={() => {
               if (refresherVideoPlaying) {
                 finishRefresherVideo(
-                  `The refresher video could not be played. The ${selectedQuality}p studio presentation has started.`,
+                  "The refresher video could not be played. The uploaded title has resumed.",
                 )
 
                 return
@@ -1719,13 +1705,13 @@ export default function WatchScreen({
               setClipEnded(true)
 
               setVideoError(
-                `${selectedQuality}p video is unavailable. Playback will continue with the title image.`,
+                "The uploaded video is unavailable. Check the title's media file and try again.",
               )
             }}
             aria-label={
               refresherVideoPlaying
                 ? `${contentLabel} refresher video`
-                : `${contentLabel} studio presentation at ${selectedQuality}p`
+                : `${contentLabel} uploaded video`
             }
           />
           <div className={styles.playerGradient} />
@@ -1920,35 +1906,11 @@ export default function WatchScreen({
                         >
                           <section>
                             <h3>Video quality</h3>
-                            <p>
-                              {subscriptionLoading
-                                ? "Checking your plan…"
-                                : `${subscriptionPlan} plan`}
-                            </p>
                             <div className={styles.settingOptions}>
-                              {PLAYBACK_QUALITIES.map((quality) => {
-                                const available =
-                                  allowedQualities.includes(quality)
-
-                                return (
-                                  <button
-                                    key={quality}
-                                    type="button"
-                                    disabled={!available || subscriptionLoading}
-                                    aria-pressed={selectedQuality === quality}
-                                    onClick={() => changeQuality(quality)}
-                                  >
-                                    <span>{quality}p</span>
-                                    <small>
-                                      {available
-                                        ? selectedQuality === quality
-                                          ? "Selected"
-                                          : "Available"
-                                        : `${requiredPlanForQuality(quality)} plan`}
-                                    </small>
-                                  </button>
-                                )
-                              })}
+                              <button type="button" aria-pressed="true">
+                                <span>Auto</span>
+                                <small>Uploaded source</small>
+                              </button>
                             </div>
                           </section>
                           <section>

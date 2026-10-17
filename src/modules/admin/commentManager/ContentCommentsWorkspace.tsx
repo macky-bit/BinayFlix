@@ -293,7 +293,7 @@ export default function ContentCommentsWorkspace({
                     <td className="px-4 py-3">
                       <AdminRowAction
                         action="view"
-                        name={`comments for ${group.contentTitle}`}
+                        name={`comments for ${group.title}`}
                         onClick={() => setSelected(group)}
                       />
                     </td>

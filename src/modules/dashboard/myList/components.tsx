@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import styles from "./myList.module.css";
 import { fetchShowDetails } from "../../movie/tmdb";
-import type { Show } from "../../movie/types";
+import { showIdentity, type Show } from "../../movie/types";
 import { addToMyList, getMyList, removeFromMyList } from "./myListStore";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -15,7 +15,7 @@ type SortOption =
 	| "Release Year: Oldest";
 
 interface Title {
-	id: number;
+	id: string;
 	title: string;
 	type: ContentType;
 	year: number;
@@ -25,7 +25,7 @@ interface Title {
 	gradient?: string;
 	image?: string;
 	mediaType?: "movie" | "tv";
-	show?: Show;
+	show: Show;
 }
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ function Tooltip({ label, children }: { label: string; children: React.ReactNode
 
 function ContentCard({ item, onRemove, onInfo }: {
 	item: Title;
-	onRemove: (id: number) => void;
+	onRemove: (id: string) => void;
 	onInfo: (item: Title) => void;
 }) {
 	const [hovered, setHovered] = useState(false);
@@ -273,18 +273,7 @@ type AppState = "loading" | "loaded" | "error";
 type FilterType = "All" | "Movie" | "Series";
 
 function titleToShow(item: Title): Show {
-	if (item.show) return item.show;
-
-	return {
-		id: item.id,
-		title: item.title,
-		year: item.year ? String(item.year) : "",
-		rating: item.rating,
-		duration: item.runtime ?? "",
-		genres: [],
-		image: item.image ?? "",
-		mediaType: item.mediaType ?? (item.type === "Series" ? "tv" : "movie"),
-	};
+	return item.show;
 }
 
 export function MyListView({
@@ -306,9 +295,12 @@ export function MyListView({
 		if (entries.length === 0) { setTitles([]); setAppState("loaded"); return () => { active = false; }; }
 		setAppState("loading");
 		Promise.all(entries.map(async (entry) => {
-			const show = await fetchShowDetails(entry.id, entry.mediaType) ?? entry.show ?? null;
+			const tmdbId = entry.tmdbId ?? entry.show?.tmdbId;
+			const show = (tmdbId == null
+				? null
+				: await fetchShowDetails(tmdbId, entry.mediaType)) ?? entry.show ?? null;
 			return show
-				? { id: show.id, title: show.title, type: entry.mediaType === "tv" ? "Series" as const : "Movie" as const, year: Number(show.year) || 0, rating: show.rating, runtime: show.duration, addedAt: entry.addedAt, image: show.image, mediaType: entry.mediaType, show }
+				? { id: showIdentity(show), title: show.title, type: entry.mediaType === "tv" ? "Series" as const : "Movie" as const, year: Number(show.year) || 0, rating: show.rating, runtime: show.duration, addedAt: entry.addedAt, image: show.image, mediaType: entry.mediaType, show }
 				: null;
 		})).then((items) => {
 			if (!active) return;
@@ -335,22 +327,17 @@ export function MyListView({
 		sortOption,
 	);
 
-	const handleRemove = useCallback((id: number) => {
+	const handleRemove = useCallback((id: string) => {
 		const item = titles.find((t) => t.id === id);
 		if (!item) return;
-		removeFromMyList(item.id, item.mediaType ?? (item.type === "Series" ? "tv" : "movie"));
+		removeFromMyList(item.show);
 		setTitles((prev) => prev.filter((t) => t.id !== id));
 		setToast({ item });
 	}, [titles]);
 
 	const handleUndo = useCallback(() => {
 		if (!toast) return;
-		addToMyList(
-			toast.item.id,
-			toast.item.mediaType ?? (toast.item.type === "Series" ? "tv" : "movie"),
-			toast.item.addedAt,
-			titleToShow(toast.item),
-		);
+		addToMyList(titleToShow(toast.item), toast.item.addedAt);
 		setTitles((prev) => {
 			if (prev.find((t) => t.id === toast.item.id)) return prev;
 			return sortTitles([...prev, toast.item], sortOption);

@@ -43,7 +43,11 @@ export function addOrUpdateContinue(
   profileId?: number | null,
 ) {
   const entries = load(profileId).filter(
-    (e) => !(e.show.id === show.id && e.show.mediaType === show.mediaType),
+    (e) =>
+      !(
+        e.show.contentId === show.contentId &&
+        e.show.mediaType === show.mediaType
+      ),
   )
 
   persist(
@@ -59,7 +63,7 @@ export function removeContinue(
 ) {
   persist(
     load(profileId).filter(
-      (e) => !(e.show.id === id && e.show.mediaType === mediaType),
+      (e) => !(e.show.contentId === id && e.show.mediaType === mediaType),
     ),
     profileId,
   )

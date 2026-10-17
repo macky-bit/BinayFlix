@@ -181,6 +181,8 @@ export function useTMDBCatalog(kind: CatalogKind): TMDBCatalogData {
 
     rows: [],
 
+    genres: [],
+
     loading: true,
 
     error: null,
@@ -190,7 +192,7 @@ export function useTMDBCatalog(kind: CatalogKind): TMDBCatalogData {
     let cancelled = false
 
     async function load() {
-      setState({ featured: null, rows: [], loading: true, error: null })
+      setState({ featured: null, rows: [], genres: [], loading: true, error: null })
 
       const requests = FEEDS[kind]
 
@@ -235,6 +237,7 @@ export function useTMDBCatalog(kind: CatalogKind): TMDBCatalogData {
           setState({
             featured: null,
             rows: [],
+            genres: [],
             loading: false,
             error: "TMDB returned no catalog content.",
           })
@@ -242,7 +245,7 @@ export function useTMDBCatalog(kind: CatalogKind): TMDBCatalogData {
         return
       }
 
-      setState({ featured, rows, loading: false, error: null })
+      setState({ featured, rows, genres: [], loading: false, error: null })
     }
 
     load().catch(() => {
@@ -250,6 +253,7 @@ export function useTMDBCatalog(kind: CatalogKind): TMDBCatalogData {
         setState({
           featured: null,
           rows: [],
+          genres: [],
           loading: false,
           error: "Failed to load content from TMDB.",
         })

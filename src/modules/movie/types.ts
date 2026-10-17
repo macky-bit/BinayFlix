@@ -1,5 +1,9 @@
 export interface Show {
-  id: number
+  contentId?: number
+
+  tmdbId?: number | null
+
+  videoPath?: string | null
 
   title: string
 
@@ -22,9 +26,18 @@ export interface Show {
   mediaType?: "movie" | "tv"
 }
 
+export function showIdentity(show: Show): string {
+  if (show.contentId != null) return `content:${show.contentId}`
+  if (show.tmdbId != null)
+    return `tmdb:${show.mediaType ?? "movie"}:${show.tmdbId}`
+  return `title:${show.mediaType ?? "movie"}:${show.title}:${show.year}`
+}
+
 export interface CatalogRow {
   title: string
+
   shows: Show[]
+
   top10?: boolean
 }
 

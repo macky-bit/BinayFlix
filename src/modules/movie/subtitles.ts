@@ -77,9 +77,7 @@ export function parseSubtitleCues(source: string): SubtitleCue[] {
 export async function loadSubtitleTrack(
   client: SupabaseClient,
 
-  tmdbId: number,
-
-  isSeries: boolean,
+  contentId: number,
 ) {
   const { data, error } = await client
 
@@ -87,7 +85,7 @@ export async function loadSubtitleTrack(
 
     .select("subtitle, category(category_name)")
 
-    .eq("tmdb_id", tmdbId)
+    .eq("content_id", contentId)
 
     .not("subtitle", "is", null)
 
@@ -95,13 +93,8 @@ export async function loadSubtitleTrack(
 
   if (error) throw error
 
-  const expectedCategory = isSeries ? "tv series" : "movie"
-
   const content = ((data ?? []) as unknown as SubtitleRow[]).find(
-    (row) =>
-      categoryName(row) === expectedCategory &&
-      typeof row.subtitle === "string" &&
-      row.subtitle.trim().length > 0,
+    (row) => typeof row.subtitle === "string" && row.subtitle.trim().length > 0,
   )
 
   if (!content?.subtitle) return null

@@ -3,7 +3,8 @@ import type { Show } from "../../movie/types";
 
 export type MediaType = "movie" | "tv";
 export interface SavedEntry {
-	id: number;
+	contentId?: number;
+	tmdbId?: number | null;
 	mediaType: MediaType;
 	addedAt: number;
 	show?: Show;
@@ -15,7 +16,11 @@ const EVENT = "sf-mylist-change";
 export function getMyList(): SavedEntry[] {
 	try {
 		const value = JSON.parse(localStorage.getItem(KEY) ?? "[]");
-		return Array.isArray(value) ? value : [];
+		return Array.isArray(value)
+			? value.filter((entry) =>
+				entry?.contentId != null || entry?.show?.contentId != null ||
+				entry?.tmdbId != null || entry?.show?.tmdbId != null)
+			: [];
 	} catch { return []; }
 }
 
@@ -24,22 +29,40 @@ function save(entries: SavedEntry[]) {
 	window.dispatchEvent(new Event(EVENT));
 }
 
-export const isInMyList = (id: number, mediaType: MediaType) =>
-	getMyList().some((entry) => entry.id === id && entry.mediaType === mediaType);
+function matches(entry: SavedEntry, show: Show) {
+	if (show.contentId != null) {
+		return (entry.contentId ?? entry.show?.contentId) === show.contentId;
+	}
+	if (show.tmdbId != null) {
+		return entry.mediaType === (show.mediaType ?? "movie") &&
+			(entry.tmdbId ?? entry.show?.tmdbId) === show.tmdbId;
+	}
+	return false;
+}
+
+export const isInMyList = (show: Show) =>
+	getMyList().some((entry) => matches(entry, show));
 
 export function addToMyList(
-	id: number,
-	mediaType: MediaType,
+	show: Show,
 	addedAt = Date.now(),
-	show?: Show,
 ) {
-	if (!isInMyList(id, mediaType)) {
-		save([...getMyList(), { id, mediaType, addedAt, show }]);
+	if (!isInMyList(show)) {
+		save([
+			...getMyList(),
+			{
+				contentId: show.contentId,
+				tmdbId: show.tmdbId,
+				mediaType: show.mediaType ?? "movie",
+				addedAt,
+				show,
+			},
+		]);
 	}
 }
 
-export function removeFromMyList(id: number, mediaType: MediaType) {
-	save(getMyList().filter((entry) => entry.id !== id || entry.mediaType !== mediaType));
+export function removeFromMyList(show: Show) {
+	save(getMyList().filter((entry) => !matches(entry, show)));
 }
 
 export function useMyList() {
@@ -50,9 +73,9 @@ export function useMyList() {
 		window.addEventListener("storage", refresh);
 		return () => { window.removeEventListener(EVENT, refresh); window.removeEventListener("storage", refresh); };
 	}, []);
-	const toggle = useCallback((id: number, mediaType: MediaType, show?: Show) => {
-		if (isInMyList(id, mediaType)) removeFromMyList(id, mediaType);
-		else addToMyList(id, mediaType, Date.now(), show);
+	const toggle = useCallback((show: Show) => {
+		if (isInMyList(show)) removeFromMyList(show);
+		else addToMyList(show);
 	}, []);
-	return { entries, toggle, isSaved: (id: number, mediaType: MediaType) => entries.some((e) => e.id === id && e.mediaType === mediaType) };
+	return { entries, toggle, isSaved: (show: Show) => entries.some((entry) => matches(entry, show)) };
 }
