@@ -80,8 +80,14 @@ body {
 /* Admin workspaces define their own compact, responsive type scale. Keeping
    them at true 100% avoids compounding the member UI zoom and prevents
    fractional text-layer shifts at tablet and phone widths. */
-#root:has(.admin-shell) {
+#root:has(.admin-shell),
+#root:has(.admin-loading--access) {
 	zoom: 1;
+}
+
+html:has(.admin-loading--access),
+body:has(.admin-loading--access) {
+	overflow: hidden;
 }
 
 /* ─── Global gold hover ─────────────────────────────────────────────────────── */

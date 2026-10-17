@@ -15,6 +15,7 @@ import ProfileSelectPage from "./modules/profileSelect/ProfileSelectPage"
 import type { Profile } from "./modules/profileSelect/ProfileSelectPage"
 
 import Dashboard from "./modules/dashboard/Dashboard"
+import type { DashboardView } from "./modules/dashboard/components"
 
 import WatchScreen from "./modules/movie/fixedscreen/movie"
 
@@ -53,6 +54,8 @@ export default function App() {
   const [plan, setPlan] = useState<Plan | null>(null)
 
   const [watchShow, setWatchShow] = useState<Show | null>(null)
+
+  const [dashboardView, setDashboardView] = useState<DashboardView>("home")
 
   const [previewShow, setPreviewShow] = useState<Show | null>(null)
 
@@ -213,6 +216,7 @@ export default function App() {
   }
 
   const handleSignOut = () => {
+    setDashboardView("home")
     activeAuthUserIdRef.current = null
 
     activeProfileIdRef.current = null
@@ -279,6 +283,7 @@ export default function App() {
                 }
 
                 activeProfileIdRef.current = profile.id
+                setDashboardView("home")
                 setActiveProfileId(profile.id)
                 setActiveProfile(profile)
                 beginOpening()
@@ -292,6 +297,8 @@ export default function App() {
         <>
           <Dashboard
             activeProfile={activeProfile}
+            view={dashboardView}
+            onViewChange={setDashboardView}
             onSignOut={handleSignOut}
             onWatch={handleWatch}
             onInfo={handleInfo}

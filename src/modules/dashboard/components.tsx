@@ -298,8 +298,10 @@ export function TrendingCard({
   onInfo,
 
   posterStyle = false,
+  wide = false,
 
   unavailable = false,
+  unavailableLabel = "Unavailable",
 }: {
   show: Show
 
@@ -308,8 +310,10 @@ export function TrendingCard({
   onInfo?: (show: Show) => void
 
   posterStyle?: boolean
+  wide?: boolean
 
   unavailable?: boolean
+  unavailableLabel?: string
 }) {
   const [hovered, setHovered] = useState(false)
 
@@ -322,8 +326,10 @@ export function TrendingCard({
   return (
     <div
       className={`relative shrink-0 rounded-xl overflow-hidden ${
-        unavailable ? styles.trendingCardUnavailable : "cursor-pointer"
-      } ${styles.trendingCard} ${posterStyle ? styles.posterCarouselCard : ""}`}
+        unavailable
+          ? unavailableLabel === "Coming soon" ? styles.trendingCardComingSoon : styles.trendingCardUnavailable
+          : "cursor-pointer"
+      } ${styles.trendingCard} ${posterStyle ? styles.posterCarouselCard : ""} ${wide ? styles.continueCard : ""}`}
       aria-disabled={unavailable || undefined}
       style={{
         transform: hovered && !unavailable
@@ -349,7 +355,7 @@ export function TrendingCard({
       {/* thumbnail */}
       <div
         className={`relative w-full ${posterStyle ? styles.posterCardMedia : ""}`}
-        style={posterStyle ? undefined : { aspectRatio: "16/10" }}
+        style={posterStyle ? undefined : { aspectRatio: wide ? "16/9" : "16/10" }}
       >
         <img
           src={show.image}
@@ -357,13 +363,6 @@ export function TrendingCard({
           className="w-full h-full object-cover"
         />
         <div className={`absolute inset-0 ${styles.trendingCardImgGradient}`} />
-        <span
-          className={`${styles.mediaTypeBadge} ${
-            mediaType === "tv" ? styles.mediaTypeBadgeSeries : styles.mediaTypeBadgeMovie
-          }`}
-        >
-          {mediaType === "tv" ? "TV Series" : "Movie"}
-        </span>
       </div>
 
       {/* metadata always visible */}
@@ -376,14 +375,23 @@ export function TrendingCard({
         </div>
 
         {/* match + year */}
-        <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-          {typeof show.match === "number" && (
-            <span className={`text-[11px] font-bold ${styles.matchText}`}>
-              {show.match}% Match
+        <div className="flex items-center justify-between gap-1.5 mb-1.5">
+          <div className="flex min-w-0 items-center gap-1.5 flex-wrap">
+            {typeof show.match === "number" && (
+              <span className={`text-[11px] font-bold ${styles.matchText}`}>
+                {show.match}% Match
+              </span>
+            )}
+            <span className="text-[11px]" style={{ color: "#9CA3AF" }}>
+              • {show.year}
             </span>
-          )}
-          <span className="text-[11px]" style={{ color: "#9CA3AF" }}>
-            • {show.year}
+          </div>
+          <span
+            className={`${styles.mediaTypeBadge} ${styles.mediaTypeBadgeInline} ${
+              mediaType === "tv" ? styles.mediaTypeBadgeSeries : styles.mediaTypeBadgeMovie
+            }`}
+          >
+            {mediaType === "tv" ? "TV Series" : "Movie"}
           </span>
         </div>
 
@@ -400,7 +408,7 @@ export function TrendingCard({
           )}
 
           {unavailable ? (
-            <span className={styles.unavailableBadge}>Unavailable</span>
+            <span className={styles.unavailableBadge}>{unavailableLabel}</span>
           ) : (
           <div className="flex items-center gap-1.5 shrink-0">
             {/* Play */}
@@ -486,15 +494,6 @@ export function ContinueWatchingCard({
           className="w-full h-full object-cover"
         />
         <div className={`absolute inset-0 ${styles.continueImgGradient}`} />
-        <span
-          className={`${styles.mediaTypeBadge} ${
-            mediaType === "tv"
-              ? styles.mediaTypeBadgeSeries
-              : styles.mediaTypeBadgeMovie
-          }`}
-        >
-          {mediaType === "tv" ? "TV Series" : "Movie"}
-        </span>
       </div>
 
       {/* bottom bar: title, episode, progress, actions */}
@@ -537,6 +536,16 @@ export function ContinueWatchingCard({
               {inList ? "✓" : "+"}
             </button>
           </div>
+        </div>
+        <div className="flex items-center justify-between gap-1.5 mb-1.5">
+          <span className="text-[11px]" style={{ color: "#9CA3AF" }}>• {show.year}</span>
+          <span
+            className={`${styles.mediaTypeBadge} ${styles.mediaTypeBadgeInline} ${
+              mediaType === "tv" ? styles.mediaTypeBadgeSeries : styles.mediaTypeBadgeMovie
+            }`}
+          >
+            {mediaType === "tv" ? "TV Series" : "Movie"}
+          </span>
         </div>
         {/* progress bar */}
         <div className="flex items-center gap-2">
@@ -614,6 +623,9 @@ export function CarouselRow({
 
   variant = "portrait",
 
+  unavailable = false,
+  unavailableLabel = "Unavailable",
+
   onPlay,
 
   onInfo,
@@ -626,7 +638,10 @@ export function CarouselRow({
 
   top10?: boolean
 
-  variant?: "portrait" | "trending" | "continue"
+  variant?: "portrait" | "trending" | "continue" | "wide"
+
+  unavailable?: boolean
+  unavailableLabel?: string
 
   onPlay?: (show: Show) => void
 
@@ -717,6 +732,9 @@ export function CarouselRow({
                 onPlay={onPlay}
                 onInfo={onInfo}
                 posterStyle={usePosterCards}
+                wide={variant === "wide"}
+                unavailable={unavailable}
+                unavailableLabel={unavailableLabel}
               />
             ),
           )}

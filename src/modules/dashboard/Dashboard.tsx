@@ -10,6 +10,10 @@ import SearchResultsPage from "./SearchResultsPage"
 interface Props {
   activeProfile: Profile
 
+  view: DashboardView
+
+  onViewChange: (view: DashboardView) => void
+
   onSignOut: () => void
 
   onWatch: (show: Show) => void
@@ -29,6 +33,8 @@ interface Props {
 
 export default function Dashboard({
   activeProfile,
+  view,
+  onViewChange,
   onSignOut,
   onWatch,
   onInfo,
@@ -37,8 +43,6 @@ export default function Dashboard({
   const [searchOpen, setSearchOpen] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState("")
-
-  const [view, setView] = useState<DashboardView>("home")
 
   const [showAdminLink, setShowAdminLink] = useState(false)
 
@@ -72,7 +76,7 @@ export default function Dashboard({
         onNavigateView={(nextView) => {
           setSearchQuery("")
           setSearchOpen(false)
-          setView(nextView)
+          onViewChange(nextView)
         }}
         showAdminLink={showAdminLink}
       />
@@ -95,7 +99,7 @@ export default function Dashboard({
         />
       )}
       {!searchQuery.trim() && view === "myList" && (
-        <MyListView onBrowse={() => setView("home")} onInfo={onInfo} />
+        <MyListView onBrowse={() => onViewChange("home")} onInfo={onInfo} />
       )}
     </div>
   )

@@ -1,6 +1,7 @@
 import { useState } from "react"
 import type { Show, TMDBCatalogData, CatalogKind } from "../movie/types"
 import { useSupabaseCatalog } from "../movie/useSupabaseCatalog"
+import NewAndPopularPage from "./NewAndPopularPage"
 import {
   CarouselRow,
   ContinueWatchingRow,
@@ -17,9 +18,8 @@ interface CatalogPageProps {
   onNavigateHelp: () => void
 }
 
-interface CatalogViewProps extends Omit<CatalogPageProps, "kind"> {
+interface CatalogViewProps extends CatalogPageProps {
   data: TMDBCatalogData
-  showHero?: boolean
 }
 
 const SKELETON_ROWS = [1, 2, 3]
@@ -53,8 +53,8 @@ function LoadingCatalog({ showHero }: { showHero: boolean }) {
 }
 
 function CatalogView({
+  kind,
   data,
-  showHero = false,
   onWatch,
   onInfo,
   onNavigateHelp,
@@ -62,6 +62,7 @@ function CatalogView({
 }: CatalogViewProps) {
   const [genre, setGenre] = useState("All")
   const { rows, featured, genres, loading } = data
+  const showHero = kind === "home" || kind === "movies" || kind === "tvShows"
 
   if (loading) return <LoadingCatalog showHero={showHero} />
 
@@ -76,14 +77,24 @@ function CatalogView({
             ),
           ),
   }))
-  const heroShows =
-    rows.find((row) => row.title === "Trending Now")?.shows.slice(0, 5) ??
+  const heroRowTitle =
+    kind === "movies"
+      ? "Popular Movies"
+      : kind === "tvShows"
+        ? "Popular TV Shows"
+        : "Trending Now"
+  const heroMediaType = kind === "movies" ? "movie" : kind === "tvShows" ? "tv" : null
+  const heroShows = (
+    rows.find((row) => row.title === heroRowTitle)?.shows ??
     (featured ? [featured] : [])
+  )
+    .filter((show) => !heroMediaType || show.mediaType === heroMediaType)
+    .slice(0, 5)
 
   return (
     <div className={showHero ? undefined : "pt-20"}>
       {showHero && heroShows.length > 0 && (
-        <Hero shows={heroShows} onWatch={onWatch} onInfo={onInfo} />
+        <Hero key={kind} shows={heroShows} onWatch={onWatch} onInfo={onInfo} />
       )}
       <div className="space-y-8 pb-10">
         <GenreFilters
@@ -91,12 +102,14 @@ function CatalogView({
           setActive={setGenre}
           genres={["All", ...genres.slice(0, 15)]}
         />
-        <ContinueWatchingRow
-          genre={genre}
-          profileId={profileId}
-          onPlay={onWatch}
-          onInfo={onInfo}
-        />
+        {kind === "home" && (
+          <ContinueWatchingRow
+            genre={genre}
+            profileId={profileId}
+            onPlay={onWatch}
+            onInfo={onInfo}
+          />
+        )}
         {filteredRows.map((row) => (
           <CarouselRow
             key={row.title}
@@ -122,11 +135,15 @@ export default function CatalogPage({
 }: CatalogPageProps) {
   const data = useSupabaseCatalog(kind)
 
+  if (kind === "newAndPopular") {
+    return <NewAndPopularPage data={data} onWatch={onWatch} onInfo={onInfo} onNavigateHelp={onNavigateHelp} />
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-ink)] text-[var(--color-cream)]">
       <CatalogView
+        kind={kind}
         data={data}
-        showHero={kind === "home"}
         onWatch={onWatch}
         onInfo={onInfo}
         onNavigateHelp={onNavigateHelp}

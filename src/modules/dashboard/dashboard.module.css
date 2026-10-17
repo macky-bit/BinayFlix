@@ -38,6 +38,10 @@
    opacity: 0.52;
 }
 
+.trendingCardComingSoon {
+   cursor: default;
+}
+
 .unavailableBadge {
    display: inline-flex;
    align-items: center;
@@ -141,6 +145,16 @@
 .mediaTypeBadgeSeries {
    border-color: rgba(167, 139, 250, 0.72);
    color: #d6c6ff;
+}
+
+.mediaTypeBadgeInline {
+   position: static;
+   flex-shrink: 0;
+   min-height: 1rem;
+   margin-left: auto;
+   padding: 0.1rem 0.3rem;
+   font-size: 0.5rem;
+   letter-spacing: 0.02em;
 }
 
 .trendingMeta {

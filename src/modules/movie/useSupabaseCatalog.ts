@@ -27,6 +27,7 @@ interface GenreRow {
 
 interface CatalogShow extends Show {
   popularityRank: number
+  addedOrder: number
 }
 
 function relationName(
@@ -70,6 +71,7 @@ function mapContent(row: ContentRow): CatalogShow {
     genres,
     mediaType: category.includes("tv") ? "tv" : "movie",
     popularityRank: row.popularity_rank ?? Number.MAX_SAFE_INTEGER,
+    addedOrder: row.content_id,
   }
 }
 
@@ -136,11 +138,9 @@ export function buildCatalog(
     ]
   } else if (kind === "newAndPopular") {
     rows = [
-      { title: "Trending Now", shows: trending },
-      { title: "New Movies", shows: newestMovies },
-      { title: "New TV Shows", shows: newestTv },
-      { title: "Popular Movies", shows: movies.slice(0, 12) },
-      { title: "Popular TV Shows", shows: tv.slice(0, 12) },
+      { title: "New on StreamFlix", shows: [...all].sort((a, b) => b.addedOrder - a.addedOrder).slice(0, 12) },
+      { title: "Top 10 Movies", shows: movies.slice(0, 10), top10: true },
+      { title: "Top 10 TV Series", shows: tv.slice(0, 10), top10: true },
     ]
   } else {
     rows = [

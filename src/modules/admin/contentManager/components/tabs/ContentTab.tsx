@@ -599,7 +599,7 @@ function ContentForm({
                 value={v}
                 checked={form.availability === v}
                 onChange={() => set("availability", v)}
-                className="sr-only"
+                className="admin-content-availability__input"
               />
               <div
                 className="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors"
@@ -1858,62 +1858,6 @@ export default function ContentTab({
             }}
             label="titles"
           />
-          <div className="admin-table-pagination hidden">
-            <p>
-              Showing{" "}
-              {filtered.length === 0 ? 0 : (safePage - 1) * rowsPerPage + 1}–
-              {Math.min(safePage * rowsPerPage, filtered.length)} of{" "}
-              {filtered.length} titles
-            </p>
-            <div className="admin-pagination-controls">
-              <label className="content-rows-select">
-                Rows
-                <select
-                  value={rowsPerPage}
-                  onChange={(event) => {
-                    setRowsPerPage(Number(event.target.value))
-                    setPage(1)
-                  }}
-                  aria-label="Rows per page"
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                </select>
-              </label>
-              <button
-                type="button"
-                onClick={() => setPage((value) => Math.max(1, value - 1))}
-                disabled={safePage === 1}
-                aria-label="Previous content page"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-              </button>
-              {Array.from({ length: totalPages }, (_, index) => index + 1)
-                .slice(Math.max(0, safePage - 3), Math.max(5, safePage + 2))
-                .map((pageNumber) => (
-                  <button
-                    type="button"
-                    key={pageNumber}
-                    className={safePage === pageNumber ? "is-active" : ""}
-                    aria-current={safePage === pageNumber ? "page" : undefined}
-                    onClick={() => setPage(pageNumber)}
-                  >
-                    {pageNumber}
-                  </button>
-                ))}
-              <button
-                type="button"
-                onClick={() =>
-                  setPage((value) => Math.min(totalPages, value + 1))
-                }
-                disabled={safePage === totalPages}
-                aria-label="Next content page"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
