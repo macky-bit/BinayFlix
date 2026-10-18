@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { supabase } from "../../lib/supabase"
 import type { CatalogKind, CatalogRow, Show, TMDBCatalogData } from "./types"
 
-interface ContentRow {
+export interface ContentRow {
   content_id: number
   tmdb_id: number | null
   catalog_source: string | null
@@ -12,6 +12,7 @@ interface ContentRow {
   runtime: number | null
   age_rating: string | null
   thumbnail: string | null
+  video_file: string | null
   total_streams_count: number | null
   popularity_rank: number | null
   category: { category_name: string } | { category_name: string }[] | null
@@ -47,8 +48,12 @@ function formatRuntime(minutes: number | null) {
   return hours ? `${hours}h ${remainder}m` : `${remainder}m`
 }
 
-function mapContent(row: ContentRow): CatalogShow {
-  const category = relationName(row.category, "category_name").toLowerCase()
+export const CONTENT_SELECT =
+  "content_id, tmdb_id, catalog_source, title, synopsis, release_year, runtime, age_rating, thumbnail, video_file, total_streams_count, popularity_rank, category(category_name), genre!content_genre_id_fkey(genre_name), content_genre(genre(genre_name))"
+
+export function mapContent(row: ContentRow): CatalogShow {
+  const categoryName = relationName(row.category, "category_name")
+  const category = categoryName.toLowerCase()
   const legacyGenre = relationName(row.genre, "genre_name")
   const genres = Array.from(
     new Set(
@@ -62,12 +67,14 @@ function mapContent(row: ContentRow): CatalogShow {
   )
   const thumbnail = row.thumbnail && !/^https?:\/\//i.test(row.thumbnail)
     ? supabase.storage.from("content-thumbnails").getPublicUrl(row.thumbnail).data.publicUrl
-    : row.thumbnail ?? ""
+    : row.thumbnail || "/favicon.png"
 
   return {
     id: row.tmdb_id ?? row.content_id,
     contentId: row.content_id,
     tmdbId: row.tmdb_id,
+    category: categoryName,
+    videoPath: row.video_file ?? "",
     title: row.title,
     description: row.synopsis ?? "",
     year: row.release_year?.toString() ?? "",
@@ -112,7 +119,7 @@ export function buildCatalog(
   kind: CatalogKind,
   records: ContentRow[],
 ): Pick<TMDBCatalogData, "featured" | "rows" | "genres"> {
-  const all = records.map(mapContent).filter((show) => show.image)
+  const all = records.map(mapContent)
   const genreCounts = new Map<string, number>()
   all.forEach((show) => {
     show.genres.forEach((genre) => {
@@ -160,6 +167,7 @@ export function buildCatalog(
       { title: "Top 10 Movies", shows: movies.slice(0, 10), top10: true },
       { title: "Recommended Movies", shows: recommendations(movies) },
       { title: "Recommended TV Shows", shows: recommendations(tv) },
+      { title: "All Content", shows: [...all].sort((a, b) => a.addedOrder - b.addedOrder) },
     ]
   }
 
@@ -184,10 +192,10 @@ export function useSupabaseCatalog(kind: CatalogKind): TMDBCatalogData {
         supabase
           .from("content")
           .select(
-            "content_id, tmdb_id, catalog_source, title, synopsis, release_year, runtime, age_rating, thumbnail, total_streams_count, popularity_rank, category(category_name), genre!content_genre_id_fkey(genre_name), content_genre(genre(genre_name))",
+            CONTENT_SELECT,
           )
-          .eq("availability_status", "available")
-          .order("popularity_rank", { ascending: true, nullsFirst: false }),
+          .order("popularity_rank", { ascending: true, nullsFirst: false })
+          .range(0, 999),
         supabase.from("genre").select("genre_name, content_genre(count)"),
       ])
 
@@ -221,10 +229,24 @@ export function useSupabaseCatalog(kind: CatalogKind): TMDBCatalogData {
     }
 
     void loadCatalog()
+    const channel = supabase
+      .channel(`viewer-catalog-${kind}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "content" },
+        () => void loadCatalog(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "content_genre" },
+        () => void loadCatalog(),
+      )
+      .subscribe()
     return () => {
       active = false
+      void supabase.removeChannel(channel)
     }
-  }, [])
+  }, [kind])
 
   const catalog = useMemo(() => buildCatalog(kind, records), [kind, records])
   return {

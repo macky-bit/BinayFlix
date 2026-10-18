@@ -360,6 +360,8 @@ export function TrendingCard({
         <img
           src={show.image}
           alt={show.title}
+          loading="lazy"
+          decoding="async"
           className="w-full h-full object-cover"
         />
         <div className={`absolute inset-0 ${styles.trendingCardImgGradient}`} />
@@ -653,6 +655,7 @@ export function CarouselRow({
     "popular tv shows",
     "recommended movies",
     "recommended tv shows",
+    "all content",
   ])
   const usePosterCards = posterStyleRows.has(title.toLowerCase())
   const ref = useRef<HTMLDivElement>(null)

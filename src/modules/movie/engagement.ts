@@ -223,7 +223,10 @@ export async function resolveContentId(
   client: SupabaseClient,
   tmdbId: number,
   isSeries: boolean,
+  contentId?: number,
 ): Promise<number | null> {
+  if (contentId !== undefined) return contentId
+
   const { data, error } = await client
     .from("content")
     .select("content_id, category(category_name)")

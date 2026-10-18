@@ -5,6 +5,10 @@ export interface Show {
 
   tmdbId?: number | null
 
+  category?: string
+
+  videoPath?: string
+
   title: string
 
   year: string

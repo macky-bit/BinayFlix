@@ -77,21 +77,29 @@ export function parseSubtitleCues(source: string): SubtitleCue[] {
 export async function loadSubtitleTrack(
   client: SupabaseClient,
 
-  tmdbId: number,
+  tmdbId: number | null | undefined,
 
   isSeries: boolean,
+
+  contentId?: number,
 ) {
-  const { data, error } = await client
+  if (contentId === undefined && tmdbId == null) return null
+
+  let request = client
 
     .from("content")
 
     .select("subtitle, category(category_name)")
 
-    .eq("tmdb_id", tmdbId)
-
     .not("subtitle", "is", null)
 
     .limit(10)
+
+  request = contentId === undefined
+    ? request.eq("tmdb_id", tmdbId!)
+    : request.eq("content_id", contentId)
+
+  const { data, error } = await request
 
   if (error) throw error
 

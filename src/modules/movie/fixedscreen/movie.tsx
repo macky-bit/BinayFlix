@@ -50,6 +50,12 @@ import styles from "./movie.module.css"
 interface WatchProps {
   id: number
 
+  contentId?: number
+
+  tmdbId?: number | null
+
+  videoPath?: string
+
   title: string
 
   year: string
@@ -334,6 +340,12 @@ function RefresherSection({ title, items }: { title: string items: string[] }) {
 export default function WatchScreen({
   id,
 
+  contentId: catalogContentId,
+
+  tmdbId,
+
+  videoPath,
+
   title,
 
   year,
@@ -387,6 +399,8 @@ export default function WatchScreen({
   const [subscriptionLoading, setSubscriptionLoading] = useState(true)
 
   const [selectedQuality, setSelectedQuality] = useState<PlaybackQuality>(480)
+
+  const [catalogVideoUrl, setCatalogVideoUrl] = useState("")
 
   const [clipStarted, setClipStarted] = useState(false)
 
@@ -537,14 +551,14 @@ export default function WatchScreen({
 
     setSpoilersRevealed(false)
 
-    if (!isSeries)
+    if (!isSeries || tmdbId == null)
       return () => {
         active = false
       }
 
     setEpisodesLoading(true)
 
-    fetchTVEpisodes(id)
+    fetchTVEpisodes(tmdbId)
 
       .then((items) => {
         if (!active) return
@@ -567,7 +581,7 @@ export default function WatchScreen({
     return () => {
       active = false
     }
-  }, [id, isSeries])
+  }, [isSeries, tmdbId])
 
   useEffect(() => {
     let active = true
@@ -643,7 +657,27 @@ export default function WatchScreen({
   const videoSource = PLAYBACK_SOURCE_BY_QUALITY[selectedQuality]
 
   const activeVideoSource =
-    refresherVideoPlaying && refresherVideoUrl ? refresherVideoUrl : videoSource
+    refresherVideoPlaying && refresherVideoUrl
+      ? refresherVideoUrl
+      : catalogVideoUrl || videoSource
+
+  useEffect(() => {
+    let active = true
+    setCatalogVideoUrl("")
+    if (!videoPath) return () => { active = false }
+    if (/^https?:\/\//i.test(videoPath)) {
+      setCatalogVideoUrl(videoPath)
+      return () => { active = false }
+    }
+    void supabase.storage
+      .from("video_file")
+      .createSignedUrl(videoPath.replace(/^\/+/, ""), 60 * 60)
+      .then(({ data, error }) => {
+        if (!active || error) return
+        setCatalogVideoUrl(data.signedUrl)
+      })
+    return () => { active = false }
+  }, [videoPath])
 
   useEffect(() => {
     let active = true
@@ -656,7 +690,7 @@ export default function WatchScreen({
 
     setCaptions(false)
 
-    void loadSubtitleTrack(supabase, id, isSeries)
+    void loadSubtitleTrack(supabase, tmdbId, isSeries, catalogContentId)
 
       .then((cues) => {
         if (!active) return
@@ -679,7 +713,7 @@ export default function WatchScreen({
     return () => {
       active = false
     }
-  }, [id, isSeries])
+  }, [catalogContentId, isSeries, tmdbId])
 
   useEffect(() => {
     const video = playerVideoRef.current
@@ -786,7 +820,7 @@ export default function WatchScreen({
 
     setEngagementLoading(true)
 
-    void resolveContentId(supabase, id, isSeries)
+    void resolveContentId(supabase, tmdbId ?? id, isSeries, catalogContentId)
 
       .then(async (resolvedId) => {
         if (requestId !== engagementRequest.current) return

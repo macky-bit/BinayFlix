@@ -524,6 +524,9 @@ export default function App() {
       {page === "watch" && watchShow && (
         <WatchScreen
           id={watchShow.id}
+          contentId={watchShow.contentId}
+          tmdbId={watchShow.tmdbId}
+          videoPath={watchShow.videoPath}
           title={watchShow.title}
           year={watchShow.year}
           rating={watchShow.rating}

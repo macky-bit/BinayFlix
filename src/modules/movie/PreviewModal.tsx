@@ -228,6 +228,16 @@ export default function PreviewModal({
 							</p>
 						</div>
 						<div className={`text-sm space-y-2 ${styles.genresText}`}>
+							<p>
+								<span className={styles.genresLabel}>Type: </span>
+								{resolvedShow.mediaType === "tv" ? "Series" : "Movie"}
+							</p>
+							{resolvedShow.category && (
+								<p>
+									<span className={styles.genresLabel}>Category: </span>
+									{resolvedShow.category}
+								</p>
+							)}
 							{resolvedShow.genres.length > 0 && (
 								<p>
 									<span className={styles.genresLabel}>Genres: </span>

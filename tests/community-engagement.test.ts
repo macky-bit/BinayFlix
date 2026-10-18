@@ -1273,13 +1273,16 @@ test("normal movie playback records watch history and the profile loads it", () 
 
   assert.match(movieSource, /playbackSeconds - previousSync\.playbackSeconds/)
 
-  assert.match(appSource, /onProgress=\{\(progress\) => addOrUpdateContinue/)
+  assert.match(
+    appSource,
+    /onProgress=\{\(progress\) =>[\s\S]*addOrUpdateContinue\([\s\S]*activeProfileId/,
+  )
 
   assert.match(profileSource, /get_my_watch_history/)
 
   assert.match(profileSource, /delete_my_watch_history_entry/)
 
-  assert.match(profileSource, /useContinueWatching\(null\)/)
+  assert.match(profileSource, /useContinueWatching\(null, profileId\)/)
 
   assert.doesNotMatch(profileSource, /const HISTORY_ITEMS/)
 })
@@ -1505,7 +1508,10 @@ test("Clear History removes remote history and local continue-watching data", ()
     "utf8",
   )
 
-  assert.match(settingsSource, /supabase\.rpc\("clear_my_watch_history"\)/)
+  assert.match(
+    settingsSource,
+    /supabase\.rpc\("clear_my_watch_history", \{[\s\S]*selected_profile_id: profileId/,
+  )
 
   assert.match(settingsSource, /role="alertdialog"/)
 
@@ -1513,7 +1519,7 @@ test("Clear History removes remote history and local continue-watching data", ()
 
   assert.match(settingsSource, /Yes, clear history/)
 
-  assert.match(settingsSource, /clearContinueWatching\(\)/)
+  assert.match(settingsSource, /clearContinueWatching\(profileId\)/)
 
   assert.match(
     settingsSource,
@@ -1521,7 +1527,10 @@ test("Clear History removes remote history and local continue-watching data", ()
     /window\.alert\("Your watch history has been cleared\."\)/,
   )
 
-  assert.match(storeSource, /export function clearContinueWatching\(\)/)
+  assert.match(
+    storeSource,
+    /export function clearContinueWatching\(profileId\?: number \| null\)/,
+  )
 
   assert.match(sql, /delete from public\.watch_history/i)
 
@@ -1837,7 +1846,7 @@ test("admin content timestamps feed the user notification bell", () => {
   )
 })
 
-test("TMDB search disables titles outside the available Supabase catalog", () => {
+test("dashboard search uses stored catalog metadata including manual titles", () => {
   const searchSource = readFileSync(
     new URL("../src/modules/dashboard/SearchResultsPage.tsx", import.meta.url),
 
@@ -1852,19 +1861,23 @@ test("TMDB search disables titles outside the available Supabase catalog", () =>
 
   assert.match(searchSource, /\.from\("content"\)/)
 
-  assert.match(searchSource, /\.eq\("availability_status", "available"\)/)
+  assert.match(searchSource, /\.select\(CONTENT_SELECT\)/)
 
-  assert.match(searchSource, /\.in\("tmdb_id", tmdbIds\)/)
+  assert.match(searchSource, /\.range\(0, 999\)/)
 
-  assert.match(searchSource, /availabilityKey\(show\.id, show\.mediaType/)
+  assert.match(searchSource, /show\.category/)
 
-  assert.match(searchSource, /unavailable=\{!show\.available\}/)
+  assert.match(searchSource, /\.\.\.show\.genres/)
+
+  assert.match(searchSource, /tv series show/)
+
+  assert.doesNotMatch(searchSource, /searchShows|\.in\("tmdb_id"/)
 
   assert.match(cardSource, /aria-disabled=\{unavailable \|\| undefined\}/)
 
   assert.match(cardSource, /onClick=\{unavailable \? undefined/)
 
-  assert.match(cardSource, />Unavailable</)
+  assert.match(cardSource, />\{unavailableLabel\}</)
 })
 
 test("dashboard search does not render a close button", () => {
@@ -1928,14 +1941,21 @@ test("admin uploads never receive TMDB references", () => {
   assert.match(migration, /catalog_source <> 'manual' OR tmdb_id IS NULL/)
 })
 
-test("admin uploads appear first in New Movies with bucket thumbnails", () => {
+test("all ready catalog records reach the dashboard with stored metadata", () => {
   const catalogSource = readFileSync(
     new URL("../src/modules/movie/useSupabaseCatalog.ts", import.meta.url),
     "utf8",
   )
 
   assert.match(catalogSource, /content_id, tmdb_id, catalog_source, title/)
-  assert.match(catalogSource, /\.eq\("availability_status", "available"\)/)
+  assert.doesNotMatch(
+    catalogSource,
+    /\.eq\("availability_status", "available"\)/,
+  )
+  assert.match(catalogSource, /\.range\(0, 999\)/)
+  assert.match(catalogSource, /video_file/)
+  assert.match(catalogSource, /title: "All Content"/)
+  assert.doesNotMatch(catalogSource, /filter\(\(show\) => show\.image\)/)
   assert.match(catalogSource, /row\.catalog_source === "manual"/)
   assert.match(
     catalogSource,
@@ -1958,10 +1978,20 @@ test("manual uploads never use their content ID as a TMDB reference", () => {
     new URL("../src/modules/dashboard/components.tsx", import.meta.url),
     "utf8",
   )
+  const playerSource = readFileSync(
+    new URL("../src/modules/movie/fixedscreen/movie.tsx", import.meta.url),
+    "utf8",
+  )
 
   assert.match(catalogSource, /contentId: row\.content_id/)
   assert.match(catalogSource, /tmdbId: row\.tmdb_id/)
   assert.match(previewSource, /if \(show\.tmdbId === null\)/)
   assert.match(previewSource, /const tmdbId = show\.tmdbId \?\? show\.id/)
   assert.match(dashboardSource, /if \(show\.tmdbId === null\) return/)
+  assert.match(playerSource, /contentId: catalogContentId/)
+  assert.match(playerSource, /createSignedUrl\(videoPath/)
+  assert.match(
+    playerSource,
+    /resolveContentId\(supabase, tmdbId \?\? id, isSeries, catalogContentId\)/,
+  )
 })
