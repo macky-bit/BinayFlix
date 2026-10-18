@@ -1345,7 +1345,7 @@ export class SupabaseAdminRepository<T extends AdminEntity>
 
           age_rating: input.ageRating,
 
-          tmdb_id: input.tmdbId ?? null,
+          tmdb_id: null,
         },
 
         p_genre_ids: input.genreIds.map(Number),

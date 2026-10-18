@@ -19,6 +19,7 @@ CREATE TABLE "public"."content" (
   "created_at"          timestamp with time zone     DEFAULT now(),
   "admin_updated_at"    timestamp with time zone,
   CONSTRAINT "content_catalog_source_check" CHECK (((catalog_source)::text = ANY ((ARRAY['manual'::character varying, 'tmdb'::character varying])::text[]))),
+  CONSTRAINT "manual_content_has_no_tmdb_reference" CHECK (((catalog_source)::text <> 'manual'::text) OR (tmdb_id IS NULL)),
   CONSTRAINT "content_category_id_fkey" FOREIGN KEY (category_id) REFERENCES public.category(category_id) ON UPDATE CASCADE ON DELETE SET NULL,
   CONSTRAINT "content_pkey" PRIMARY KEY (content_id),
   CONSTRAINT "content_popularity_rank_check" CHECK (((popularity_rank IS NULL) OR ((popularity_rank >= 1) AND (popularity_rank <= 50)))),

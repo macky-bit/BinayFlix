@@ -1854,3 +1854,69 @@ test("movie carousels use mirrored arrowhead SVG controls", () => {
 
   assert.doesNotMatch(dashboardSource, /styles\.scrollArrow\}>›/)
 })
+
+test("admin uploads never receive TMDB references", () => {
+  const formSource = readFileSync(
+    new URL(
+      "../src/modules/admin/contentManager/components/tabs/ContentTab.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const repositorySource = readFileSync(
+    new URL(
+      "../src/modules/admin/data/supabaseAdminRepository.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+  const migration = readFileSync(
+    new URL(
+      "../supabase/migrations/20261018213000_admin_uploads_without_tmdb.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  )
+
+  assert.doesNotMatch(formSource, /search-tmdb|Optional TMDB reference/)
+  assert.match(repositorySource, /tmdb_id: null/)
+  assert.match(migration, /SET tmdb_id = NULL/)
+  assert.match(migration, /catalog_source <> 'manual' OR tmdb_id IS NULL/)
+})
+
+test("admin uploads appear first in New Movies with bucket thumbnails", () => {
+  const catalogSource = readFileSync(
+    new URL("../src/modules/movie/useSupabaseCatalog.ts", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(catalogSource, /content_id, tmdb_id, catalog_source, title/)
+  assert.match(catalogSource, /row\.catalog_source === "manual"/)
+  assert.match(
+    catalogSource,
+    /if \(a\.isAdminUpload !== b\.isAdminUpload\) return a\.isAdminUpload \? -1 : 1/,
+  )
+  assert.match(catalogSource, /b\.addedOrder - a\.addedOrder/)
+  assert.match(catalogSource, /from\("content-thumbnails"\)\.getPublicUrl/)
+})
+
+test("manual uploads never use their content ID as a TMDB reference", () => {
+  const catalogSource = readFileSync(
+    new URL("../src/modules/movie/useSupabaseCatalog.ts", import.meta.url),
+    "utf8",
+  )
+  const previewSource = readFileSync(
+    new URL("../src/modules/movie/PreviewModal.tsx", import.meta.url),
+    "utf8",
+  )
+  const dashboardSource = readFileSync(
+    new URL("../src/modules/dashboard/components.tsx", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(catalogSource, /contentId: row\.content_id/)
+  assert.match(catalogSource, /tmdbId: row\.tmdb_id/)
+  assert.match(previewSource, /if \(show\.tmdbId === null\)/)
+  assert.match(previewSource, /const tmdbId = show\.tmdbId \?\? show\.id/)
+  assert.match(dashboardSource, /if \(show\.tmdbId === null\) return/)
+})

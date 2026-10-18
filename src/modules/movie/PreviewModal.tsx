@@ -91,12 +91,17 @@ export default function PreviewModal({
 		setTrailerKey(null);
 		setSimilar([]);
 		setMuted(true);
+		if (show.tmdbId === null) {
+			setLoadingTrailer(false);
+			return;
+		}
 		setLoadingTrailer(true);
+		const tmdbId = show.tmdbId ?? show.id;
 
 		Promise.all([
-			fetchShowDetails(show.id, show.mediaType ?? "movie"),
-			fetchTrailerKey(show.id, show.mediaType ?? "movie"),
-			fetchSimilar(show.id, show.mediaType ?? "movie"),
+			fetchShowDetails(tmdbId, show.mediaType ?? "movie"),
+			fetchTrailerKey(tmdbId, show.mediaType ?? "movie"),
+			fetchSimilar(tmdbId, show.mediaType ?? "movie"),
 		]).then(([fullDetails, key, sim]) => {
 			if (cancelled) return;
 			setDetails(fullDetails);

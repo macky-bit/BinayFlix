@@ -1542,11 +1542,15 @@ export function Hero({
     setTrailerLoaded(false)
     setTrailerPlaying(false)
 
+    if (show.tmdbId === null) return
+
+    const tmdbId = show.tmdbId ?? show.id
+
     const timer = window.setTimeout(() => {
       if (!cancelled) setShowTrailer(true)
     }, 3_000)
 
-    void fetchTrailerKey(show.id, show.mediaType ?? "movie").then((key) => {
+    void fetchTrailerKey(tmdbId, show.mediaType ?? "movie").then((key) => {
       if (!cancelled) setTrailerKey(key)
     })
 
@@ -1558,7 +1562,7 @@ export function Hero({
         trailerRevealTimerRef.current = null
       }
     }
-  }, [show.id, show.mediaType])
+  }, [show.id, show.mediaType, show.tmdbId])
 
   useEffect(() => {
     const handleTrailerMessage = (event: MessageEvent) => {

@@ -5,6 +5,7 @@ import type { CatalogKind, CatalogRow, Show, TMDBCatalogData } from "./types"
 interface ContentRow {
   content_id: number
   tmdb_id: number | null
+  catalog_source: string | null
   title: string
   synopsis: string | null
   release_year: number | null
@@ -28,6 +29,7 @@ interface GenreRow {
 interface CatalogShow extends Show {
   popularityRank: number
   addedOrder: number
+  isAdminUpload: boolean
 }
 
 function relationName(
@@ -58,20 +60,26 @@ function mapContent(row: ContentRow): CatalogShow {
       ].filter(Boolean),
     ),
   )
+  const thumbnail = row.thumbnail && !/^https?:\/\//i.test(row.thumbnail)
+    ? supabase.storage.from("content-thumbnails").getPublicUrl(row.thumbnail).data.publicUrl
+    : row.thumbnail ?? ""
 
   return {
     id: row.tmdb_id ?? row.content_id,
+    contentId: row.content_id,
+    tmdbId: row.tmdb_id,
     title: row.title,
     description: row.synopsis ?? "",
     year: row.release_year?.toString() ?? "",
     duration: formatRuntime(row.runtime),
     rating: row.age_rating ?? "",
-    image: row.thumbnail ?? "",
-    hero: row.thumbnail ?? undefined,
+    image: thumbnail,
+    hero: thumbnail || undefined,
     genres,
     mediaType: category.includes("tv") ? "tv" : "movie",
     popularityRank: row.popularity_rank ?? Number.MAX_SAFE_INTEGER,
     addedOrder: row.content_id,
+    isAdminUpload: row.catalog_source === "manual",
   }
 }
 
@@ -80,6 +88,8 @@ function byPopularity(a: CatalogShow, b: CatalogShow) {
 }
 
 function byNewest(a: CatalogShow, b: CatalogShow) {
+  if (a.isAdminUpload !== b.isAdminUpload) return a.isAdminUpload ? -1 : 1
+  if (a.isAdminUpload) return b.addedOrder - a.addedOrder
   return Number(b.year ?? 0) - Number(a.year ?? 0) || byPopularity(a, b)
 }
 
@@ -174,7 +184,7 @@ export function useSupabaseCatalog(kind: CatalogKind): TMDBCatalogData {
         supabase
           .from("content")
           .select(
-            "content_id, tmdb_id, title, synopsis, release_year, runtime, age_rating, thumbnail, total_streams_count, popularity_rank, category(category_name), genre!content_genre_id_fkey(genre_name), content_genre(genre(genre_name))",
+            "content_id, tmdb_id, catalog_source, title, synopsis, release_year, runtime, age_rating, thumbnail, total_streams_count, popularity_rank, category(category_name), genre!content_genre_id_fkey(genre_name), content_genre(genre(genre_name))",
           )
           .order("popularity_rank", { ascending: true, nullsFirst: false }),
         supabase.from("genre").select("genre_name, content_genre(count)"),

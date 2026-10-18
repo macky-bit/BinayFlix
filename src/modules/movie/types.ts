@@ -1,6 +1,10 @@
 export interface Show {
   id: number
 
+  contentId?: number
+
+  tmdbId?: number | null
+
   title: string
 
   year: string

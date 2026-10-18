@@ -8,8 +8,6 @@ import type {
   ContentUploadProgress,
 } from "../../types"
 
-import { supabase } from "../../../../../lib/supabase"
-
 import AdminDetailsPanel, {
   AdminDetailsSection,
 } from "../../../components/AdminDetailsPanel"
@@ -178,20 +176,6 @@ const emptyForm: FormData = {
 
 type Errors = Partial<Record<keyof FormData, string>>
 
-interface TmdbSearchResult {
-  tmdbId: number
-
-  mediaType: "movie" | "tv"
-
-  title: string
-
-  synopsis: string
-
-  releaseYear: number | null
-
-  posterUrl: string
-}
-
 async function hasExpectedFileSignature(
   file: File,
   kind: "thumbnail" | "video" | "subtitle",
@@ -309,23 +293,8 @@ function ContentForm({
 
   const uploadController = useRef<AbortController | null>(null)
 
-  const [tmdbQuery, setTmdbQuery] = useState("")
-
-  const [tmdbResults, setTmdbResults] = useState<TmdbSearchResult[]>([])
-
-  const [tmdbLoading, setTmdbLoading] = useState(false)
-
-  const [tmdbError, setTmdbError] = useState("")
-
   const [fileErrors, setFileErrors] =
     useState<Partial<Record<"thumbnail" | "video" | "subtitle", string>>>({})
-
-  const selectedTmdbMediaType = categories
-    .find((category) => category.id === form.categoryId)
-    ?.name.toLowerCase()
-    .includes("tv")
-    ? "TV Series"
-    : "Movie"
 
   useEffect(
     () => () => {
@@ -378,66 +347,6 @@ function ContentForm({
       : [...form.genreIds, gid]
 
     set("genreIds", ids)
-  }
-
-  async function searchTmdb() {
-    const selectedCategory = categories.find(
-      (item) => item.id === form.categoryId,
-    )
-
-    if (!selectedCategory) {
-      setTmdbError("Choose Movie or TV Series before searching TMDB.")
-
-      return
-    }
-
-    setTmdbLoading(true)
-
-    setTmdbError("")
-
-    const mediaType = selectedCategory.name.toLowerCase().includes("tv")
-      ? "tv"
-      : "movie"
-
-    const { data, error } = await supabase.functions.invoke("search-tmdb", {
-      body: { query: tmdbQuery, mediaType },
-    })
-
-    setTmdbLoading(false)
-
-    if (error) {
-      setTmdbError(error.message || "TMDB search failed.")
-
-      return
-    }
-
-    setTmdbResults(
-      Array.isArray((data as { results?: unknown })?.results)
-        ? ((data as { results: TmdbSearchResult[] }).results ?? [])
-        : [],
-    )
-  }
-
-  function selectTmdb(result: TmdbSearchResult) {
-    set("tmdbId", result.tmdbId)
-
-    set("title", result.title)
-
-    if (result.synopsis) {
-      set("synopsis", result.synopsis.slice(0, 1000))
-
-      setSynopsisLen(result.synopsis.slice(0, 1000).length)
-    }
-
-    if (result.releaseYear) set("releaseYear", result.releaseYear)
-
-    if (result.posterUrl) {
-      set("thumbnailUrl", result.posterUrl)
-
-      setThumbPreview(result.posterUrl)
-    }
-
-    setTmdbResults([])
   }
 
   async function handleThumbnailFile(file?: File) {
@@ -631,70 +540,6 @@ function ContentForm({
                 title.
               </p>
             </div>
-          </div>
-
-          <div className="mb-4 rounded-lg border border-white/10 p-3">
-            <Label htmlFor="cnt-tmdb">Optional TMDB reference</Label>
-            <div className="flex gap-2">
-              <input
-                id="cnt-tmdb"
-                type="search"
-                value={tmdbQuery}
-                onChange={(event) => setTmdbQuery(event.target.value)}
-                maxLength={100}
-                placeholder="Search the exact title"
-                className={`${inputClass} flex-1`}
-                style={inputStyle}
-              />
-              <button
-                type="button"
-                className="btn-secondary px-4"
-                disabled={tmdbLoading || tmdbQuery.trim().length < 2}
-                onClick={() => void searchTmdb()}
-              >
-                {tmdbLoading ? "Searching…" : "Find"}
-              </button>
-            </div>
-            {form.tmdbId && (
-              <div className="mt-2 flex items-center justify-between text-xs text-gray-300">
-                <span>
-                  Linked to TMDB #{form.tmdbId} · {selectedTmdbMediaType}
-                </span>
-                <button type="button" onClick={() => set("tmdbId", null)}>
-                  Clear link
-                </button>
-              </div>
-            )}
-            {tmdbError && <FieldError msg={tmdbError} />}
-            {tmdbResults.length > 0 && (
-              <div className="mt-2 grid gap-2">
-                {tmdbResults.map((result) => (
-                  <button
-                    key={result.tmdbId}
-                    type="button"
-                    className="flex items-center gap-3 rounded border border-white/10 p-2 text-left"
-                    onClick={() => selectTmdb(result)}
-                  >
-                    {result.posterUrl && (
-                      <img
-                        src={result.posterUrl}
-                        alt=""
-                        className="h-14 w-10 rounded object-cover"
-                      />
-                    )}
-                    <span>
-                      <strong className="block text-sm text-white">
-                        {result.title}
-                      </strong>
-                      <small className="text-gray-400">
-                        {result.mediaType === "tv" ? "TV Series" : "Movie"} ·{" "}
-                        {result.releaseYear ?? "Unknown year"} · TMDB #{result.tmdbId}
-                      </small>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">

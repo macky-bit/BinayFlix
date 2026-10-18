@@ -51,6 +51,8 @@ export async function loadContentNotifications(client: SupabaseClient) {
     changedAt: row.admin_updated_at,
     show: {
       id: row.tmdb_id ?? row.content_id,
+      contentId: row.content_id,
+      tmdbId: row.tmdb_id,
       title: row.title,
       description: row.synopsis ?? "",
       year: row.release_year?.toString() ?? "",
