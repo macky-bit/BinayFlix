@@ -19,3 +19,6 @@ verify_jwt = false
 
 [functions.wikipedia-refresher]
 verify_jwt = true
+
+[functions.search-tmdb]
+verify_jwt = true

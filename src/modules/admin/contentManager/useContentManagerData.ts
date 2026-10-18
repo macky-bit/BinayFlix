@@ -37,6 +37,8 @@ export function useContentManagerData(onError: (message: string) => void) {
         onError(
           reason instanceof Error ? reason.message : "Database request failed",
         )
+
+        throw reason
       }
     },
 

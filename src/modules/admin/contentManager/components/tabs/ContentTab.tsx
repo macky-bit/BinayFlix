@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState, useMemo } from "react"
-import type { Content, Category, Genre, Toast } from "../../types"
+
+import type {
+  Content,
+  Category,
+  Genre,
+  Toast,
+  ContentUploadProgress,
+} from "../../types"
+
+import { supabase } from "../../../../../lib/supabase"
 
 import AdminDetailsPanel, {
   AdminDetailsSection,
 } from "../../../components/AdminDetailsPanel"
+
 import AdminContentFilePicker from "../../../components/AdminContentFilePicker"
+
 import {
   AdminRowAction,
   AdminTablePagination,
@@ -21,11 +32,16 @@ interface ContentTabProps {
 
   genres: Genre[]
 
-  onAdd: (item: Omit<Content, "id" | "totalStreams" | "syncedAt">) => void
+  onAdd: (
+    item: Omit<Content, "id" | "totalStreams" | "syncedAt">,
+  ) => Promise<void>
+
   onEdit: (item: Content) => Promise<void>
 
   onDelete: (id: string) => void
+
   addToast: (msg: string, type: Toast["type"]) => void
+
   addRequest?: number
 }
 
@@ -33,14 +49,23 @@ const ROWS_PER_PAGE = 10
 
 const AGE_RATINGS = [
   "G",
+
   "PG",
+
   "PG-13",
+
   "R",
+
   "NC-17",
+
   "TV-G",
+
   "TV-PG",
+
   "TV-14",
+
   "TV-MA",
+
   "NR",
 ]
 
@@ -88,11 +113,15 @@ function FieldError({ msg }: { msg?: string }) {
 
 function Label({
   htmlFor,
+
   children,
+
   required,
 }: {
   htmlFor: string
+
   children: React.ReactNode
+
   required?: boolean
 }) {
   return (
@@ -112,25 +141,92 @@ function Label({
 }
 
 type FormData = Omit<Content, "id" | "totalStreams" | "syncedAt">
+
 const emptyForm: FormData = {
+  tmdbId: null,
+
   title: "",
+
   categoryId: "",
+
   genreIds: [],
+
   synopsis: "",
 
   releaseYear: new Date().getFullYear(),
+
   runtime: 90,
 
   ageRating: "PG-13",
+
   thumbnailUrl: "",
+
   thumbnailFilename: "",
 
+  thumbnailFile: undefined,
+
   videoFilename: "",
+
+  videoFile: undefined,
+
   subtitleFilename: "",
+
+  subtitleFile: undefined,
+
   availability: "available",
 }
 
 type Errors = Partial<Record<keyof FormData, string>>
+
+interface TmdbSearchResult {
+  tmdbId: number
+
+  mediaType: "movie" | "tv"
+
+  title: string
+
+  synopsis: string
+
+  releaseYear: number | null
+
+  posterUrl: string
+}
+
+async function hasExpectedFileSignature(
+  file: File,
+  kind: "thumbnail" | "video" | "subtitle",
+) {
+  const bytes = new Uint8Array(await file.slice(0, 512).arrayBuffer())
+  const ascii = new TextDecoder().decode(bytes)
+  const starts = (...expected: number[]) =>
+    expected.every((value, index) => bytes[index] === value)
+  const extension = file.name.split(".").pop()?.toLowerCase()
+
+  if (kind === "thumbnail") {
+    if (extension === "jpg" || extension === "jpeg")
+      return starts(0xff, 0xd8, 0xff)
+    if (extension === "png")
+      return starts(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+    if (extension === "gif") return /^GIF8[79]a/.test(ascii)
+    if (extension === "webp")
+      return ascii.startsWith("RIFF") && ascii.slice(8, 12) === "WEBP"
+    if (extension === "avif")
+      return ascii.slice(4, 12) === "ftypavif" || ascii.slice(4, 12) === "ftypavis"
+    return false
+  }
+
+  if (kind === "video") {
+    if (["mp4", "m4v", "mov"].includes(extension ?? ""))
+      return ascii.slice(4, 8) === "ftyp"
+    if (["webm", "mkv"].includes(extension ?? ""))
+      return starts(0x1a, 0x45, 0xdf, 0xa3)
+    if (["ogv", "ogg"].includes(extension ?? ""))
+      return ascii.startsWith("OggS")
+    return false
+  }
+
+  return bytes.length > 0 && !bytes.includes(0) && ascii.trim().length > 0
+}
 
 function validate(data: FormData): Errors {
   const errors: Errors = {}
@@ -151,6 +247,12 @@ function validate(data: FormData): Errors {
     errors.runtime = "Runtime must be at least 1 minute."
 
   if (!data.ageRating) errors.ageRating = "Age rating is required."
+
+  if (!data.thumbnailFile && !data.thumbnailFilename)
+    errors.thumbnailFile = "A thumbnail image is required."
+
+  if (!data.videoFile && !data.videoFilename)
+    errors.videoFile = "A video file is required."
 
   return errors
 }
@@ -202,7 +304,35 @@ function ContentForm({
 
   const [saving, setSaving] = useState(false)
 
-  const [fileErrors, setFileErrors] = useState<Partial<Record<"thumbnail" | "video" | "subtitle", string>>>({})
+  const [uploadProgress, setUploadProgress] =
+    useState<ContentUploadProgress | null>(null)
+
+  const uploadController = useRef<AbortController | null>(null)
+
+  const [tmdbQuery, setTmdbQuery] = useState("")
+
+  const [tmdbResults, setTmdbResults] = useState<TmdbSearchResult[]>([])
+
+  const [tmdbLoading, setTmdbLoading] = useState(false)
+
+  const [tmdbError, setTmdbError] = useState("")
+
+  const [fileErrors, setFileErrors] =
+    useState<Partial<Record<"thumbnail" | "video" | "subtitle", string>>>({})
+
+  const selectedTmdbMediaType = categories
+    .find((category) => category.id === form.categoryId)
+    ?.name.toLowerCase()
+    .includes("tv")
+    ? "TV Series"
+    : "Movie"
+
+  useEffect(
+    () => () => {
+      uploadController.current?.abort()
+    },
+    [],
+  )
 
   function set<K extends keyof FormData>(key: K, val: FormData[K]) {
     setForm((f) => ({ ...f, [key]: val }))
@@ -217,13 +347,27 @@ function ContentForm({
 
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
+
       return
     }
 
     setSaving(true)
+
+    setUploadProgress(null)
+
+    const controller = new AbortController()
+
+    uploadController.current = controller
+
     try {
-      await onSubmit(form)
+      await onSubmit({
+        ...form,
+        uploadSignal: controller.signal,
+        onUploadProgress: setUploadProgress,
+      })
     } finally {
+      uploadController.current = null
+
       setSaving(false)
     }
   }
@@ -236,59 +380,209 @@ function ContentForm({
     set("genreIds", ids)
   }
 
-  function handleThumbnailFile(file?: File) {
+  async function searchTmdb() {
+    const selectedCategory = categories.find(
+      (item) => item.id === form.categoryId,
+    )
+
+    if (!selectedCategory) {
+      setTmdbError("Choose Movie or TV Series before searching TMDB.")
+
+      return
+    }
+
+    setTmdbLoading(true)
+
+    setTmdbError("")
+
+    const mediaType = selectedCategory.name.toLowerCase().includes("tv")
+      ? "tv"
+      : "movie"
+
+    const { data, error } = await supabase.functions.invoke("search-tmdb", {
+      body: { query: tmdbQuery, mediaType },
+    })
+
+    setTmdbLoading(false)
+
+    if (error) {
+      setTmdbError(error.message || "TMDB search failed.")
+
+      return
+    }
+
+    setTmdbResults(
+      Array.isArray((data as { results?: unknown })?.results)
+        ? ((data as { results: TmdbSearchResult[] }).results ?? [])
+        : [],
+    )
+  }
+
+  function selectTmdb(result: TmdbSearchResult) {
+    set("tmdbId", result.tmdbId)
+
+    set("title", result.title)
+
+    if (result.synopsis) {
+      set("synopsis", result.synopsis.slice(0, 1000))
+
+      setSynopsisLen(result.synopsis.slice(0, 1000).length)
+    }
+
+    if (result.releaseYear) set("releaseYear", result.releaseYear)
+
+    if (result.posterUrl) {
+      set("thumbnailUrl", result.posterUrl)
+
+      setThumbPreview(result.posterUrl)
+    }
+
+    setTmdbResults([])
+  }
+
+  async function handleThumbnailFile(file?: File) {
     if (!file) return
 
-    if (!/\.(?:jpe?g|png|webp|avif|gif)$/i.test(file.name)) {
-      setFileErrors((current) => ({ ...current, thumbnail: "Choose a JPG, PNG, WebP, AVIF, or GIF image." }))
+    const allowedTypes = new Set([
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/avif",
+      "image/gif",
+    ])
+
+    if (file.size > 10 * 1024 * 1024) {
+      setFileErrors((current) => ({
+        ...current,
+        thumbnail: "Thumbnail files must be 10 MB or smaller.",
+      }))
+      return
+    }
+
+    if (
+      !/\.(?:jpe?g|png|webp|avif|gif)$/i.test(file.name) ||
+      (file.type !== "" && !allowedTypes.has(file.type))
+    ) {
+      setFileErrors((current) => ({
+        ...current,
+        thumbnail: "Choose a JPG, PNG, WebP, AVIF, or GIF image.",
+      }))
+
+      return
+    }
+
+    if (!(await hasExpectedFileSignature(file, "thumbnail"))) {
+      setFileErrors((current) => ({
+        ...current,
+        thumbnail: "The file contents do not match the selected image type.",
+      }))
       return
     }
 
     setFileErrors((current) => ({ ...current, thumbnail: undefined }))
 
     const reader = new FileReader()
+
     reader.addEventListener("load", () => {
       if (typeof reader.result !== "string") return
+
       set("thumbnailUrl", reader.result)
+
       set("thumbnailFilename", file.name)
+
+      set("thumbnailFile", file)
+
       setThumbPreview(reader.result)
     })
+
     reader.readAsDataURL(file)
   }
 
-  function handleNamedFile(
+  async function handleNamedFile(
     key: "videoFilename" | "subtitleFilename",
+
     file?: File,
   ) {
     if (!file) return
 
     const isVideo = key === "videoFilename"
+
     const valid = isVideo
       ? /\.(?:mp4|webm|og[gv]|mkv|mov|m4v)$/i.test(file.name)
       : /\.(?:srt|vtt|ass|ssa)$/i.test(file.name)
+
+    const allowedTypes = new Set(
+      isVideo
+        ? [
+            "video/mp4",
+            "video/webm",
+            "video/ogg",
+            "video/quicktime",
+            "video/x-m4v",
+            "video/x-matroska",
+          ]
+        : [
+            "application/x-subrip",
+            "text/plain",
+            "text/vtt",
+            "text/x-ssa",
+            "application/octet-stream",
+          ],
+    )
+
     const errorKey = isVideo ? "video" : "subtitle"
 
-    if (!valid) {
+    if (file.size > (isVideo ? 5 * 1024 ** 3 : 5 * 1024 ** 2)) {
       setFileErrors((current) => ({
         ...current,
         [errorKey]: isVideo
+          ? "Video files must be 5 GB or smaller."
+          : "Subtitle files must be 5 MB or smaller.",
+      }))
+      return
+    }
+
+    if (!valid || (file.type !== "" && !allowedTypes.has(file.type))) {
+      setFileErrors((current) => ({
+        ...current,
+
+        [errorKey]: isVideo
           ? "Choose an MP4, WebM, OGV, MKV, MOV, or M4V video."
           : "Choose an SRT, VTT, ASS, or SSA subtitle file.",
+      }))
+
+      return
+    }
+
+    if (
+      !(await hasExpectedFileSignature(file, isVideo ? "video" : "subtitle"))
+    ) {
+      setFileErrors((current) => ({
+        ...current,
+        [errorKey]: `The file contents do not match the selected ${isVideo ? "video" : "subtitle"} type.`,
       }))
       return
     }
 
     setFileErrors((current) => ({ ...current, [errorKey]: undefined }))
+
     set(key, file.name)
+
+    set(isVideo ? "videoFile" : "subtitleFile", file)
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="admin-content-form w-full min-w-0">
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      className="admin-content-form w-full min-w-0"
+    >
       {readOnlyId && (
         <div
           className="mb-4 flex flex-wrap items-center gap-3 rounded-lg p-3"
           style={{
             backgroundColor: "rgba(124, 58, 237, 0.1)",
+
             border: "1px solid rgba(124, 58, 237, 0.2)",
           }}
         >
@@ -325,312 +619,431 @@ function ContentForm({
       )}
 
       <div className="admin-content-form__layout">
-        <section className="admin-content-form__section" aria-labelledby="content-details-heading">
+        <section
+          className="admin-content-form__section"
+          aria-labelledby="content-details-heading"
+        >
           <div className="admin-content-form__section-heading">
             <div>
               <h3 id="content-details-heading">Content details</h3>
-              <p>Core information viewers use to identify and discover this title.</p>
+              <p>
+                Core information viewers use to identify and discover this
+                title.
+              </p>
             </div>
           </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        {/* Title */}
-        <div className="sm:col-span-2">
-          <Label htmlFor="cnt-title" required>
-            Title
-          </Label>
-          <input
-            id="cnt-title"
-            type="text"
-            value={form.title}
-            onChange={(e) => set("title", e.target.value)}
-            placeholder="Enter content title"
-            className={inputClass}
-            style={{
-              ...inputStyle,
-              borderColor: errors.title ? "#EF4444" : "#374151",
-            }}
-          />
-          <FieldError msg={errors.title} />
-        </div>
-
-        {/* Category */}
-        <div>
-          <Label htmlFor="cnt-category" required>
-            Category
-          </Label>
-          <select
-            id="cnt-category"
-            value={form.categoryId}
-            onChange={(e) => set("categoryId", e.target.value)}
-            className={inputClass}
-            style={{
-              ...inputStyle,
-              borderColor: errors.categoryId ? "#EF4444" : "#374151",
-            }}
-          >
-            <option value="">Select category</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <FieldError msg={errors.categoryId} />
-        </div>
-
-        {/* Age Rating */}
-        <div>
-          <Label htmlFor="cnt-age" required>
-            Age Rating
-          </Label>
-          <select
-            id="cnt-age"
-            value={form.ageRating}
-            onChange={(e) => set("ageRating", e.target.value)}
-            className={inputClass}
-            style={{
-              ...inputStyle,
-              borderColor: errors.ageRating ? "#EF4444" : "#374151",
-            }}
-          >
-            {AGE_RATINGS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-          <FieldError msg={errors.ageRating} />
-        </div>
-
-        {/* Release Year */}
-        <div>
-          <Label htmlFor="cnt-year" required>
-            Release Year
-          </Label>
-          <input
-            id="cnt-year"
-            type="number"
-            min={1888}
-            max={2099}
-            value={form.releaseYear}
-            onChange={(e) => set("releaseYear", parseInt(e.target.value) || 0)}
-            className={inputClass}
-            style={{
-              ...inputStyle,
-              borderColor: errors.releaseYear ? "#EF4444" : "#374151",
-            }}
-          />
-          <FieldError msg={errors.releaseYear} />
-        </div>
-
-        {/* Runtime */}
-        <div>
-          <Label htmlFor="cnt-runtime" required>
-            Runtime (minutes)
-          </Label>
-          <input
-            id="cnt-runtime"
-            type="number"
-            min={1}
-            value={form.runtime}
-            onChange={(e) => set("runtime", parseInt(e.target.value) || 0)}
-            className={inputClass}
-            style={{
-              ...inputStyle,
-              borderColor: errors.runtime ? "#EF4444" : "#374151",
-            }}
-          />
-          <FieldError msg={errors.runtime} />
-        </div>
-      </div>
-
-      {/* Genres */}
-      <div className="mb-4">
-        <Label htmlFor="cnt-genres" required>
-          Genres
-        </Label>
-        <div
-          className="flex flex-wrap gap-2 p-3 rounded-lg"
-          style={{
-            backgroundColor: "var(--color-ink)",
-            border: `1px solid ${errors.genreIds ? "#EF4444" : "#374151"}`,
-          }}
-          id="cnt-genres"
-          role="group"
-          aria-label="Genre selection"
-        >
-          {genres.map((g) => {
-            const active = form.genreIds.includes(g.id)
-
-            return (
+          <div className="mb-4 rounded-lg border border-white/10 p-3">
+            <Label htmlFor="cnt-tmdb">Optional TMDB reference</Label>
+            <div className="flex gap-2">
+              <input
+                id="cnt-tmdb"
+                type="search"
+                value={tmdbQuery}
+                onChange={(event) => setTmdbQuery(event.target.value)}
+                maxLength={100}
+                placeholder="Search the exact title"
+                className={`${inputClass} flex-1`}
+                style={inputStyle}
+              />
               <button
                 type="button"
-                key={g.id}
-                onClick={() => toggleGenre(g.id)}
-                aria-pressed={active}
-                className="px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150"
-                style={{
-                  backgroundColor: active
-                    ? "rgba(124, 58, 237, 0.3)"
-                    : "rgba(55, 65, 81, 0.4)",
-
-                  border: `1px solid ${active ? "#7C3AED" : "#374151"}`,
-
-                  color: active ? "#C4B5FD" : "#9CA3AF",
-                }}
+                className="btn-secondary px-4"
+                disabled={tmdbLoading || tmdbQuery.trim().length < 2}
+                onClick={() => void searchTmdb()}
               >
-                {g.name}
+                {tmdbLoading ? "Searching…" : "Find"}
               </button>
-            )
-          })}
-        </div>
-        <FieldError msg={errors.genreIds} />
-      </div>
-
-      {/* Synopsis */}
-      <div className="mb-4">
-        <div className="flex justify-between items-center mb-1">
-          <Label htmlFor="cnt-synopsis" required>
-            Synopsis
-          </Label>
-          <span
-            className="text-xs"
-            style={{ color: synopsisLen > 1000 ? "#EF4444" : "#9CA3AF" }}
-          >
-            {synopsisLen}/1000
-          </span>
-        </div>
-        <textarea
-          id="cnt-synopsis"
-          rows={4}
-          value={form.synopsis}
-          maxLength={1000}
-          onChange={(e) => {
-            set("synopsis", e.target.value)
-            setSynopsisLen(e.target.value.length)
-          }}
-          placeholder="Enter synopsis..."
-          className={`${inputClass} resize-none`}
-          style={{
-            ...inputStyle,
-            borderColor: errors.synopsis ? "#EF4444" : "#374151",
-          }}
-        />
-        <FieldError msg={errors.synopsis} />
-      </div>
-
-        </section>
-
-        <div className="admin-content-form__secondary">
-
-      <section className="admin-content-media-fields" aria-labelledby="content-media-heading">
-        <div className="admin-content-media-fields__heading">
-          <div>
-            <h3 id="content-media-heading">Media files</h3>
-            <p>Choose the artwork, video, and optional subtitle file for this title.</p>
-          </div>
-        </div>
-
-        <div className="admin-content-media-fields__grid">
-          <div className="admin-content-media-fields__thumbnail">
-            <Label htmlFor="cnt-thumb">Thumbnail File</Label>
-            <AdminContentFilePicker
-              id="cnt-thumb"
-              accept=".jpg,.jpeg,.png,.webp,.avif,.gif"
-              filename={form.thumbnailFilename}
-              hint="JPG, PNG, WebP, AVIF, or GIF"
-              onSelect={handleThumbnailFile}
-            />
-            <FieldError msg={fileErrors.thumbnail} />
-            {thumbPreview && (
-              <div className="admin-content-thumbnail-preview">
-                <img
-                  src={thumbPreview}
-                  alt="Thumbnail preview"
-                  onError={() => setThumbPreview("")}
-                />
-                <span>Thumbnail preview</span>
+            </div>
+            {form.tmdbId && (
+              <div className="mt-2 flex items-center justify-between text-xs text-gray-300">
+                <span>
+                  Linked to TMDB #{form.tmdbId} · {selectedTmdbMediaType}
+                </span>
+                <button type="button" onClick={() => set("tmdbId", null)}>
+                  Clear link
+                </button>
+              </div>
+            )}
+            {tmdbError && <FieldError msg={tmdbError} />}
+            {tmdbResults.length > 0 && (
+              <div className="mt-2 grid gap-2">
+                {tmdbResults.map((result) => (
+                  <button
+                    key={result.tmdbId}
+                    type="button"
+                    className="flex items-center gap-3 rounded border border-white/10 p-2 text-left"
+                    onClick={() => selectTmdb(result)}
+                  >
+                    {result.posterUrl && (
+                      <img
+                        src={result.posterUrl}
+                        alt=""
+                        className="h-14 w-10 rounded object-cover"
+                      />
+                    )}
+                    <span>
+                      <strong className="block text-sm text-white">
+                        {result.title}
+                      </strong>
+                      <small className="text-gray-400">
+                        {result.mediaType === "tv" ? "TV Series" : "Movie"} ·{" "}
+                        {result.releaseYear ?? "Unknown year"} · TMDB #{result.tmdbId}
+                      </small>
+                    </span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
 
-          <div className="admin-content-media-fields__secondary">
-            <div className="admin-content-media-fields__upload">
-              <Label htmlFor="cnt-video">Video File</Label>
-              <AdminContentFilePicker
-                id="cnt-video"
-                accept=".mp4,.webm,.ogv,.mkv,.mov,.m4v"
-                filename={form.videoFilename}
-                hint="MP4, WebM, OGV, MKV, MOV, or M4V"
-                onSelect={(file) => handleNamedFile("videoFilename", file)}
-              />
-              <FieldError msg={fileErrors.video} />
-            </div>
-            <div className="admin-content-media-fields__upload">
-              <Label htmlFor="cnt-sub">Subtitle File</Label>
-              <AdminContentFilePicker
-                id="cnt-sub"
-                accept=".srt,.vtt,.ass,.ssa"
-                filename={form.subtitleFilename}
-                hint="SRT, VTT, ASS, or SSA"
-                onSelect={(file) => handleNamedFile("subtitleFilename", file)}
-              />
-              <FieldError msg={fileErrors.subtitle} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Availability */}
-      <section className="admin-content-availability" aria-labelledby="content-availability-heading">
-        <div className="admin-content-form__section-heading admin-content-form__section-heading--compact">
-          <div>
-            <h3 id="content-availability-heading">Availability</h3>
-            <p>Control whether viewers can find and play this title.</p>
-          </div>
-        </div>
-        <div className="admin-content-availability__options" role="radiogroup" aria-labelledby="content-availability-heading">
-          {(["available", "unavailable"] as const).map((v) => (
-            <label key={v} className="admin-content-availability__option">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            {/* Title */}
+            <div className="sm:col-span-2">
+              <Label htmlFor="cnt-title" required>
+                Title
+              </Label>
               <input
-                type="radio"
-                name="availability"
-                value={v}
-                checked={form.availability === v}
-                onChange={() => set("availability", v)}
-                className="admin-content-availability__input"
-              />
-              <div
-                className="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors"
+                id="cnt-title"
+                type="text"
+                value={form.title}
+                onChange={(e) => set("title", e.target.value)}
+                placeholder="Enter content title"
+                className={inputClass}
                 style={{
-                  borderColor: form.availability === v ? "#7C3AED" : "#374151",
+                  ...inputStyle,
+
+                  borderColor: errors.title ? "#EF4444" : "#374151",
+                }}
+              />
+              <FieldError msg={errors.title} />
+            </div>
+
+            {/* Category */}
+            <div>
+              <Label htmlFor="cnt-category" required>
+                Category
+              </Label>
+              <select
+                id="cnt-category"
+                value={form.categoryId}
+                onChange={(e) => {
+                  set("categoryId", e.target.value)
+                  set("tmdbId", null)
+                }}
+                className={inputClass}
+                style={{
+                  ...inputStyle,
+
+                  borderColor: errors.categoryId ? "#EF4444" : "#374151",
                 }}
               >
-                {form.availability === v && (
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: "#7C3AED" }}
-                  />
+                <option value="">Select category</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <FieldError msg={errors.categoryId} />
+            </div>
+
+            {/* Age Rating */}
+            <div>
+              <Label htmlFor="cnt-age" required>
+                Age Rating
+              </Label>
+              <select
+                id="cnt-age"
+                value={form.ageRating}
+                onChange={(e) => set("ageRating", e.target.value)}
+                className={inputClass}
+                style={{
+                  ...inputStyle,
+
+                  borderColor: errors.ageRating ? "#EF4444" : "#374151",
+                }}
+              >
+                {AGE_RATINGS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+              <FieldError msg={errors.ageRating} />
+            </div>
+
+            {/* Release Year */}
+            <div>
+              <Label htmlFor="cnt-year" required>
+                Release Year
+              </Label>
+              <input
+                id="cnt-year"
+                type="number"
+                min={1888}
+                max={2099}
+                value={form.releaseYear}
+                onChange={(e) =>
+                  set("releaseYear", parseInt(e.target.value) || 0)
+                }
+                className={inputClass}
+                style={{
+                  ...inputStyle,
+
+                  borderColor: errors.releaseYear ? "#EF4444" : "#374151",
+                }}
+              />
+              <FieldError msg={errors.releaseYear} />
+            </div>
+
+            {/* Runtime */}
+            <div>
+              <Label htmlFor="cnt-runtime" required>
+                Runtime (minutes)
+              </Label>
+              <input
+                id="cnt-runtime"
+                type="number"
+                min={1}
+                value={form.runtime}
+                onChange={(e) => set("runtime", parseInt(e.target.value) || 0)}
+                className={inputClass}
+                style={{
+                  ...inputStyle,
+
+                  borderColor: errors.runtime ? "#EF4444" : "#374151",
+                }}
+              />
+              <FieldError msg={errors.runtime} />
+            </div>
+          </div>
+
+          {/* Genres */}
+          <div className="mb-4">
+            <Label htmlFor="cnt-genres" required>
+              Genres
+            </Label>
+            <div
+              className="flex flex-wrap gap-2 p-3 rounded-lg"
+              style={{
+                backgroundColor: "var(--color-ink)",
+
+                border: `1px solid ${errors.genreIds ? "#EF4444" : "#374151"}`,
+              }}
+              id="cnt-genres"
+              role="group"
+              aria-label="Genre selection"
+            >
+              {genres.map((g) => {
+                const active = form.genreIds.includes(g.id)
+
+                return (
+                  <button
+                    type="button"
+                    key={g.id}
+                    onClick={() => toggleGenre(g.id)}
+                    aria-pressed={active}
+                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-150"
+                    style={{
+                      backgroundColor: active
+                        ? "rgba(124, 58, 237, 0.3)"
+                        : "rgba(55, 65, 81, 0.4)",
+
+                      border: `1px solid ${active ? "#7C3AED" : "#374151"}`,
+
+                      color: active ? "#C4B5FD" : "#9CA3AF",
+                    }}
+                  >
+                    {g.name}
+                  </button>
+                )
+              })}
+            </div>
+            <FieldError msg={errors.genreIds} />
+          </div>
+
+          {/* Synopsis */}
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-1">
+              <Label htmlFor="cnt-synopsis" required>
+                Synopsis
+              </Label>
+              <span
+                className="text-xs"
+                style={{ color: synopsisLen > 1000 ? "#EF4444" : "#9CA3AF" }}
+              >
+                {synopsisLen}/1000
+              </span>
+            </div>
+            <textarea
+              id="cnt-synopsis"
+              rows={4}
+              value={form.synopsis}
+              maxLength={1000}
+              onChange={(e) => {
+                set("synopsis", e.target.value)
+
+                setSynopsisLen(e.target.value.length)
+              }}
+              placeholder="Enter synopsis..."
+              className={`${inputClass} resize-none`}
+              style={{
+                ...inputStyle,
+
+                borderColor: errors.synopsis ? "#EF4444" : "#374151",
+              }}
+            />
+            <FieldError msg={errors.synopsis} />
+          </div>
+        </section>
+
+        <div className="admin-content-form__secondary">
+          <section
+            className="admin-content-media-fields"
+            aria-labelledby="content-media-heading"
+          >
+            <div className="admin-content-media-fields__heading">
+              <div>
+                <h3 id="content-media-heading">Media files</h3>
+                <p>
+                  Choose the artwork, video, and optional subtitle file for this
+                  title.
+                </p>
+              </div>
+            </div>
+
+            <div className="admin-content-media-fields__grid">
+              <div className="admin-content-media-fields__thumbnail">
+                <Label htmlFor="cnt-thumb">Thumbnail File</Label>
+                <AdminContentFilePicker
+                  id="cnt-thumb"
+                  accept=".jpg,.jpeg,.png,.webp,.avif,.gif"
+                  filename={form.thumbnailFilename}
+                  hint="JPG, PNG, WebP, AVIF, or GIF"
+                  onSelect={handleThumbnailFile}
+                />
+                <FieldError
+                  msg={fileErrors.thumbnail ?? errors.thumbnailFile}
+                />
+                {thumbPreview && (
+                  <div className="admin-content-thumbnail-preview">
+                    <img
+                      src={thumbPreview}
+                      alt="Thumbnail preview"
+                      onError={() => setThumbPreview("")}
+                    />
+                    <span>Thumbnail preview</span>
+                  </div>
                 )}
               </div>
-              <span
-                className="text-sm font-medium capitalize"
-                style={{ color: form.availability === v ? "#fff" : "#9CA3AF" }}
-              >
-                {v}
-              </span>
-            </label>
-          ))}
-        </div>
-      </section>
+
+              <div className="admin-content-media-fields__secondary">
+                <div className="admin-content-media-fields__upload">
+                  <Label htmlFor="cnt-video">Video File</Label>
+                  <AdminContentFilePicker
+                    id="cnt-video"
+                    accept=".mp4,.webm,.ogv,.mkv,.mov,.m4v"
+                    filename={form.videoFilename}
+                    hint="MP4, WebM, OGV, MKV, MOV, or M4V"
+                    onSelect={(file) => handleNamedFile("videoFilename", file)}
+                  />
+                  <FieldError msg={fileErrors.video ?? errors.videoFile} />
+                </div>
+                <div className="admin-content-media-fields__upload">
+                  <Label htmlFor="cnt-sub">Subtitle File</Label>
+                  <AdminContentFilePicker
+                    id="cnt-sub"
+                    accept=".srt,.vtt,.ass,.ssa"
+                    filename={form.subtitleFilename}
+                    hint="SRT, VTT, ASS, or SSA"
+                    onSelect={(file) =>
+                      handleNamedFile("subtitleFilename", file)
+                    }
+                  />
+                  <FieldError msg={fileErrors.subtitle} />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Availability */}
+          <section
+            className="admin-content-availability"
+            aria-labelledby="content-availability-heading"
+          >
+            <div className="admin-content-form__section-heading admin-content-form__section-heading--compact">
+              <div>
+                <h3 id="content-availability-heading">Availability</h3>
+                <p>Control whether viewers can find and play this title.</p>
+              </div>
+            </div>
+            <div
+              className="admin-content-availability__options"
+              role="radiogroup"
+              aria-labelledby="content-availability-heading"
+            >
+              {(["available", "unavailable"] as const).map((v) => (
+                <label key={v} className="admin-content-availability__option">
+                  <input
+                    type="radio"
+                    name="availability"
+                    value={v}
+                    checked={form.availability === v}
+                    onChange={() => set("availability", v)}
+                    className="admin-content-availability__input"
+                  />
+                  <div
+                    className="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors"
+                    style={{
+                      borderColor:
+                        form.availability === v ? "#7C3AED" : "#374151",
+                    }}
+                  >
+                    {form.availability === v && (
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: "#7C3AED" }}
+                      />
+                    )}
+                  </div>
+                  <span
+                    className="text-sm font-medium capitalize"
+                    style={{
+                      color: form.availability === v ? "#fff" : "#9CA3AF",
+                    }}
+                  >
+                    {v}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
 
       {/* Actions */}
-      <div
-        className="admin-content-form__actions flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between"
-      >
+      {saving && uploadProgress && (
+        <div className="mb-4" aria-live="polite">
+          <div className="mb-1 flex justify-between text-xs text-gray-300">
+            <span className="capitalize">Uploading {uploadProgress.asset}</span>
+            <span>{uploadProgress.percent}%</span>
+          </div>
+          <div
+            className="h-2 overflow-hidden rounded-full bg-white/10"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={uploadProgress.percent}
+          >
+            <div
+              className="h-full rounded-full bg-violet-500 transition-[width]"
+              style={{ width: `${uploadProgress.percent}%` }}
+            />
+          </div>
+        </div>
+      )}
+      <div className="admin-content-form__actions flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="w-full sm:w-auto">
           {onDelete && (
             <button
@@ -639,7 +1052,9 @@ function ContentForm({
               className="min-h-11 w-full rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:w-auto"
               style={{
                 backgroundColor: "rgba(239, 68, 68, 0.1)",
+
                 border: "1px solid rgba(239, 68, 68, 0.3)",
+
                 color: "#EF4444",
               }}
               onMouseEnter={(e) => {
@@ -656,23 +1071,30 @@ function ContentForm({
         <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:gap-3">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={() => {
+              if (saving) uploadController.current?.abort()
+              else onCancel()
+            }}
             className="min-h-11 w-full rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:w-auto"
             style={{
               backgroundColor: "transparent",
+
               border: "1px solid #374151",
+
               color: "#9CA3AF",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = "#6B7280"
+
               e.currentTarget.style.color = "#fff"
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.borderColor = "#374151"
+
               e.currentTarget.style.color = "#9CA3AF"
             }}
           >
-            Cancel
+            {saving ? "Cancel upload" : "Cancel"}
           </button>
           <button
             type="submit"
@@ -682,8 +1104,19 @@ function ContentForm({
             style={{ flex: "0 0 auto" }}
           >
             {submitLabel.startsWith("Add ") && (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.5}
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
             )}
             {saving ? "Saving…" : submitLabel}
@@ -792,7 +1225,9 @@ function DetailDrawer({
                   className="px-2 py-0.5 rounded-full text-xs font-medium"
                   style={{
                     backgroundColor: "rgba(124, 58, 237, 0.2)",
+
                     border: "1px solid rgba(124, 58, 237, 0.4)",
+
                     color: "#C4B5FD",
                   }}
                 >
@@ -839,15 +1274,23 @@ function DetailDrawer({
 
 function DetailField({
   label,
+
   value,
+
   mono,
+
   note,
+
   children,
 }: {
   label: string
+
   value?: string
+
   mono?: boolean
+
   note?: string
+
   children?: React.ReactNode
 }) {
   return (
@@ -880,6 +1323,7 @@ function FileField({ label, filename }: { label: string; filename: string }) {
       className="flex items-center gap-3 py-2 px-3 rounded-lg"
       style={{
         backgroundColor: "rgba(11, 7, 25, 0.5)",
+
         border: "1px solid #374151",
       }}
     >
@@ -940,21 +1384,31 @@ function AvailBadge({ status }: { status: Content["availability"] }) {
 
 function FilterSelect({
   id,
+
   value,
+
   onChange,
+
   children,
 }: {
   id: string
+
   value: string
+
   onChange: (v: string) => void
+
   children: React.ReactNode
 }) {
   const labels: Record<string, string> = {
     "cat-filter": "Filter by category",
+
     "genre-filter": "Filter by genre",
+
     "year-filter": "Filter by release year",
+
     "avail-filter": "Filter by availability",
   }
+
   return (
     <select
       id={id}
@@ -970,22 +1424,33 @@ function FilterSelect({
 
 function formatSyncedAt(value: string) {
   if (!value) return "Not available"
+
   const timestamp = new Date(value)
+
   if (Number.isNaN(timestamp.getTime())) return "Not available"
+
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
+
     timeStyle: "short",
   }).format(timestamp)
 }
 
 export default function ContentTab({
   content,
+
   categories,
+
   genres,
+
   onAdd,
+
   onEdit,
+
   onDelete,
+
   addToast,
+
   addRequest = 0,
 }: ContentTabProps) {
   const [search, setSearch] = useState("")
@@ -995,11 +1460,17 @@ export default function ContentTab({
   const [genreFilter, setGenreFilter] = useState("")
 
   const [yearFilter, setYearFilter] = useState("")
+
   const [availFilter, setAvailFilter] = useState("")
+
   const [filtersOpen, setFiltersOpen] = useState(false)
+
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+
   const [page, setPage] = useState(1)
+
   const [rowsPerPage, setRowsPerPage] = useState(ROWS_PER_PAGE)
+
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -1011,7 +1482,9 @@ export default function ContentTab({
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const [sortKey, setSortKey] = useState<keyof Content | null>("syncedAt")
+
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+
   const filtersButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -1020,12 +1493,17 @@ export default function ContentTab({
 
   useEffect(() => {
     if (!filtersOpen) return
+
     const closeFilters = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return
+
       setFiltersOpen(false)
+
       window.requestAnimationFrame(() => filtersButtonRef.current?.focus())
     }
+
     document.addEventListener("keydown", closeFilters)
+
     return () => document.removeEventListener("keydown", closeFilters)
   }, [filtersOpen])
 
@@ -1062,17 +1540,24 @@ export default function ContentTab({
           bv = b[sortKey]
 
         let comparison = 0
+
         if (sortKey === "syncedAt") {
           if (!a.syncedAt && b.syncedAt) return 1
+
           if (a.syncedAt && !b.syncedAt) return -1
+
           const aTime = a.syncedAt ? Date.parse(a.syncedAt) : 0
+
           const bTime = b.syncedAt ? Date.parse(b.syncedAt) : 0
+
           comparison = aTime - bTime
         } else if (typeof av === "number" && typeof bv === "number")
           comparison = av - bv
         else comparison = String(av).localeCompare(String(bv))
+
         if (comparison === 0)
           comparison = a.id.localeCompare(b.id, undefined, { numeric: true })
+
         return sortDir === "asc" ? comparison : -comparison
       })
     }
@@ -1080,42 +1565,65 @@ export default function ContentTab({
     return rows
   }, [
     content,
+
     search,
+
     catFilter,
+
     genreFilter,
+
     yearFilter,
+
     availFilter,
+
     sortKey,
+
     sortDir,
   ])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage))
+
   const safePage = Math.min(page, totalPages)
+
   const paginated = filtered.slice(
     (safePage - 1) * rowsPerPage,
+
     safePage * rowsPerPage,
   )
+
   const activeFilterCount = [
     catFilter,
+
     genreFilter,
+
     yearFilter,
+
     availFilter,
   ].filter(Boolean).length
 
   function resetFilters() {
     setSearch("")
+
     setCatFilter("")
+
     setGenreFilter("")
+
     setYearFilter("")
+
     setAvailFilter("")
+
     setPage(1)
   }
 
   function clearFilterSelections() {
     setCatFilter("")
+
     setGenreFilter("")
+
     setYearFilter("")
+
     setAvailFilter("")
+
     setPage(1)
   }
 
@@ -1124,14 +1632,18 @@ export default function ContentTab({
       setSortDir((d) => (d === "asc" ? "desc" : "asc"))
     } else {
       setSortKey(key)
+
       setSortDir("asc")
     }
   }
 
   function handleCommandSort(value: string) {
     const [key, direction] = value.split(":") as [keyof Content, "asc" | "desc"]
+
     setSortKey(key)
+
     setSortDir(direction)
+
     setPage(1)
   }
 
@@ -1160,11 +1672,15 @@ export default function ContentTab({
 
   function SortableHeader({
     label,
+
     col,
+
     align = "left",
   }: {
     label: string
+
     col: keyof Content
+
     align?: "left" | "right"
   }) {
     const active = sortKey === col
@@ -1230,6 +1746,7 @@ export default function ContentTab({
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
+
               setPage(1)
             }}
             placeholder="Search title or content ID…"
@@ -1344,6 +1861,7 @@ export default function ContentTab({
             value={catFilter}
             onChange={(v) => {
               setCatFilter(v)
+
               setPage(1)
             }}
           >
@@ -1359,6 +1877,7 @@ export default function ContentTab({
             value={genreFilter}
             onChange={(v) => {
               setGenreFilter(v)
+
               setPage(1)
             }}
           >
@@ -1374,6 +1893,7 @@ export default function ContentTab({
             value={yearFilter}
             onChange={(v) => {
               setYearFilter(v)
+
               setPage(1)
             }}
           >
@@ -1389,6 +1909,7 @@ export default function ContentTab({
             value={availFilter}
             onChange={(v) => {
               setAvailFilter(v)
+
               setPage(1)
             }}
           >
@@ -1435,10 +1956,16 @@ export default function ContentTab({
                   <th scope="col" className="content-table__head-cell">
                     Genres
                   </th>
-                  <th scope="col" className="content-table__head-cell admin-table-head--emphasis">
+                  <th
+                    scope="col"
+                    className="content-table__head-cell admin-table-head--emphasis"
+                  >
                     Year
                   </th>
-                  <th scope="col" className="content-table__head-cell admin-table-head--emphasis">
+                  <th
+                    scope="col"
+                    className="content-table__head-cell admin-table-head--emphasis"
+                  >
                     Runtime
                   </th>
                   <th
@@ -1493,8 +2020,19 @@ export default function ContentTab({
                             onClick={() => setShowAdd(true)}
                             className="btn-primary flex items-center gap-2 px-5 py-2.5"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2.5}
+                                d="M12 4v16m8-8H4"
+                              />
                             </svg>
                             Add Content
                           </button>
@@ -1534,6 +2072,7 @@ export default function ContentTab({
                             className="content-table__thumbnail"
                             onClick={(e) => {
                               e.stopPropagation()
+
                               setDetailId(item.id)
                             }}
                             aria-label={`View details for ${item.title}`}
@@ -1600,7 +2139,9 @@ export default function ContentTab({
                       </td>
                       {/* Rating */}
                       <td className="content-table__center">
-                        <span className={`content-table__rating-badge ${ratingClass(item.ageRating)}`}>
+                        <span
+                          className={`content-table__rating-badge ${ratingClass(item.ageRating)}`}
+                        >
                           {item.ageRating}
                         </span>
                       </td>
@@ -1656,6 +2197,7 @@ export default function ContentTab({
             onPage={setPage}
             onPerPage={(amount) => {
               setRowsPerPage(amount)
+
               setPage(1)
             }}
             label="titles"
@@ -1664,6 +2206,7 @@ export default function ContentTab({
             className="hidden"
             style={{
               borderTop: "1px solid #374151",
+
               backgroundColor: "rgba(11, 7, 25, 0.3)",
             }}
           >
@@ -1681,6 +2224,7 @@ export default function ContentTab({
                   value={rowsPerPage}
                   onChange={(event) => {
                     setRowsPerPage(Number(event.target.value))
+
                     setPage(1)
                   }}
                   aria-label="Rows per page"
@@ -1770,6 +2314,7 @@ export default function ContentTab({
               const cat = categories.find(
                 (category) => category.id === item.categoryId,
               )
+
               return (
                 <article key={item.id} className="content-card">
                   <button
@@ -1832,14 +2377,29 @@ export default function ContentTab({
                 </p>
                 <button
                   type="button"
-                  className={content.length === 0 ? "btn-primary flex items-center gap-2 px-5 py-2.5" : undefined}
+                  className={
+                    content.length === 0
+                      ? "btn-primary flex items-center gap-2 px-5 py-2.5"
+                      : undefined
+                  }
                   onClick={
                     content.length === 0 ? () => setShowAdd(true) : resetFilters
                   }
                 >
                   {content.length === 0 && (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M12 4v16m8-8H4"
+                      />
                     </svg>
                   )}
                   {content.length === 0 ? "Add title" : "Clear filters"}
@@ -1854,6 +2414,7 @@ export default function ContentTab({
             onPage={setPage}
             onPerPage={(amount) => {
               setRowsPerPage(amount)
+
               setPage(1)
             }}
             label="titles"
@@ -1870,10 +2431,12 @@ export default function ContentTab({
           onClose={() => setDetailId(null)}
           onEdit={() => {
             setDetailId(null)
+
             setEditId(detailItem.id)
           }}
           onDelete={() => {
             setDeleteId(detailItem.id)
+
             setDetailId(null)
           }}
         />
@@ -1888,8 +2451,8 @@ export default function ContentTab({
             genres={genres}
             submitLabel="Add Content"
             onCancel={() => setShowAdd(false)}
-            onSubmit={(data) => {
-              onAdd(data)
+            onSubmit={async (data) => {
+              await onAdd(data)
 
               setShowAdd(false)
 
@@ -1904,20 +2467,35 @@ export default function ContentTab({
         <Modal title="Edit Content" onClose={() => setEditId(null)} wide>
           <ContentForm
             initial={{
+              tmdbId: editItem.tmdbId,
+
               title: editItem.title,
+
               categoryId: editItem.categoryId,
+
               genreIds: editItem.genreIds,
 
               synopsis: editItem.synopsis,
+
               releaseYear: editItem.releaseYear,
+
               runtime: editItem.runtime,
 
               ageRating: editItem.ageRating,
+
               thumbnailUrl: editItem.thumbnailUrl,
+
               thumbnailFilename: editItem.thumbnailFilename,
 
+              thumbnailFile: undefined,
+
               videoFilename: editItem.videoFilename,
+
+              videoFile: undefined,
+
               subtitleFilename: editItem.subtitleFilename,
+
+              subtitleFile: undefined,
 
               availability: editItem.availability,
             }}
@@ -1936,6 +2514,7 @@ export default function ContentTab({
             }}
             onDelete={() => {
               setDeleteId(editItem.id)
+
               setEditId(null)
             }}
           />
@@ -1964,18 +2543,27 @@ export default function ContentTab({
 
 function PageBtn({
   children,
+
   onClick,
+
   disabled,
+
   active,
+
   "aria-label": ariaLabel,
+
   "aria-current": ariaCurrent,
 }: {
   children: React.ReactNode
+
   onClick: () => void
+
   disabled?: boolean
+
   active?: boolean
 
   "aria-label"?: string
+
   "aria-current"?: "page" | "step" | "location" | "date" | "time" | boolean
 }) {
   return (
@@ -1996,12 +2584,14 @@ function PageBtn({
       onMouseEnter={(e) => {
         if (!active && !disabled) {
           e.currentTarget.style.backgroundColor = "rgba(124, 58, 237, 0.2)"
+
           e.currentTarget.style.color = "#fff"
         }
       }}
       onMouseLeave={(e) => {
         if (!active) {
           e.currentTarget.style.backgroundColor = "transparent"
+
           e.currentTarget.style.color = "#9CA3AF"
         }
       }}
