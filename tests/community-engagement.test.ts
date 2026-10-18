@@ -647,6 +647,50 @@ test("Checkout sessions use server-owned recurring prices and authenticated user
   assert.doesNotMatch(source, /selected_subscription_id/)
 })
 
+test("Stripe billing keeps web redirects and mobile deep-link returns", () => {
+  const checkout = readFileSync(
+    new URL(
+      "../supabase/functions/create-checkout-session/index.ts",
+
+      import.meta.url,
+    ),
+
+    "utf8",
+  )
+
+  const portal = readFileSync(
+    new URL(
+      "../supabase/functions/create-billing-portal-session/index.ts",
+
+      import.meta.url,
+    ),
+
+    "utf8",
+  )
+
+  const mobileReturn = readFileSync(
+    new URL(
+      "../supabase/functions/stripe-mobile-return/index.ts",
+
+      import.meta.url,
+    ),
+
+    "utf8",
+  )
+
+  assert.match(checkout, /body\.mobile === true/)
+
+  assert.match(checkout, /stripe-mobile-return/)
+
+  assert.match(checkout, /returnBase\}\/\?checkout=success/)
+
+  assert.match(portal, /body\.mobile === true/)
+
+  assert.match(portal, /returnUrl\("cancelled"\)/)
+
+  assert.match(mobileReturn, /com\.streamflix\.app:\/\/billing-callback/)
+})
+
 test("active Stripe subscriptions use the selected plan in Stripe confirmation", () => {
   const checkoutSource = readFileSync(
     new URL(
@@ -755,8 +799,8 @@ test("membership opens Stripe-hosted cancellation and keeps plan changes separat
   assert.match(portalSource, /subscription_cancel/)
   assert.match(portalSource, /mode: "immediately"/)
   assert.match(portalSource, /subscription: subscriptionId/)
-  assert.match(portalSource, /billing=cancelled/)
-  assert.match(portalSource, /billing=cancel-abandoned/)
+  assert.match(portalSource, /returnUrl\("cancelled"\)/)
+  assert.match(portalSource, /returnUrl\("cancel-abandoned"\)/)
 })
 
 test("completed Stripe cancellation signs out and returns to login", () => {
@@ -1891,6 +1935,7 @@ test("admin uploads appear first in New Movies with bucket thumbnails", () => {
   )
 
   assert.match(catalogSource, /content_id, tmdb_id, catalog_source, title/)
+  assert.match(catalogSource, /\.eq\("availability_status", "available"\)/)
   assert.match(catalogSource, /row\.catalog_source === "manual"/)
   assert.match(
     catalogSource,

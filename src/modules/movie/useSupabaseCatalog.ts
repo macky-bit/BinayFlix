@@ -186,6 +186,7 @@ export function useSupabaseCatalog(kind: CatalogKind): TMDBCatalogData {
           .select(
             "content_id, tmdb_id, catalog_source, title, synopsis, release_year, runtime, age_rating, thumbnail, total_streams_count, popularity_rank, category(category_name), genre!content_genre_id_fkey(genre_name), content_genre(genre(genre_name))",
           )
+          .eq("availability_status", "available")
           .order("popularity_rank", { ascending: true, nullsFirst: false }),
         supabase.from("genre").select("genre_name, content_genre(count)"),
       ])

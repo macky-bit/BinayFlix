@@ -24,6 +24,7 @@ function response(
 function allowedOrigin(request: Request) {
   const configured = Deno.env.get("APP_URL")?.trim()
   const candidate = configured || request.headers.get("Origin") || ""
+  if (!candidate) return "*"
   const url = new URL(candidate)
   if (!["http:", "https:"].includes(url.protocol))
     throw new Error("Invalid application URL")
@@ -113,10 +114,14 @@ Deno.serve(async (request) => {
 
     const body = (await request.json().catch(() => ({}))) as {
       planId?: unknown
+      mobile?: unknown
     }
     const planId = Number(body.planId)
+    const mobile = body.mobile === true
     if (!Number.isSafeInteger(planId) || planId <= 0)
       throw new Error("Select a valid plan")
+    if (!mobile && origin === "*")
+      throw new Error("The application origin is not allowed")
 
     const [
       { data: account, error: accountError },
@@ -185,10 +190,13 @@ Deno.serve(async (request) => {
           typeof subscription.customer === "string"
             ? subscription.customer
             : subscription.customer.id
+        const returnUrl = mobile
+          ? `${supabaseUrl}/functions/v1/stripe-mobile-return?billing=updated`
+          : `${origin}/?billing=updated`
         const portalSession = await stripe.billingPortal.sessions.create({
           customer: customerId,
           configuration,
-          return_url: `${origin}/?billing=updated`,
+          return_url: returnUrl,
           flow_data: {
             type: "subscription_update_confirm",
             subscription_update_confirm: {
@@ -203,7 +211,7 @@ Deno.serve(async (request) => {
             },
             after_completion: {
               type: "redirect",
-              redirect: { return_url: `${origin}/?billing=updated` },
+              redirect: { return_url: returnUrl },
             },
           },
         })
@@ -211,6 +219,9 @@ Deno.serve(async (request) => {
       }
     }
 
+    const returnBase = mobile
+      ? `${supabaseUrl}/functions/v1/stripe-mobile-return`
+      : origin
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: selectedPrice, quantity: 1 }],
@@ -221,8 +232,12 @@ Deno.serve(async (request) => {
         : String(account.email),
       metadata,
       subscription_data: { metadata },
-      success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/?checkout=cancelled`,
+      success_url: mobile
+        ? `${returnBase}?checkout=success&session_id={CHECKOUT_SESSION_ID}`
+        : `${returnBase}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: mobile
+        ? `${returnBase}?checkout=cancelled`
+        : `${returnBase}/?checkout=cancelled`,
     })
 
     if (!session.url) throw new Error("Stripe did not return a Checkout URL")

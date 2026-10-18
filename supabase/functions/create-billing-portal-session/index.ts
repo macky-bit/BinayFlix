@@ -24,6 +24,7 @@ function response(
 function allowedOrigin(request: Request) {
   const configured = Deno.env.get("APP_URL")?.trim()
   const candidate = configured || request.headers.get("Origin") || ""
+  if (!candidate) return "*"
   const url = new URL(candidate)
   if (!["http:", "https:"].includes(url.protocol))
     throw new Error("Invalid application URL")
@@ -52,8 +53,9 @@ Deno.serve(async (request) => {
     if (!authorization?.startsWith("Bearer "))
       throw new Error("Sign in before managing your subscription")
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
     const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
+      supabaseUrl,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       { auth: { persistSession: false, autoRefreshToken: false } },
     )
@@ -64,9 +66,13 @@ Deno.serve(async (request) => {
 
     const body = (await request.json().catch(() => ({}))) as {
       action?: unknown
+      mobile?: unknown
     }
     if (body.action !== "change" && body.action !== "cancel")
       throw new Error("Choose a supported subscription action")
+    const mobile = body.mobile === true
+    if (!mobile && origin === "*")
+      throw new Error("The application origin is not allowed")
 
     const { data: account, error: accountError } = await serviceClient
       .from("user")
@@ -112,6 +118,10 @@ Deno.serve(async (request) => {
       })
     }
 
+    const mobileReturn = (status: string) =>
+      `${supabaseUrl}/functions/v1/stripe-mobile-return?billing=${status}`
+    const webReturn = (status: string) => `${origin}/?billing=${status}`
+    const returnUrl = mobile ? mobileReturn : webReturn
     const flowData =
       body.action === "cancel"
         ? {
@@ -119,7 +129,7 @@ Deno.serve(async (request) => {
             subscription_cancel: { subscription: subscriptionId },
             after_completion: {
               type: "redirect" as const,
-              redirect: { return_url: `${origin}/?billing=cancelled` },
+              redirect: { return_url: returnUrl("cancelled") },
             },
           }
         : {
@@ -127,7 +137,7 @@ Deno.serve(async (request) => {
             subscription_update: { subscription: subscriptionId },
             after_completion: {
               type: "redirect" as const,
-              redirect: { return_url: `${origin}/?billing=updated` },
+              redirect: { return_url: returnUrl("updated") },
             },
           }
 
@@ -136,8 +146,10 @@ Deno.serve(async (request) => {
       configuration,
       return_url:
         body.action === "cancel"
-          ? `${origin}/?billing=cancel-abandoned`
-          : `${origin}/`,
+          ? returnUrl("cancel-abandoned")
+          : mobile
+            ? mobileReturn("unchanged")
+            : `${origin}/`,
       flow_data: flowData,
     })
 
