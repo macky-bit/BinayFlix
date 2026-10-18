@@ -1995,3 +1995,21 @@ test("manual uploads never use their content ID as a TMDB reference", () => {
     /resolveContentId\(supabase, tmdbId \?\? id, isSeries, catalogContentId\)/,
   )
 })
+
+test("hover trailers stay covered until playback and cannot be controlled", () => {
+  const dashboardSource = readFileSync(
+    new URL("../src/modules/dashboard/components.tsx", import.meta.url),
+    "utf8",
+  )
+  const dashboardStyles = readFileSync(
+    new URL("../src/modules/dashboard/dashboard.module.css", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(dashboardSource, /message\.info === 1/)
+  assert.match(dashboardSource, /trailerPlaying \? styles\.hoverPreviewCoverHidden/)
+  assert.match(dashboardSource, /disablekb=1/)
+  assert.match(dashboardSource, /tabIndex=\{-1\}/)
+  assert.match(dashboardStyles, /\.hoverPreviewMedia > \.hoverPreviewCoverHidden[\s\S]*opacity: 0/)
+  assert.match(dashboardStyles, /\.hoverPreviewMedia > iframe[\s\S]*pointer-events: none/)
+})
