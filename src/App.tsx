@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import type { Show } from "./modules/movie/types"
 
@@ -88,6 +88,10 @@ export default function App() {
   const [watchShow, setWatchShow] = useState<Show | null>(null)
 
   const [dashboardView, setDashboardView] = useState<DashboardView>("home")
+
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0)
+  }, [page, dashboardView])
 
   const [previewShow, setPreviewShow] = useState<Show | null>(null)
 

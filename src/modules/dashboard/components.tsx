@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useRef, type RefObject } from "react"
+import { createPortal } from "react-dom"
 
 import type { Show } from "../movie/types"
 
@@ -71,23 +72,6 @@ function CarouselArrowIcon({ direction }: { direction: "left" | "right" }) {
           direction === "left" ? "translate(512 0) scale(-1 1)" : undefined
         }
       />
-    </svg>
-  )
-}
-
-function CirclePlayIcon({
-  size = 18,
-
-  color = "#7C3AED",
-}: {
-  size?: number
-
-  color?: string
-}) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="11" fill={color} />
-      <polygon points="10,8 17,12 10,16" fill="white" />
     </svg>
   )
 }
@@ -288,163 +272,187 @@ function MuteIcon({ muted }: { muted: boolean }) {
   )
 }
 
-// ─── Trending Card (landscape with persistent metadata + action buttons) ────
+const trailerCache = new Map<string, Promise<string | null>>()
+
+function getCardTrailer(show: Show) {
+  if (show.tmdbId === null) return Promise.resolve(null)
+  const id = show.tmdbId ?? show.id
+  const type = show.mediaType ?? "movie"
+  const cacheKey = `${type}:${id}`
+  if (!trailerCache.has(cacheKey)) trailerCache.set(cacheKey, fetchTrailerKey(id, type))
+  return trailerCache.get(cacheKey)!
+}
+
+function HoverPreviewCard({
+  show,
+  onPlay,
+  onInfo,
+  onListToggle,
+  unavailable = false,
+  unavailableLabel = "Unavailable",
+  progress,
+}: {
+  show: Show
+  onPlay?: (show: Show) => void
+  onInfo?: (show: Show) => void
+  onListToggle?: (show: Show) => void
+  unavailable?: boolean
+  unavailableLabel?: string
+  progress?: number
+}) {
+  const cardRef = useRef<HTMLButtonElement>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
+  const openTimer = useRef<number | null>(null)
+  const closeTimer = useRef<number | null>(null)
+  const trailerRequest = useRef(0)
+  const [preview, setPreview] = useState<{ left: number; top: number; width: number } | null>(null)
+  const [visible, setVisible] = useState(false)
+  const [trailerKey, setTrailerKey] = useState<string | null>(null)
+  const [trailerResolved, setTrailerResolved] = useState(false)
+  const { isSaved, toggle } = useMyList()
+  const mediaType = show.mediaType ?? "movie"
+  const inList = isSaved(show.id, mediaType)
+
+  const clearTimers = () => {
+    if (openTimer.current !== null) window.clearTimeout(openTimer.current)
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current)
+    openTimer.current = null
+    closeTimer.current = null
+  }
+
+  const close = () => {
+    clearTimers()
+    trailerRequest.current += 1
+    setVisible(false)
+    setTrailerKey(null) // Unmounting the iframe stops playback immediately.
+    closeTimer.current = window.setTimeout(() => setPreview(null), 220)
+  }
+
+  const scheduleClose = () => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current)
+    closeTimer.current = window.setTimeout(close, 160)
+  }
+
+  const open = () => {
+    if (unavailable || !cardRef.current || !window.matchMedia("(hover: hover)").matches) return
+    clearTimers()
+    openTimer.current = window.setTimeout(() => {
+      const rect = cardRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const width = Math.min(350, window.innerWidth - 24)
+      const left = Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 12))
+      const top = Math.max(12, Math.min(rect.top - 24, window.innerHeight - 332))
+      setPreview({ left, top, width })
+      setTrailerResolved(false)
+      setTrailerKey(null)
+      window.requestAnimationFrame(() => setVisible(true))
+      const request = ++trailerRequest.current
+      void getCardTrailer(show).then((key) => {
+        if (request !== trailerRequest.current) return
+        setTrailerKey(key)
+        setTrailerResolved(true)
+      })
+    }, 300)
+  }
+
+  useEffect(() => {
+    if (!preview) return
+    const dismiss = () => close()
+    window.addEventListener("scroll", dismiss, true)
+    window.addEventListener("resize", dismiss)
+    return () => {
+      window.removeEventListener("scroll", dismiss, true)
+      window.removeEventListener("resize", dismiss)
+    }
+  }, [preview])
+
+  useEffect(() => () => { clearTimers(); trailerRequest.current += 1 }, [])
+
+  return (
+    <>
+      <button
+        ref={cardRef}
+        type="button"
+        className={`${styles.posterOnlyCard} ${unavailable ? unavailableLabel === "Coming soon" ? styles.trendingCardComingSoon : styles.trendingCardUnavailable : "cursor-pointer"}`}
+        aria-label={`View details for ${show.title}`}
+        disabled={unavailable}
+        onMouseEnter={open}
+        onMouseLeave={scheduleClose}
+        onFocus={open}
+        onBlur={scheduleClose}
+        onClick={() => onInfo?.(show)}
+      >
+        <img src={progress !== undefined ? show.hero ?? show.image : show.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+        {unavailable && <span className={styles.posterAvailability}>{unavailableLabel}</span>}
+        {progress !== undefined && <span className={`absolute inset-0 ${styles.continueImgGradient}`} aria-hidden="true" />}
+        {progress !== undefined && <div className={styles.posterProgressTrack}><div className={styles.posterProgressFill} style={{ width: `${progress}%` }} /></div>}
+      </button>
+      {preview && createPortal(
+        <div
+          ref={previewRef}
+          className={`${styles.hoverPreview} ${visible ? styles.hoverPreviewVisible : ""}`}
+          style={{ left: preview.left, top: preview.top, width: preview.width }}
+          onMouseEnter={() => { if (closeTimer.current !== null) window.clearTimeout(closeTimer.current) }}
+          onMouseLeave={scheduleClose}
+        >
+          <div className={styles.hoverPreviewMedia}>
+            <img src={show.hero ?? show.image} alt="" />
+            {trailerKey && <iframe
+              src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&controls=0&playsinline=1&loop=1&playlist=${trailerKey}&rel=0&fs=0&iv_load_policy=3&enablejsapi=1`}
+              title={`${show.title} trailer`}
+              allow="autoplay; encrypted-media; picture-in-picture"
+              referrerPolicy="strict-origin-when-cross-origin"
+            />}
+            {trailerResolved && !trailerKey && <span className={styles.noCardTrailer}>Trailer not available</span>}
+          </div>
+          <div className={styles.hoverPreviewInfo}>
+            <div className={styles.hoverPreviewTitle}>{show.title}</div>
+            <div className={styles.hoverPreviewDetails}>
+              <span>• {show.year}</span>
+              <span className={styles.hoverMediaBadge}>{mediaType === "tv" ? "TV SERIES" : "MOVIE"}</span>
+            </div>
+            <div className={styles.hoverPreviewActions}>
+              {show.genres?.[0] ? <span className={styles.hoverGenreBadge}>{show.genres[0]}</span> : <span />}
+              <button type="button" className={styles.hoverPlayButton} aria-label={`Play ${show.title}`} onClick={() => { close(); onPlay?.(show) }}><PlayIcon size={14} color="#141020" /></button>
+              <button type="button" className={styles.hoverListButton} aria-label={inList ? "Remove from list" : "Add to list"} onClick={() => {
+                if (onListToggle) { close(); onListToggle(show) }
+                else toggle(show.id, mediaType, show)
+              }}>
+                {inList ? "✓" : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>, document.body,
+      )}
+    </>
+  )
+}
+
+// Poster card shared by catalog and search results.
 
 export function TrendingCard({
   show,
-
   onPlay,
-
   onInfo,
-
-  posterStyle = false,
-  wide = false,
-
+  onListToggle,
   unavailable = false,
   unavailableLabel = "Unavailable",
 }: {
   show: Show
-
   onPlay?: (show: Show) => void
-
   onInfo?: (show: Show) => void
-
+  onListToggle?: (show: Show) => void
   posterStyle?: boolean
   wide?: boolean
-
   unavailable?: boolean
   unavailableLabel?: string
 }) {
-  const [hovered, setHovered] = useState(false)
-
-  const { isSaved, toggle } = useMyList()
-
-  const mediaType = show.mediaType ?? "movie"
-
-  const inList = isSaved(show.id, mediaType)
-
-  return (
-    <div
-      className={`relative shrink-0 rounded-xl overflow-hidden ${
-        unavailable
-          ? unavailableLabel === "Coming soon" ? styles.trendingCardComingSoon : styles.trendingCardUnavailable
-          : "cursor-pointer"
-      } ${styles.trendingCard} ${posterStyle ? styles.posterCarouselCard : ""} ${wide ? styles.continueCard : ""}`}
-      aria-disabled={unavailable || undefined}
-      style={{
-        transform: hovered && !unavailable
-          ? posterStyle
-            ? "translateY(-4px) scale(1.02)"
-            : "scale(1.04)"
-          : "scale(1)",
-
-        transition: "transform 0.2s ease, box-shadow 0.2s ease",
-
-        boxShadow: hovered && !unavailable
-          ? "-10px 8px 28px rgba(0,0,0,0.58)"
-          : posterStyle
-            ? "-10px 0 24px rgba(0,0,0,0.45)"
-            : "none",
-      }}
-      onMouseEnter={() => {
-        if (!unavailable) setHovered(true)
-      }}
-      onMouseLeave={() => setHovered(false)}
-      onClick={unavailable ? undefined : () => onInfo?.(show)}
-    >
-      {/* thumbnail */}
-      <div
-        className={`relative w-full ${posterStyle ? styles.posterCardMedia : ""}`}
-        style={posterStyle ? undefined : { aspectRatio: wide ? "16/9" : "16/10" }}
-      >
-        <img
-          src={show.image}
-          alt={show.title}
-          loading="lazy"
-          decoding="async"
-          className="w-full h-full object-cover"
-        />
-        <div className={`absolute inset-0 ${styles.trendingCardImgGradient}`} />
-      </div>
-
-      {/* metadata always visible */}
-      <div className={`px-2.5 pt-2 pb-2.5 ${styles.trendingMeta} ${posterStyle ? styles.posterCardMeta : ""}`}>
-        {/* title row */}
-        <div className="mb-1">
-          <p className="text-[13px] font-semibold text-white leading-snug line-clamp-1 flex-1">
-            {show.title}
-          </p>
-        </div>
-
-        {/* match + year */}
-        <div className="flex items-center justify-between gap-1.5 mb-1.5">
-          <div className="flex min-w-0 items-center gap-1.5 flex-wrap">
-            {typeof show.match === "number" && (
-              <span className={`text-[11px] font-bold ${styles.matchText}`}>
-                {show.match}% Match
-              </span>
-            )}
-            <span className="text-[11px]" style={{ color: "#9CA3AF" }}>
-              • {show.year}
-            </span>
-          </div>
-          <span
-            className={`${styles.mediaTypeBadge} ${styles.mediaTypeBadgeInline} ${
-              mediaType === "tv" ? styles.mediaTypeBadgeSeries : styles.mediaTypeBadgeMovie
-            }`}
-          >
-            {mediaType === "tv" ? "TV Series" : "Movie"}
-          </span>
-        </div>
-
-        {/* genre pill + action buttons */}
-        <div className="flex items-center justify-between gap-2">
-          {show.genres?.[0] ? (
-            <span
-              className={`px-2 py-0.5 rounded text-[10px] font-medium ${styles.trendingGenrePill}`}
-            >
-              {show.genres[0]}
-            </span>
-          ) : (
-            <span />
-          )}
-
-          {unavailable ? (
-            <span className={styles.unavailableBadge}>{unavailableLabel}</span>
-          ) : (
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Play */}
-            <button
-              className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors ${styles.playBtn}`}
-              aria-label="Play"
-              onClick={(e) => {
-                e.stopPropagation()
-
-                onPlay?.(show)
-              }}
-            >
-              <PlayIcon size={10} color="var(--color-ink)" />
-            </button>
-            {/* Add / Remove from list */}
-            <button
-              className={`w-7 h-7 flex items-center justify-center rounded-full border text-xs font-bold transition-colors ${
-                inList ? styles.listBtnActive : styles.listBtnInactive
-              }`}
-              aria-label={inList ? "Remove from list" : "Add to list"}
-              onClick={(e) => {
-                e.stopPropagation()
-
-                toggle(show.id, mediaType, show)
-              }}
-            >
-              {inList ? "✓" : "+"}
-            </button>
-          </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+  return <HoverPreviewCard show={show} onPlay={onPlay} onInfo={onInfo} onListToggle={onListToggle} unavailable={unavailable} unavailableLabel={unavailableLabel} />
 }
 
 // ─── Continue Watching Card ───────────────────────────────────────────────────
@@ -577,41 +585,14 @@ export function ContinueWatchingCard({
 
 export function Top10Card({
   show,
-
-  rank,
-
+  onPlay,
   onInfo,
 }: {
   show: Show
-
-  rank: number
-
+  onPlay?: (show: Show) => void
   onInfo?: (show: Show) => void
 }) {
-  return (
-    <button
-      type="button"
-      className={`${styles.top10Card} cursor-pointer`}
-      onClick={() => onInfo?.(show)}
-      aria-label={`View details for number ${rank}, ${show.title}`}
-    >
-      <span
-        className={styles.rankNumber}
-        aria-hidden="true"
-      >
-        {rank}
-      </span>
-      <div
-        className={styles.top10Poster}
-      >
-        <img
-          src={show.image}
-          alt={show.title}
-          className="w-full h-full object-cover"
-        />
-      </div>
-    </button>
-  )
+  return <HoverPreviewCard show={show} onPlay={onPlay} onInfo={onInfo} />
 }
 
 // ─── Carousel Row ─────────────────────────────────────────────────────────────
@@ -649,15 +630,6 @@ export function CarouselRow({
 
   onInfo?: (show: Show) => void
 }) {
-  const posterStyleRows = new Set([
-    "trending now",
-    "new movies",
-    "popular tv shows",
-    "recommended movies",
-    "recommended tv shows",
-    "all content",
-  ])
-  const usePosterCards = posterStyleRows.has(title.toLowerCase())
   const ref = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -692,8 +664,7 @@ export function CarouselRow({
   return (
     <section className="px-4 sm:px-10 xl:px-12">
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <CirclePlayIcon size={20} />
+        <div className="flex items-center">
           <h2 className={`text-base font-bold ${styles.rowTitle}`}>{title}</h2>
         </div>
       </div>
@@ -711,20 +682,21 @@ export function CarouselRow({
 
         <div
           ref={ref}
-          className={top10 ? styles.top10Grid : `flex gap-3 overflow-x-auto pb-2 ${styles.noScrollbar}`}
+          className={styles.top10Grid}
         >
-          {shows.slice(0, top10 ? 10 : shows.length).map((show, i) =>
+          {shows.slice(0, top10 ? 10 : shows.length).map((show) =>
             top10 ? (
               <Top10Card
                 key={show.id}
                 show={show}
-                rank={i + 1}
+                onPlay={onPlay}
                 onInfo={onInfo}
               />
             ) : variant === "continue" ? (
-              <ContinueWatchingCard
+              <HoverPreviewCard
                 key={show.id}
-                show={{ ...show, progress: show.progress ?? 50 }}
+                show={show}
+                progress={show.progress ?? 50}
                 onPlay={onPlay}
                 onInfo={onInfo}
               />
@@ -734,8 +706,6 @@ export function CarouselRow({
                 show={show}
                 onPlay={onPlay}
                 onInfo={onInfo}
-                posterStyle={usePosterCards}
-                wide={variant === "wide"}
                 unavailable={unavailable}
                 unavailableLabel={unavailableLabel}
               />
@@ -1901,6 +1871,7 @@ export function ContinueWatchingRow({
 
   genre = "All",
   profileId,
+  catalogShows,
 }: {
   onPlay?: (show: Show) => void
 
@@ -1908,17 +1879,22 @@ export function ContinueWatchingRow({
 
   genre?: string
   profileId: number
+  catalogShows: Show[]
 }) {
-  const { entries } = useContinueWatching(10, profileId)
+  const { entries } = useContinueWatching(null, profileId)
   const normalizedGenre = genre.trim().toLowerCase()
-  const filteredEntries =
-    normalizedGenre === "all"
-      ? entries
-      : entries.filter((entry) =>
-          entry.show.genres.some(
-            (showGenre) => showGenre.trim().toLowerCase() === normalizedGenre,
-          ),
-        )
+  const filteredEntries = entries.flatMap((entry) => {
+    const show = catalogShows.find((candidate) =>
+      entry.show.contentId != null
+        ? candidate.contentId === entry.show.contentId
+        : candidate.id === entry.show.id && candidate.mediaType === entry.show.mediaType,
+    )
+    if (!show) return []
+    if (normalizedGenre !== "all" && !show.genres.some((showGenre) =>
+      showGenre.trim().toLowerCase() === normalizedGenre,
+    )) return []
+    return [{ ...entry, show }]
+  }).slice(0, 10)
 
   if (filteredEntries.length === 0) return null
 

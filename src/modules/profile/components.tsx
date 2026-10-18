@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import StreamFlixSelect from "../../components/StreamFlixSelect"
+import FourDigitPinInput from "../../components/FourDigitPinInput"
 
 import { supabase } from "../../lib/supabase"
 
@@ -573,7 +574,7 @@ function EditProfileModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
       style={{ background: "var(--color-ink)" }}
     >
       <div
@@ -907,14 +908,14 @@ function PINModal({
       style={{ background: "var(--color-ink)" }}
     >
       <div
-        className="w-full max-w-sm rounded-sm p-7 relative"
+        className="relative max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-xl p-5 shadow-2xl sm:p-7"
         style={{
           background: "var(--color-ink-soft)",
 
           border: "1px solid var(--color-stone)",
         }}
       >
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-4 flex items-center justify-between gap-4">
           <h2
             className="text-[var(--color-cream)] font-display font-bold text-xl tracking-wide uppercase"
             style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
@@ -926,67 +927,21 @@ function PINModal({
             onClick={onClose}
             disabled={saving}
             aria-label="Close profile PIN settings"
-            className="text-[var(--color-taupe)] hover:text-[var(--color-cream)] transition-colors p-1"
+            className="rounded-md p-2 text-[var(--color-taupe)] transition-colors hover:text-[var(--color-cream)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
           >
             <XIcon />
           </button>
         </div>
         <p
-          className="text-[var(--color-taupe)] text-sm mb-5"
+          className="mb-6 text-sm leading-relaxed text-[var(--color-taupe)]"
           style={{ fontFamily: "'Barlow', sans-serif" }}
         >
           Require a PIN to access this profile.
         </p>
 
-        <div className="space-y-4">
-          <div>
-            <label
-              htmlFor="profile-pin"
-              className="block text-xs text-[var(--color-taupe)] mb-1.5 uppercase tracking-wider"
-              style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
-            >
-              4-Digit PIN
-            </label>
-            <input
-              id="profile-pin"
-              type="password"
-              inputMode="numeric"
-              pattern="[0-9]{4}"
-              autoComplete="new-password"
-              maxLength={4}
-              value={pin}
-              onChange={(e) =>
-                setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
-              }
-              placeholder="••••"
-              className="w-full bg-transparent border border-[var(--color-stone)] text-[var(--color-cream)] px-3 py-2 rounded-sm text-sm focus:outline-none focus:border-[var(--color-wine)] tracking-[0.4em]"
-              style={{ fontFamily: "'Barlow', sans-serif" }}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="profile-pin-confirm"
-              className="block text-xs text-[var(--color-taupe)] mb-1.5 uppercase tracking-wider"
-              style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
-            >
-              Confirm PIN
-            </label>
-            <input
-              id="profile-pin-confirm"
-              type="password"
-              inputMode="numeric"
-              pattern="[0-9]{4}"
-              autoComplete="new-password"
-              maxLength={4}
-              value={confirm}
-              onChange={(e) =>
-                setConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))
-              }
-              placeholder="••••"
-              className="w-full bg-transparent border border-[var(--color-stone)] text-[var(--color-cream)] px-3 py-2 rounded-sm text-sm focus:outline-none focus:border-[var(--color-wine)] tracking-[0.4em]"
-              style={{ fontFamily: "'Barlow', sans-serif" }}
-            />
-          </div>
+        <div className="space-y-5">
+          <FourDigitPinInput label="4-Digit PIN" value={pin} onChange={setPin} disabled={saving} autoFocus />
+          <FourDigitPinInput label="Confirm PIN" value={confirm} onChange={setConfirm} disabled={saving} />
         </div>
 
         {error && (
@@ -1003,12 +958,12 @@ function PINModal({
           </p>
         )}
 
-        <div className="flex gap-3 mt-7">
+        <div className="mt-7 grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="flex-1 py-2.5 border border-[var(--color-stone)] text-[var(--color-cream)] text-sm rounded-sm hover:border-[var(--color-taupe)] transition-colors"
+            className="min-w-0 rounded-md border border-[var(--color-stone)] py-2.5 text-sm text-[var(--color-cream)] transition-colors hover:border-[var(--color-taupe)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
             style={{ fontFamily: "'Barlow', sans-serif" }}
           >
             Cancel
@@ -1022,7 +977,7 @@ function PINModal({
               confirm.length !== 4 ||
               pin !== confirm
             }
-            className="flex-1 py-2.5 bg-[var(--color-wine)] text-[var(--color-cream)] text-sm rounded-sm hover:bg-[var(--color-ink-soft)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="min-w-0 rounded-md bg-[var(--color-wine)] py-2.5 text-sm text-[var(--color-cream)] transition-colors hover:bg-[var(--color-ink-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 disabled:cursor-not-allowed disabled:opacity-40"
             style={{ fontFamily: "'Barlow', sans-serif" }}
           >
             {saving ? "Saving…" : "Save PIN"}

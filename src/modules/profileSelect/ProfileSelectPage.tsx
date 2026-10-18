@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import FourDigitPinInput from "../../components/FourDigitPinInput";
 import { supabase } from "../../lib/supabase";
 import styles from "./profileSelect.module.css";
 import logoImg from "/favicon.png";
@@ -330,22 +331,12 @@ function ProfilePinDialog({
 						void verify();
 					}}
 				>
-					<label className={styles.fieldLabel} htmlFor="selected-profile-pin">Profile PIN</label>
-					<input
-						id="selected-profile-pin"
-						className={`${styles.textInput} ${styles.pinInput}`}
-						type="password"
-						inputMode="numeric"
-						pattern="[0-9]{4}"
-						autoComplete="current-password"
-						maxLength={4}
+					<FourDigitPinInput
+						label="Profile PIN"
 						value={pin}
-						onChange={(event) => {
-							setPin(event.target.value.replace(/\D/g, "").slice(0, 4));
-							setError("");
-						}}
+						onChange={(value) => { setPin(value); setError(""); }}
+						disabled={verifying}
 						autoFocus
-						required
 					/>
 
 					{error && <p className={styles.inlineError} role="alert">{error}</p>}

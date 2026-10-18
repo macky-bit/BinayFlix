@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import styles from "./myList.module.css";
-import { fetchShowDetails } from "../../movie/tmdb";
 import type { Show } from "../../movie/types";
+import { useSupabaseCatalog } from "../../movie/useSupabaseCatalog";
+import { TrendingCard } from "../components";
 import { addToMyList, getMyList, removeFromMyList } from "./myListStore";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -30,18 +31,6 @@ interface Title {
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
-const InfoIcon = () => (
-	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
-		<circle cx="12" cy="12" r="10" />
-		<line x1="12" y1="8" x2="12" y2="8" strokeWidth="3" strokeLinecap="round" />
-		<line x1="12" y1="12" x2="12" y2="16" strokeLinecap="round" />
-	</svg>
-);
-const CheckIcon = ({ size = 11 }: { size?: number }) => (
-	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" width={size} height={size}>
-		<polyline points="20,6 9,17 4,12" />
-	</svg>
-);
 const ChevronDown = ({ size = 13 }: { size?: number }) => (
 	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width={size} height={size}>
 		<polyline points="6,9 12,15 18,9" />
@@ -52,11 +41,6 @@ const CloseIcon = () => (
 		<line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
 	</svg>
 );
-const XIcon = () => (
-	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="12" height="12">
-		<line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-	</svg>
-);
 const BookmarkIcon = () => (
 	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="32" height="32">
 		<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
@@ -64,106 +48,24 @@ const BookmarkIcon = () => (
 );
 const CirclePlayIcon = () => (
 	<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-		<circle cx="12" cy="12" r="11" fill="#7C3AED" />
 		<polygon points="10,8 17,12 10,16" fill="white" />
 	</svg>
 );
 
-// ── Tooltip ──────────────────────────────────────────────────────────────────
-
-function Tooltip({ label, children }: { label: string; children: React.ReactNode }) {
-	const [show, setShow] = useState(false);
-	return (
-		<div className={styles.tooltipWrap} onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-			{children}
-			{show && <div className={styles.tooltipBubble}>{label}</div>}
-		</div>
-	);
-}
-
 // ── Content Card ─────────────────────────────────────────────────────────────
 
-function ContentCard({ item, onRemove, onInfo }: {
+function ContentCard({ item, onRemove, onInfo, onPlay }: {
 	item: Title;
 	onRemove: (id: number) => void;
 	onInfo: (item: Title) => void;
+	onPlay: (show: Show) => void;
 }) {
-	const [hovered, setHovered] = useState(false);
-	const [focused, setFocused] = useState(false);
-	const active = hovered || focused;
-
 	return (
-		<div
-			className={styles.cardWrap}
-			onMouseEnter={() => setHovered(true)}
-			onMouseLeave={() => setHovered(false)}
-			onFocus={() => setFocused(true)}
-			onBlur={() => setFocused(false)}
-			tabIndex={0}
-			role="group"
-			aria-label={item.title}
-			onClick={() => onInfo(item)}
-		>
-			{/* Thumbnail */}
-			<div className={styles.cardThumb}>
-				{item.image
-					? <img src={item.image} alt={item.title} />
-					: <div style={{ width: "100%", height: "100%", background: item.gradient ?? "#1A1030" }} />
-				}
-				<div className={styles.cardThumbGradient} />
-
-				{/* Type badge */}
-				<div className={styles.cardTypeBadge}>{item.type}</div>
-
-				{/* Checked / remove badge */}
-				<button
-					className={styles.cardRemoveBadge}
-					title="Remove from My List"
-					onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
-					aria-label={`Remove ${item.title} from My List`}
-				>
-					<CheckIcon />
-				</button>
-
-				{/* Hover overlay with actions */}
-				{active && (
-					<div className={styles.cardHoverOverlay}>
-						<Tooltip label="More Info">
-							<button className={styles.btnOutline} onClick={(e) => { e.stopPropagation(); onInfo(item); }} aria-label={`More info about ${item.title}`}>
-								<InfoIcon />
-							</button>
-						</Tooltip>
-						<Tooltip label="Remove">
-							<button className={styles.btnOutline} onClick={(e) => { e.stopPropagation(); onRemove(item.id); }} aria-label={`Remove ${item.title}`}>
-								<XIcon />
-							</button>
-						</Tooltip>
-					</div>
-				)}
-			</div>
-
-			{/* Metadata */}
-			<div className={styles.cardMeta}>
-				<p className={styles.cardTitle}>{item.title}</p>
-				<div className={styles.cardInfo}>
-					<span className={styles.cardYear}>{item.year}</span>
-					<span className={styles.cardDot}>·</span>
-					<span className={styles.cardRating}>{item.rating}</span>
-					{item.runtime && (
-						<><span className={styles.cardDot}>·</span><span className={styles.cardRuntime}>{item.runtime}</span></>
-					)}
-				</div>
-				{/* Inline action buttons */}
-				<div className={styles.cardActions} onClick={(e) => e.stopPropagation()}>
-					<button
-						className={styles.cardActionList}
-						aria-label="Remove from list"
-						onClick={() => onRemove(item.id)}
-					>
-						✓
-					</button>
-				</div>
-			</div>
+		<div className={styles.posterItem}>
+			<TrendingCard show={item.show ?? titleToShow(item)} onInfo={() => onInfo(item)} onPlay={onPlay} onListToggle={() => onRemove(item.id)} />
+			<button type="button" className={styles.posterRemove} title="Remove from My List" aria-label={`Remove ${item.title} from My List`} onClick={() => onRemove(item.id)}>
+				<CloseIcon />
+			</button>
 		</div>
 	);
 }
@@ -172,13 +74,7 @@ function ContentCard({ item, onRemove, onInfo }: {
 
 function SkeletonCard() {
 	return (
-		<div style={{ borderRadius: 12, overflow: "hidden", background: "#1A1030" }}>
-			<div className={styles.skeleton} style={{ aspectRatio: "16/10" }} />
-			<div style={{ padding: "10px 12px 12px" }}>
-				<div className={styles.skeleton} style={{ height: 11, borderRadius: 3, marginBottom: 7, width: "72%" }} />
-				<div className={styles.skeleton} style={{ height: 9, borderRadius: 3, width: "48%" }} />
-			</div>
-		</div>
+		<div className={`${styles.skeleton} ${styles.posterSkeleton}`} aria-hidden="true" />
 	);
 }
 
@@ -290,41 +186,43 @@ function titleToShow(item: Title): Show {
 export function MyListView({
 	onBrowse,
 	onInfo,
+	onPlay,
 }: {
 	onBrowse: () => void;
 	onInfo: (show: Show) => void;
+	onPlay: (show: Show) => void;
 }) {
 	const [appState, setAppState] = useState<AppState>("loading");
 	const [titles, setTitles] = useState<Title[]>([]);
 	const [sortOption, setSortOption] = useState<SortOption>("Recently Added");
 	const [filter, setFilter] = useState<FilterType>("All");
 	const [toast, setToast] = useState<{ item: Title } | null>(null);
+	const catalog = useSupabaseCatalog("home");
 
 	const loadEntries = useCallback(() => {
-		let active = true;
 		const entries = getMyList();
-		if (entries.length === 0) { setTitles([]); setAppState("loaded"); return () => { active = false; }; }
-		setAppState("loading");
-		Promise.all(entries.map(async (entry) => {
-			const show = await fetchShowDetails(entry.id, entry.mediaType) ?? entry.show ?? null;
-			return show
-				? { id: show.id, title: show.title, type: entry.mediaType === "tv" ? "Series" as const : "Movie" as const, year: Number(show.year) || 0, rating: show.rating, runtime: show.duration, addedAt: entry.addedAt, image: show.image, mediaType: entry.mediaType, show }
-				: null;
-		})).then((items) => {
-			if (!active) return;
-			setTitles(items.flatMap((item) => item ? [item] : []));
-			setAppState("loaded");
-		}).catch(() => active && setAppState("error"));
-		return () => { active = false; };
-	}, []);
+		if (entries.length === 0) { setTitles([]); setAppState("loaded"); return; }
+		if (catalog.loading) { setAppState("loading"); return; }
+		if (catalog.error) { setAppState("error"); return; }
+		const catalogShows = catalog.rows.find((row) => row.title === "All Content")?.shows ?? [];
+		const items = entries.flatMap((entry) => {
+			const show = catalogShows.find((candidate) =>
+				entry.show?.contentId != null
+					? candidate.contentId === entry.show.contentId
+					: candidate.id === entry.id && candidate.mediaType === entry.mediaType,
+			);
+			return show ? [{ id: show.id, title: show.title, type: entry.mediaType === "tv" ? "Series" as const : "Movie" as const, year: Number(show.year) || 0, rating: show.rating, runtime: show.duration, addedAt: entry.addedAt, image: show.image, mediaType: entry.mediaType, show }] : [];
+		});
+		setTitles(items);
+		setAppState("loaded");
+	}, [catalog.loading, catalog.error, catalog.rows]);
 
 	useEffect(() => {
-		const cleanup = loadEntries();
+		loadEntries();
 		const refresh = () => loadEntries();
 		window.addEventListener("sf-mylist-change", refresh);
 		window.addEventListener("storage", refresh);
 		return () => {
-			cleanup?.();
 			window.removeEventListener("sf-mylist-change", refresh);
 			window.removeEventListener("storage", refresh);
 		};
@@ -440,7 +338,6 @@ export function MyListView({
 								{/* Section header matching dashboard rows */}
 								<div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
 									<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-										<CirclePlayIcon />
 										<span style={{ color: "#ffffff", fontWeight: 700, fontSize: "1rem" }}>
 											{filter === "All" ? "All Titles" : filter === "Movie" ? "Movies" : "Series"}
 										</span>
@@ -451,7 +348,7 @@ export function MyListView({
 								<div className={styles.cardGrid} role="list" aria-label="My List">
 									{sorted.map((item) => (
 										<div key={item.id} role="listitem">
-											<ContentCard item={item} onRemove={handleRemove} onInfo={handleInfo} />
+											<ContentCard item={item} onRemove={handleRemove} onInfo={handleInfo} onPlay={onPlay} />
 										</div>
 									))}
 								</div>

@@ -99,7 +99,7 @@ export default function Dashboard({
         />
       )}
       {!searchQuery.trim() && view === "myList" && (
-        <MyListView onBrowse={() => onViewChange("home")} onInfo={onInfo} />
+        <MyListView onBrowse={() => onViewChange("home")} onInfo={onInfo} onPlay={onWatch} />
       )}
     </div>
   )

@@ -106,6 +106,7 @@ function CatalogView({
           <ContinueWatchingRow
             genre={genre}
             profileId={profileId}
+            catalogShows={rows.find((row) => row.title === "All Content")?.shows ?? []}
             onPlay={onWatch}
             onInfo={onInfo}
           />
