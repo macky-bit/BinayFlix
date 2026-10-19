@@ -153,11 +153,12 @@ export default function PreviewModal({
 					{trailerKey ? (
 						<iframe
 							key={trailerKey}
-							className="absolute inset-0 w-full h-full"
-							src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=${muted ? 1 : 0}&controls=0&loop=1&playlist=${trailerKey}&modestbranding=1&rel=0&showinfo=0`}
+							className="absolute inset-0 w-full h-full pointer-events-none"
+							src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=${muted ? 1 : 0}&controls=0&loop=1&playlist=${trailerKey}&modestbranding=1&rel=0&showinfo=0&disablekb=1&fs=0&playsinline=1`}
 							title={`${resolvedShow.title} trailer`}
 							allow="autoplay; encrypted-media"
-							allowFullScreen
+							tabIndex={-1}
+							aria-hidden="true"
 						/>
 					) : (
 						<img

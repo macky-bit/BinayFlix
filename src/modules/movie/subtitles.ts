@@ -41,7 +41,56 @@ function parseTimestamp(value: string) {
   )
 }
 
+function parseAssTimestamp(value: string) {
+  const match = value.trim().match(/^(\d+):(\d{2}):(\d{2})\.(\d{1,2})$/)
+  if (!match) return null
+  return Number(match[1]) * 3600 + Number(match[2]) * 60 +
+    Number(match[3]) + Number(match[4].padEnd(2, "0")) / 100
+}
+
+function parseAssCues(source: string): SubtitleCue[] {
+  const lines = source.replace(/^\uFEFF/, "").split(/\r?\n/)
+  let inEvents = false
+  let fields: string[] = []
+  const cues: SubtitleCue[] = []
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (/^\[.*\]$/.test(trimmed)) {
+      inEvents = /^\[Events\]$/i.test(trimmed)
+      continue
+    }
+    if (!inEvents) continue
+    if (/^Format\s*:/i.test(trimmed)) {
+      fields = trimmed.replace(/^Format\s*:/i, "").split(",").map((field) => field.trim().toLowerCase())
+      continue
+    }
+    if (!/^Dialogue\s*:/i.test(trimmed) || !fields.length) continue
+
+    const values = trimmed.replace(/^Dialogue\s*:/i, "").split(",")
+    if (values.length < fields.length) continue
+    const startIndex = fields.indexOf("start")
+    const endIndex = fields.indexOf("end")
+    const textIndex = fields.indexOf("text")
+    if (startIndex < 0 || endIndex < 0 || textIndex < 0) continue
+    const start = parseAssTimestamp(values[startIndex])
+    const end = parseAssTimestamp(values[endIndex])
+    const text = values.slice(textIndex).join(",")
+      .replace(/\{[^}]*\}/g, "")
+      .replace(/\\[Nn]/g, "\n")
+      .replace(/\\h/g, " ")
+      .trim()
+    if (start !== null && end !== null && end > start && text) {
+      cues.push({ start, end, text })
+    }
+  }
+  return cues
+}
+
 export function parseSubtitleCues(source: string): SubtitleCue[] {
+  if (/^\s*(?:\uFEFF)?\[Script Info\]/i.test(source) || /\[Events\]/i.test(source)) {
+    return parseAssCues(source)
+  }
   return source
 
     .replace(/^\uFEFF/, "")
@@ -114,27 +163,22 @@ export async function loadSubtitleTrack(
 
   if (!content?.subtitle) return null
 
-  const path = content.subtitle.trim().replace(/^\/+/, "")
-
-  const { data: signedData, error: signedError } = await client.storage
-
-    .from("subtitle")
-
-    .createSignedUrl(path, 60 * 60)
-
-  if (signedError) throw signedError
-
-  if (!signedData.signedUrl) {
-    throw new Error("The subtitle file does not have a playable URL.")
+  const path = content.subtitle.trim()
+  let source: string
+  if (/^https?:\/\//i.test(path)) {
+    const response = await fetch(path)
+    if (!response.ok) throw new Error(`Subtitle file could not be loaded (${response.status}).`)
+    source = await response.text()
+  } else {
+    const { data: file, error: downloadError } = await client.storage
+      .from("subtitle")
+      .download(path.replace(/^\/+/, ""))
+    if (downloadError) throw downloadError
+    if (!file) throw new Error("The subtitle file could not be downloaded.")
+    source = await file.text()
   }
 
-  const response = await fetch(signedData.signedUrl)
-
-  if (!response.ok) {
-    throw new Error(`Subtitle file could not be loaded (${response.status}).`)
-  }
-
-  const cues = parseSubtitleCues(await response.text())
+  const cues = parseSubtitleCues(source)
 
   if (cues.length === 0) {
     throw new Error("The subtitle file does not contain any valid cues.")

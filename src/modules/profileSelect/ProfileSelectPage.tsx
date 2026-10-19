@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import FourDigitPinInput from "../../components/FourDigitPinInput";
 import { supabase } from "../../lib/supabase";
+import { MAX_PROFILE_NAME_LENGTH, normalizeProfileName } from "../profile/profileName";
 import styles from "./profileSelect.module.css";
 import logoImg from "/favicon.png";
 
@@ -28,7 +29,6 @@ interface MemberProfileRow {
 interface ProfileContextRow {
 	max_profiles: number;
 	can_add_profile: boolean;
-	allows_kids: boolean;
 }
 
 interface AvatarOption {
@@ -110,43 +110,56 @@ function StreamflixLogo() {
 function ProfileCard({
 	profile,
 	onSelect,
+	onEdit,
 }: {
 	profile: Profile;
 	onSelect: (p: Profile) => void;
+	onEdit: (p: Profile) => void;
 }) {
 	return (
-		<button
-			type="button"
-			className={`${styles.card} ${!profile.isEntitled ? styles.cardDisabled : ""}`}
-			onClick={() => onSelect(profile)}
-			disabled={!profile.isEntitled}
-			aria-label={
-				profile.isEntitled
-					? `Continue as ${profile.name}${profile.hasPin ? ", PIN required" : ""}`
-					: `${profile.name} is unavailable on the current plan`
-			}
-		>
-			<div className={styles.avatarWrap}>
-				<div className={styles.avatarFallback} aria-hidden>
-					{initialsFor(profile.name)}
+		<div className={styles.profileCard}>
+			<button
+				type="button"
+				className={`${styles.card} ${!profile.isEntitled ? styles.cardDisabled : ""}`}
+				onClick={() => onSelect(profile)}
+				disabled={!profile.isEntitled}
+				aria-label={
+					profile.isEntitled
+						? `Continue as ${profile.name}${profile.hasPin ? ", PIN required" : ""}`
+						: `${profile.name} is unavailable on the current plan`
+				}
+			>
+				<div className={styles.avatarWrap}>
+					<div className={styles.avatarFallback} aria-hidden>
+						{initialsFor(profile.name)}
+					</div>
+					{profile.avatar && (
+						<img
+							src={profile.avatar}
+							alt=""
+							className={styles.avatarImg}
+								onError={(event) => {
+								event.currentTarget.style.display = "none";
+							}}
+							/>
+					)}
 				</div>
-				{profile.avatar && (
-					<img
-						src={profile.avatar}
-						alt=""
-						className={styles.avatarImg}
-						onError={(event) => {
-							event.currentTarget.style.display = "none";
-						}}
-					/>
-				)}
-			</div>
-			<span className={styles.profileName}>{profile.name}</span>
-			<span className={styles.profileLabel}>
-				{profile.isEntitled ? profile.label : "Unavailable on this plan"}
-			</span>
-			<span className={styles.editIcon} aria-hidden>{profile.hasPin ? <LockIcon /> : <PencilIcon />}</span>
-		</button>
+				<span className={styles.profileName}>{profile.name}</span>
+				<span className={styles.profileLabel}>
+					{profile.hasPin && <span aria-hidden="true"><LockIcon /></span>}
+					{profile.isEntitled ? profile.label : "Unavailable on this plan"}
+				</span>
+			</button>
+			<button
+				type="button"
+				className={styles.editButton}
+				onClick={() => onEdit(profile)}
+				aria-label={`Edit ${profile.name} profile`}
+			>
+				<span className={styles.editIcon} aria-hidden><PencilIcon /></span>
+				Edit
+			</button>
+		</div>
 	);
 }
 
@@ -166,22 +179,19 @@ function AddProfileCard({ onClick }: { onClick: () => void }) {
 
 function AddProfileDialog({
 	avatars,
-	allowsKidsProfiles,
 	creating,
 	error,
 	onCancel,
 	onCreate,
 }: {
 	avatars: AvatarOption[];
-	allowsKidsProfiles: boolean;
 	creating: boolean;
 	error: string;
 	onCancel: () => void;
-	onCreate: (name: string, avatarPath: string, isKids: boolean) => Promise<void>;
+	onCreate: (name: string, avatarPath: string) => Promise<void>;
 }) {
 	const [name, setName] = useState("");
 	const [avatarPath, setAvatarPath] = useState(avatars[0]?.path ?? "");
-	const [isKids, setIsKids] = useState(false);
 
 	return (
 		<div className={styles.dialogBackdrop} role="presentation" onMouseDown={onCancel}>
@@ -198,7 +208,7 @@ function AddProfileDialog({
 				<form
 					onSubmit={(event) => {
 						event.preventDefault();
-						void onCreate(name, avatarPath, isKids);
+						void onCreate(name, avatarPath);
 					}}
 				>
 					<label className={styles.fieldLabel} htmlFor="profile-name">Profile name</label>
@@ -233,19 +243,93 @@ function AddProfileDialog({
 						<p className={styles.inlineError}>No profile avatars are available.</p>
 					)}
 
-					{allowsKidsProfiles && (
-						<label className={styles.checkboxLabel}>
-							<input type="checkbox" checked={isKids} onChange={(event) => setIsKids(event.target.checked)} />
-							Kids profile
-						</label>
-					)}
-
 					{error && <p className={styles.inlineError} role="alert">{error}</p>}
 
 					<div className={styles.dialogActions}>
 						<button type="button" className={styles.secondaryBtn} onClick={onCancel} disabled={creating}>Cancel</button>
 						<button type="submit" className={styles.primaryBtn} disabled={creating || !name.trim() || !avatarPath}>
 							{creating ? "Creating…" : "Create profile"}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	);
+}
+
+function EditProfileDialog({
+	profile,
+	avatars,
+	saving,
+	error,
+	onCancel,
+	onSave,
+}: {
+	profile: Profile;
+	avatars: AvatarOption[];
+	saving: boolean;
+	error: string;
+	onCancel: () => void;
+	onSave: (name: string, avatarPath: string) => Promise<void>;
+}) {
+	const [name, setName] = useState(profile.name);
+	const [avatarPath, setAvatarPath] = useState(profile.avatarPath);
+	const changed = name.trim() !== profile.name || avatarPath !== profile.avatarPath;
+
+	return (
+		<div className={styles.dialogBackdrop} role="presentation" onMouseDown={() => !saving && onCancel()}>
+			<div
+				className={styles.dialog}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="edit-profile-title"
+				onMouseDown={(event) => event.stopPropagation()}
+			>
+				<h2 id="edit-profile-title" className={styles.dialogTitle}>Edit profile</h2>
+				<p className={styles.dialogCopy}>Update {profile.name}'s name or avatar.</p>
+				<form
+					onSubmit={(event) => {
+						event.preventDefault();
+						void onSave(name, avatarPath);
+					}}
+				>
+					<label className={styles.fieldLabel} htmlFor="edit-profile-name">Profile name</label>
+					<input
+						id="edit-profile-name"
+						className={styles.textInput}
+						value={name}
+						onChange={(event) => setName(event.target.value)}
+						maxLength={MAX_PROFILE_NAME_LENGTH}
+						autoComplete="off"
+						autoFocus
+						disabled={saving}
+						required
+					/>
+					<span className={styles.fieldLabel}>Choose an avatar</span>
+					{avatars.length ? (
+						<div className={styles.avatarOptions}>
+							{avatars.map((avatar, index) => (
+								<button
+									type="button"
+									key={avatar.path}
+									className={`${styles.avatarOption} ${avatarPath === avatar.path ? styles.avatarOptionSelected : ""}`}
+									onClick={() => setAvatarPath(avatar.path)}
+									aria-label={`Choose avatar ${index + 1}`}
+									aria-pressed={avatarPath === avatar.path}
+									disabled={saving}
+								>
+									<img src={avatar.url} alt="" />
+								</button>
+							))}
+						</div>
+					) : (
+						<p className={styles.dialogCopy}>Avatar choices are unavailable right now. You can still rename this profile.</p>
+					)}
+					{error && <p className={styles.inlineError} role="alert">{error}</p>}
+					<div className={styles.dialogActions}>
+						<button type="button" className={styles.secondaryBtn} onClick={onCancel} disabled={saving}>Cancel</button>
+						<button type="submit" className={styles.primaryBtn} disabled={saving || !changed || !name.trim()}>
+							{saving ? "Saving…" : "Save changes"}
 						</button>
 					</div>
 				</form>
@@ -362,13 +446,15 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 	const [profiles, setProfiles] = useState<Profile[]>([]);
 	const [profileLimit, setProfileLimit] = useState(Math.max(1, maxProfiles));
 	const [canAddProfile, setCanAddProfile] = useState(false);
-	const [allowsKidsProfiles, setAllowsKidsProfiles] = useState(false);
 	const [avatars, setAvatars] = useState<AvatarOption[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState("");
 	const [showAddProfile, setShowAddProfile] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [createError, setCreateError] = useState("");
+	const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+	const [savingEdit, setSavingEdit] = useState(false);
+	const [editError, setEditError] = useState("");
 	const [lockedProfile, setLockedProfile] = useState<Profile | null>(null);
 
 	const loadProfiles = useCallback(async () => {
@@ -418,7 +504,6 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 			setCanAddProfile(
 				context?.can_add_profile ?? loadedProfiles.length < Math.max(1, maxProfiles),
 			);
-			setAllowsKidsProfiles(context?.allows_kids ?? false);
 			setAvatars(
 				avatarFiles
 					.map((file) => ({ path: file.name, url: signedUrls.get(file.name) ?? "" }))
@@ -436,18 +521,14 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 		void loadProfiles();
 	}, [loadProfiles]);
 
-	const createProfile = async (name: string, avatarPath: string, isKids: boolean) => {
-		if (isKids && !allowsKidsProfiles) {
-			setCreateError("Kids profiles require a Standard or Premium plan.");
-			return;
-		}
+	const createProfile = async (name: string, avatarPath: string) => {
 		setCreating(true);
 		setCreateError("");
 
 		const { error } = await supabase.rpc("create_my_member_profile", {
 			selected_profile_name: name.trim(),
 			selected_avatar_path: avatarPath,
-			selected_is_kids: isKids,
+			selected_is_kids: false,
 			selected_pin: null,
 		});
 
@@ -464,6 +545,46 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 	};
 
 	const canAdd = canAddProfile && profiles.length < profileLimit;
+	const saveProfileEdit = async (name: string, avatarPath: string) => {
+		if (!editingProfile || savingEdit) return;
+		let normalizedName: string;
+		try {
+			normalizedName = normalizeProfileName(name);
+		} catch (error) {
+			setEditError(error instanceof Error ? error.message : "Enter a valid profile name.");
+			return;
+		}
+
+		setSavingEdit(true);
+		setEditError("");
+		try {
+			if (avatarPath !== editingProfile.avatarPath) {
+				const { error } = await supabase.rpc("update_my_member_profile", {
+					selected_profile_id: editingProfile.id,
+					selected_profile_name: normalizedName,
+					selected_avatar_path: avatarPath,
+					selected_pin: null,
+					remove_pin: false,
+				});
+				if (error) throw error;
+			} else {
+				if (normalizedName !== editingProfile.name) {
+					const { error } = await supabase.rpc("rename_my_member_profile", {
+						selected_profile_id: editingProfile.id,
+						selected_profile_name: normalizedName,
+					});
+					if (error) throw error;
+				}
+			}
+			await loadProfiles();
+			setEditingProfile(null);
+		} catch (error) {
+			const failure = error as { code?: string; message?: string };
+			setEditError(failure.code === "23505" ? "Another profile already uses this name." : failure.message || "We couldn't update this profile.");
+		} finally {
+			setSavingEdit(false);
+		}
+	};
 	const selectProfile = (profile: Profile) => {
 		if (!profile.isEntitled) return;
 		if (profile.hasPin) {
@@ -510,6 +631,7 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 								key={profile.id}
 								profile={profile}
 								onSelect={selectProfile}
+								onEdit={(selected) => { setEditError(""); setEditingProfile(selected); }}
 							/>
 						))}
 						{!loading && canAdd && <AddProfileCard onClick={() => { setCreateError(""); setShowAddProfile(true); }} />}
@@ -529,11 +651,21 @@ export default function ProfileSelectPage({ maxProfiles = 4, onSelect }: Props) 
 			{showAddProfile && (
 				<AddProfileDialog
 					avatars={avatars}
-					allowsKidsProfiles={allowsKidsProfiles}
 					creating={creating}
 					error={createError}
 					onCancel={() => !creating && setShowAddProfile(false)}
 					onCreate={createProfile}
+				/>
+			)}
+			{editingProfile && (
+				<EditProfileDialog
+					key={editingProfile.id}
+					profile={editingProfile}
+					avatars={avatars}
+					saving={savingEdit}
+					error={editError}
+					onCancel={() => setEditingProfile(null)}
+					onSave={saveProfileEdit}
 				/>
 			)}
 		</div>

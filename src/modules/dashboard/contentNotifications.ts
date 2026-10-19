@@ -46,24 +46,31 @@ export async function loadContentNotifications(client: SupabaseClient) {
 
   if (error) throw error
 
-  return ((data ?? []) as unknown as NotificationRow[]).map((row) => ({
-    id: row.content_id,
-    changedAt: row.admin_updated_at,
-    show: {
-      id: row.tmdb_id ?? row.content_id,
-      contentId: row.content_id,
-      tmdbId: row.tmdb_id,
-      title: row.title,
-      description: row.synopsis ?? "",
-      year: row.release_year?.toString() ?? "",
-      duration: formatRuntime(row.runtime),
-      rating: row.age_rating ?? "",
-      image: row.thumbnail ?? "",
-      hero: row.thumbnail ?? undefined,
-      genres: [],
-      mediaType: relationName(row.category).toLowerCase().includes("tv")
-        ? "tv"
-        : "movie",
-    },
-  })) satisfies ContentNotification[]
+  return ((data ?? []) as unknown as NotificationRow[]).map((row) => {
+    const thumbnail = row.thumbnail?.trim() ?? ""
+    const image = thumbnail && !/^https?:\/\//i.test(thumbnail)
+      ? client.storage.from("content-thumbnails").getPublicUrl(thumbnail).data.publicUrl
+      : thumbnail
+
+    return {
+      id: row.content_id,
+      changedAt: row.admin_updated_at,
+      show: {
+        id: row.tmdb_id ?? row.content_id,
+        contentId: row.content_id,
+        tmdbId: row.tmdb_id,
+        title: row.title,
+        description: row.synopsis ?? "",
+        year: row.release_year?.toString() ?? "",
+        duration: formatRuntime(row.runtime),
+        rating: row.age_rating ?? "",
+        image,
+        hero: image || undefined,
+        genres: [],
+        mediaType: relationName(row.category).toLowerCase().includes("tv")
+          ? "tv"
+          : "movie",
+      },
+    }
+  }) satisfies ContentNotification[]
 }

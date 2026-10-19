@@ -390,6 +390,8 @@ export default function WatchScreen({
 
   const [subtitleError, setSubtitleError] = useState(false)
 
+  const [subtitleRetry, setSubtitleRetry] = useState(0)
+
   const subtitleSize = useSubtitleSize()
 
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -713,7 +715,7 @@ export default function WatchScreen({
     return () => {
       active = false
     }
-  }, [catalogContentId, isSeries, tmdbId])
+  }, [catalogContentId, isSeries, tmdbId, subtitleRetry])
 
   useEffect(() => {
     const video = playerVideoRef.current
@@ -1998,8 +2000,11 @@ export default function WatchScreen({
                               <button
                                 type="button"
                                 aria-pressed={captions}
-                                disabled={!subtitleCues}
-                                onClick={() => setCaptions(true)}
+                                disabled={!subtitleCues && !subtitleError}
+                                onClick={() => {
+                                  if (subtitleCues) setCaptions(true)
+                                  else setSubtitleRetry((attempt) => attempt + 1)
+                                }}
                               >
                                 <span>
                                   {subtitleLoading
@@ -2007,7 +2012,7 @@ export default function WatchScreen({
                                     : subtitleCues
                                       ? "English"
                                       : subtitleError
-                                        ? "Failed to load"
+                                        ? "Retry captions"
                                         : "Unavailable"}
                                 </span>
                               </button>

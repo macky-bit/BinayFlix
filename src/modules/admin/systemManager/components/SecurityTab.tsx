@@ -31,7 +31,7 @@ interface SecurityEvent {
   status: string;
 }
 
-type SecurityAction = "resolve" | "monitor" | "false-positive";
+type SecurityAction = "resolve" | "monitor";
 
 
 const TYPE_OPTIONS = [
@@ -140,11 +140,7 @@ export default function SecurityTab() {
   }
 
   function statusForAction(action: SecurityAction) {
-    return action === "resolve"
-      ? "Resolved"
-      : action === "monitor"
-        ? "Monitoring"
-        : "False Positive";
+    return action === "resolve" ? "Resolved" : "Monitoring";
   }
 
   async function persistStatus(event: SecurityEvent, action: SecurityAction) {
@@ -177,8 +173,7 @@ export default function SecurityTab() {
   }
 
   function applyAction(event: SecurityEvent, action: SecurityAction) {
-    // require confirm for critical resolved / false positive
-    if ((event.severity === "Critical" && action === "resolve") || action === "false-positive") {
+    if (event.severity === "Critical" && action === "resolve") {
       setConfirmAction({ event, action });
       return;
     }
@@ -319,14 +314,6 @@ export default function SecurityTab() {
                             </svg>
                           </button>
                         )}
-                        {ev.status !== "False Positive" && (
-                          <button type="button" onClick={() => applyAction(ev, "false-positive")} disabled={Boolean(pendingStatuses[ev.id])} className="content-table__action security-action--false-positive" aria-label={`Mark security event ${ev.id} as false positive`} title="Mark as false positive">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <circle cx="12" cy="12" r="8" strokeWidth={2} />
-                              <path strokeLinecap="round" strokeWidth={2} d="m9 9 6 6m0-6-6 6" />
-                            </svg>
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -384,7 +371,7 @@ attempts: ${Math.floor(Math.random() * 10) + 1}`}
       <Modal
         open={!!confirmAction}
         onClose={() => setConfirmAction(null)}
-        title={confirmAction?.action === "false-positive" ? "Mark as False Positive?" : "Mark as Resolved?"}
+        title="Mark as Resolved?"
         footer={
           <>
             <button onClick={() => setConfirmAction(null)} className="btn-ghost px-4 py-2 text-sm">Cancel</button>
@@ -396,9 +383,7 @@ attempts: ${Math.floor(Math.random() * 10) + 1}`}
         }
       >
         <p className="text-sm text-[#9CA3AF] leading-relaxed">
-          {confirmAction?.action === "false-positive"
-            ? `Mark security event ${confirmAction?.event.id} as a false positive? This action indicates the event does not represent a real threat.`
-            : `Mark critical security event ${confirmAction?.event.id} as resolved? Ensure the underlying issue has been fully addressed before confirming.`}
+          {`Mark critical security event ${confirmAction?.event.id} as resolved? Ensure the underlying issue has been fully addressed before confirming.`}
         </p>
       </Modal>
 

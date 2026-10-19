@@ -584,11 +584,13 @@ function ContentForm({
                 }}
               >
                 <option value="">Select category</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+                {categories
+                  .filter((c) => c.name.trim().toLowerCase() !== "test")
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
               </select>
               <FieldError msg={errors.categoryId} />
             </div>

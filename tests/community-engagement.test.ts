@@ -962,6 +962,15 @@ test("SRT subtitles are parsed against the simulated movie clock", () => {
   )
 })
 
+test("ASS subtitles use their event fields and preserve dialogue commas", () => {
+  assert.deepEqual(
+    parseSubtitleCues(
+      "[Script Info]\nTitle: Example\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:02.50,0:00:05.00,Default,,0,0,0,,{\\i1}Hello, world!\\NSecond line",
+    ),
+    [{ start: 2.5, end: 5, text: "Hello, world!\nSecond line" }],
+  )
+})
+
 test("soundtrack lyrics are cached in a private provenance-aware bucket", () => {
   const migration = readFileSync(
     new URL(

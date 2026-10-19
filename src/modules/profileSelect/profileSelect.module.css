@@ -82,7 +82,15 @@
 	gap: 36px;
 	flex-wrap: wrap;
 	justify-content: center;
+	align-items: flex-start;
 	margin-bottom: 40px;
+}
+
+.profileCard {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
 }
 
 /* ─── Profile card ───────────────────────────────────────────────────────── */
@@ -113,10 +121,6 @@
 
 .cardDisabled .avatarWrap {
 	border-color: rgba(156, 163, 175, 0.38);
-}
-
-.cardDisabled .editIcon {
-	color: #6b7280;
 }
 
 .card:focus-visible .avatarWrap {
@@ -171,6 +175,10 @@
 }
 
 .profileLabel {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
 	color: #9CA3AF;
 	font-size: 0.74rem;
 	text-align: center;
@@ -178,14 +186,31 @@
 }
 
 .editIcon {
-	color: #9CA3AF;
-	transition: color 0.15s;
 	display: flex;
 	align-items: center;
 }
 
-.card:hover .editIcon {
+.editButton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 5px;
+	min-height: 32px;
+	padding: 4px 10px;
+	border: 0;
+	border-radius: 9999px;
+	background: transparent;
+	color: #9CA3AF;
+	font: 600 0.76rem var(--font-body);
+	cursor: pointer;
+	transition: color 0.15s, background 0.15s;
+}
+
+.editButton:hover,
+.editButton:focus-visible {
+	background: rgba(245, 168, 0, 0.1);
 	color: #F5A800;
+	outline: none;
 }
 
 /* ─── Add Profile card ───────────────────────────────────────────────────── */
@@ -326,19 +351,6 @@
 .avatarOptionSelected {
 	border-color: #7c3aed;
 	box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.25);
-}
-
-.checkboxLabel {
-	display: flex;
-	align-items: center;
-	gap: 9px;
-	margin-top: 18px;
-	color: #e5e7eb;
-	font-size: 0.86rem;
-}
-
-.checkboxLabel input {
-	accent-color: #7c3aed;
 }
 
 .inlineError {
