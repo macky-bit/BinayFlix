@@ -254,12 +254,16 @@ Deno.serve(async (request) => {
 
     const { data: content, error: contentError } = await serviceClient
       .from("content")
-      .select("content_id, category_id, title, release_year")
+      .select("content_id, category_id, title, release_year, catalog_source, availability_status, publishing_status, video_file")
       .eq("content_id", contentId)
-      .eq("availability_status", "available")
       .maybeSingle()
     if (contentError) throw contentError
-    if (!content) return response({ error: "Content is unavailable" }, 404, origin)
+    const isVisible = content?.catalog_source === "tmdb" ||
+      (content?.availability_status === "available" &&
+        Boolean(cleanText(content.video_file)))
+    if (!content || content.publishing_status !== "ready" || !isVisible) {
+      return response({ error: "Content is unavailable" }, 404, origin)
+    }
 
     const { data: category } = await serviceClient
       .from("category")
